@@ -2,33 +2,45 @@ import 'dart:io';
 import 'farmbot_service.dart';
 
 Future<void> discoverViaMobile(FarmbotService service) async {
+  service.addLog("SYS: Scanning for FarmBot...");
+
+  // Scan phone's own subnet
   try {
-    final udpSocket = await RawDatagramSocket.bind(
-      InternetAddress.anyIPv4,
-      4210,
+    final interfaces = await NetworkInterface.list(
+      includeLoopback: false,
+      type: InternetAddressType.IPv4,
     );
 
-    service.addLog("SYS: Waiting for FarmBot broadcast...");
+    for (var interface in interfaces) {
+      for (var addr in interface.addresses) {
+        if (!addr.address.startsWith("127")) {
+          final parts = addr.address.split(".");
+          final subnet = "${parts[0]}.${parts[1]}.${parts[2]}";
+          service.addLog("SYS: Scanning $subnet.0/24...");
 
-    await for (final event in udpSocket.timeout(
-      const Duration(seconds: 15),
-    )) {
-      if (service.isConnected) break;
-      if (event == RawSocketEvent.read) {
-        final datagram = udpSocket.receive();
-        if (datagram != null) {
-          final msg = String.fromCharCodes(datagram.data);
-          if (msg.startsWith("FARMBOT_HERE:")) {
-            final ip = msg.split(":")[1];
-            service.addLog("SYS: Found FarmBot at $ip");
-            udpSocket.close();
-            service.connectAndVerifyHost(ip);
-            break;
-          }
+          final futures = List.generate(254, (i) async {
+            if (service.isConnected) return;
+            final ip = "$subnet.${i + 1}";
+            try {
+              final socket = await Socket.connect(
+                ip, 80,
+                timeout: const Duration(milliseconds: 300),
+              );
+              socket.destroy();
+              service.addLog("SYS: Found → $ip");
+              await service.connectAndVerifyHost(ip);
+            } catch (_) {}
+          });
+
+          await Future.wait(futures);
         }
       }
     }
-  } catch (_) {
-    service.addLog("SYS: Discovery timeout.");
+  } catch (e) {
+    service.addLog("SYS: Scan error: $e");
+  }
+
+  if (!service.isConnected) {
+    service.addLog("SYS: FarmBot not found.");
   }
 }

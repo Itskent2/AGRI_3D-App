@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // ← ADDED THIS
 
-// Only import dart:io on non-web platforms
 import 'socket_stub.dart'
     if (dart.library.io) 'socket_io.dart';
 
@@ -10,6 +10,7 @@ class FarmbotService extends ChangeNotifier {
   WebSocketChannel? _channel;
   bool isConnected = false;
   bool isScanning = false;
+  String? _lastKnownIP; // ← saves last connected IP
   List<String> logs = [];
 
   double x = 0, y = 0, z = 0;
@@ -19,30 +20,48 @@ class FarmbotService extends ChangeNotifier {
   Future<void> autoDiscover() async {
     if (isConnected || isScanning) return;
     isScanning = true;
-    _addLog("SYS: Searching for FarmBot...");
     notifyListeners();
 
-    if (kIsWeb) {
-      await _discoverWeb();
-    } else {
-      await _discoverMobile();
-    }
+    // --- NEW: Load the saved IP from storage before scanning ---
+    final prefs = await SharedPreferences.getInstance();
+    _lastKnownIP = prefs.getString('lastKnownIP');
 
-    if (!isConnected) {
-      _addLog("SYS: FarmBot not found.");
+    while (!isConnected) {
+      _addLog("SYS: Searching for FarmBot...");
+      notifyListeners();
+
+      // Try last known IP first (fast)
+      if (_lastKnownIP != null) {
+        _addLog("SYS: Trying last known → $_lastKnownIP");
+        await _connectAndVerify(_lastKnownIP!);
+      }
+
+      // If still not connected do full scan
+      if (!isConnected) {
+        if (kIsWeb) {
+          await _discoverWeb();
+        } else {
+          await _discoverMobile();
+        }
+      }
+
+      if (!isConnected) {
+        _addLog("SYS: Retrying in 3s...");
+        notifyListeners();
+        await Future.delayed(const Duration(seconds: 3));
+      }
     }
 
     isScanning = false;
     notifyListeners();
   }
 
-  // --- WEB: try farmbot.local only ---
   Future<void> _discoverWeb() async {
     await _connectAndVerify("farmbot.local");
   }
 
-  // --- MOBILE: UDP broadcast discovery ---
   Future<void> _discoverMobile() async {
+    // Assuming discoverViaMobile is defined elsewhere and uses connectAndVerifyHost
     await discoverViaMobile(this);
   }
 
@@ -65,11 +84,17 @@ class FarmbotService extends ChangeNotifier {
       _channel = channel;
 
       _channel!.stream.listen(
-        (msg) {
+        (msg) async { // ← Made this callback async to use SharedPreferences
           if (!identified) {
             if (msg.toString().startsWith("FARMBOT_ID:")) {
               identified = true;
               isConnected = true;
+              
+              // --- NEW: Save the IP to storage on successful connection ---
+              _lastKnownIP = host;  
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('lastKnownIP', host);
+              
               _addLog("SYS: Online → $host");
               notifyListeners();
             } else {
@@ -89,7 +114,7 @@ class FarmbotService extends ChangeNotifier {
     }
   }
 
-  void connectAndVerifyHost(String host) => _connectAndVerify(host);
+  Future<void> connectAndVerifyHost(String host) => _connectAndVerify(host);
 
   void _handleDisconnect() {
     isConnected = false;
