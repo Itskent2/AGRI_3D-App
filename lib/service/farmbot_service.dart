@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // ← ADDED THIS
+import 'package:shared_preferences/shared_preferences.dart'; 
 
 import 'socket_stub.dart'
     if (dart.library.io) 'socket_io.dart';
@@ -10,7 +10,7 @@ class FarmbotService extends ChangeNotifier {
   WebSocketChannel? _channel;
   bool isConnected = false;
   bool isScanning = false;
-  String? _lastKnownIP; // ← saves last connected IP
+  String? _lastKnownIP; 
   List<String> logs = [];
 
   double x = 0, y = 0, z = 0;
@@ -22,13 +22,13 @@ class FarmbotService extends ChangeNotifier {
     isScanning = true;
     notifyListeners();
 
-    // --- NEW: Load the saved IP from storage before scanning ---
+    // Load the saved IP from storage before scanning
     final prefs = await SharedPreferences.getInstance();
     _lastKnownIP = prefs.getString('lastKnownIP');
 
     while (!isConnected) {
       _addLog("SYS: Searching for FarmBot...");
-      notifyListeners();
+      // notifyListeners() is already handled inside _addLog
 
       // Try last known IP first (fast)
       if (_lastKnownIP != null) {
@@ -47,7 +47,6 @@ class FarmbotService extends ChangeNotifier {
 
       if (!isConnected) {
         _addLog("SYS: Retrying in 3s...");
-        notifyListeners();
         await Future.delayed(const Duration(seconds: 3));
       }
     }
@@ -67,9 +66,16 @@ class FarmbotService extends ChangeNotifier {
 
   Future<void> _connectAndVerify(String host) async {
     if (isConnected) return;
+
+    // --- NEW: Kill any ghost connections before opening a new one ---
+    if (_channel != null) {
+      _channel!.sink.close();
+      _channel = null;
+    }
+    // --------------------------------------------------------------
+
     try {
       _addLog("SYS: Trying $host...");
-      notifyListeners();
 
       final url = "ws://$host/ws";
       final channel = WebSocketChannel.connect(Uri.parse(url));
@@ -84,19 +90,18 @@ class FarmbotService extends ChangeNotifier {
       _channel = channel;
 
       _channel!.stream.listen(
-        (msg) async { // ← Made this callback async to use SharedPreferences
+        (msg) async { 
           if (!identified) {
             if (msg.toString().startsWith("FARMBOT_ID:")) {
               identified = true;
               isConnected = true;
               
-              // --- NEW: Save the IP to storage on successful connection ---
+              // Save the IP to storage on successful connection
               _lastKnownIP = host;  
               final prefs = await SharedPreferences.getInstance();
               await prefs.setString('lastKnownIP', host);
               
               _addLog("SYS: Online → $host");
-              notifyListeners();
             } else {
               _channel!.sink.close();
               _channel = null;
@@ -104,7 +109,6 @@ class FarmbotService extends ChangeNotifier {
             return;
           }
           _addLog("RX: $msg");
-          notifyListeners();
         },
         onDone: () => _handleDisconnect(),
         onError: (_) => _handleDisconnect(),
@@ -120,14 +124,13 @@ class FarmbotService extends ChangeNotifier {
     isConnected = false;
     _channel = null;
     _addLog("SYS: Offline.");
-    notifyListeners();
   }
 
   void sendCommand(String cmd) {
     if (_channel != null && isConnected) {
       _channel!.sink.add(cmd);
       _addLog("TX: $cmd");
-      notifyListeners();
+      // REMOVED notifyListeners() here - _addLog handles it
     }
   }
 
@@ -136,7 +139,7 @@ class FarmbotService extends ChangeNotifier {
     if (axis == 'y') y = val;
     if (axis == 'z') z = val;
     sendCommand(gcode);
-    notifyListeners();
+    // REMOVED notifyListeners() here - sendCommand -> _addLog handles it
   }
 
   void addLog(String m) => _addLog(m);
@@ -144,6 +147,6 @@ class FarmbotService extends ChangeNotifier {
   void _addLog(String m) {
     logs.add(m);
     if (logs.length > 50) logs.removeAt(0);
-    notifyListeners();
+    notifyListeners(); // This is now the sole trigger for UI updates when logging/moving
   }
 }
