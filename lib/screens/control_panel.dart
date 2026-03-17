@@ -13,8 +13,8 @@ class ControlPanel extends ConsumerStatefulWidget {
 }
 
 class _ControlPanelState extends ConsumerState<ControlPanel> {
-  double _speedMode = 1;
-  double _velocity = 5;
+  final double _speedMode = 1;
+  final double _velocity = 5;
   bool _isScanning = false; // Tracks if a scan is currently running
   
   final TextEditingController _terminalController = TextEditingController();
@@ -195,22 +195,32 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   }
 
   Widget _buildLogLine(String log) {
-    final isTx = log.startsWith("TX:");
-    final isSys = log.startsWith("SYS");
-    final display = log.length > 3 ? log.substring(3) : log;
-    return Text(
-      "${DateFormat('HH:mm:ss').format(DateTime.now())} ${isTx ? '→' : isSys ? '•' : '←'} $display",
-      style: TextStyle(
-        color: isSys
-            ? Colors.white54
-            : isTx
-                ? Colors.orange
-                : Colors.greenAccent,
-        fontSize: 11,
-        fontFamily: 'monospace',
-      ),
-    );
+  final isTx = log.startsWith("TX:");
+  final isSys = log.startsWith("SYS:");
+  final isRx = log.startsWith("RX:");
+
+  String display;
+  if (isTx || isRx) {
+    display = log.substring(4); // removes "TX: " or "RX: "
+  } else if (isSys) {
+    display = log.substring(5); // removes "SYS: "
+  } else {
+    display = log;
   }
+
+  return Text(
+    "${DateFormat('HH:mm:ss').format(DateTime.now())} ${isTx ? '→' : isSys ? '•' : '←'} $display",
+    style: TextStyle(
+      color: isSys
+          ? Colors.white54
+          : isTx
+              ? Colors.orange
+              : Colors.greenAccent,
+      fontSize: 11,
+      fontFamily: 'monospace',
+    ),
+  );
+}
 
   Widget _buildVisualization(
       FarmbotService service, Color accentColor, bool isDark) {
