@@ -173,7 +173,7 @@ class _AgriLoadingScreenState extends State<AgriLoadingScreen>
                 Text(
                   'PRECISION GANTRY SYSTEM',
                   style: TextStyle(
-                    color: cyan.withOpacity(0.4),
+                    color: cyan.withValues(alpha: 0.4),
                     fontSize: 8,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 5,

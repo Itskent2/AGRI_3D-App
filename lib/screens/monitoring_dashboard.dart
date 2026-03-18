@@ -46,8 +46,8 @@ class MonitoringDashboardScreen extends ConsumerWidget {
     final bgColor = isDark ? const Color(0xFF0B0F1A) : const Color(0xFFF1F5F9);
     final textColor = isDark ? Colors.white : const Color(0xFF111827);
     final subTextColor = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF4B5563);
-    final borderColor = isDark ? Colors.white10 : Colors.grey.withOpacity(0.2);
-    final glassColor = isDark ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.7);
+    final borderColor = isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.2);
+    final glassColor = isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.7);
 
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 800),
@@ -140,7 +140,7 @@ class _WeatherBanner extends StatelessWidget {
           decoration: BoxDecoration(
             color: glassColor,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accent.withOpacity(0.3)),
+            border: Border.all(color: accent.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -198,7 +198,7 @@ class _StatusCard extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                     child: Icon(icon, color: color, size: 20),
                   ),
                   const SizedBox(width: 16),
@@ -322,7 +322,7 @@ class _TelemetryChartState extends State<_TelemetryChart> with SingleTickerProvi
                         getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
                           return spotIndexes.map((index) {
                             return TouchedSpotIndicatorData(
-                              FlLine(color: widget.accent.withOpacity(0.5), strokeWidth: 2, dashArray: [4, 4]),
+                              FlLine(color: widget.accent.withValues(alpha: 0.5), strokeWidth: 2, dashArray: [4, 4]),
                               FlDotData(
                                 show: true,
                                 getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
@@ -337,8 +337,8 @@ class _TelemetryChartState extends State<_TelemetryChart> with SingleTickerProvi
                         },
                         touchTooltipData: LineTouchTooltipData(
                           getTooltipColor: (spot) => widget.isDark
-                              ? const Color(0xFF1F2937).withOpacity(0.95)
-                              : Colors.white.withOpacity(0.95),
+                              ? const Color(0xFF1F2937).withValues(alpha: 0.95)
+                              : Colors.white.withValues(alpha: 0.95),
                           tooltipRoundedRadius: 8,
                           tooltipPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           tooltipBorder: BorderSide(color: widget.borderColor),
@@ -411,7 +411,7 @@ class _TelemetryChartState extends State<_TelemetryChart> with SingleTickerProvi
       dotData: const FlDotData(show: false),
       belowBarData: BarAreaData(
         show: hasArea,
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
       ),
     );
   }
@@ -603,9 +603,9 @@ class _AlertTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: bgColor.withOpacity(0.1),
+        color: bgColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: bgColor.withOpacity(0.2)),
+        border: Border.all(color: bgColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

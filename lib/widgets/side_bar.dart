@@ -22,7 +22,7 @@ class Sidebar extends ConsumerWidget {
 
     // ── DYNAMIC COLORS BASED ON THEME ──
     final sidebarBg = isDark ? const Color(0xFF0B0F1A) : Colors.white;
-    final activeTileBg = isDark ? const Color(0xFF1F2937) : accent.withOpacity(0.1);
+    final activeTileBg = isDark ? const Color(0xFF1F2937) : accent.withValues(alpha: 0.1);
     final textColor = isDark ? Colors.white70 : Colors.black87;
     final iconColor = isDark ? Colors.white60 : Colors.black54;
     final borderColor = isDark ? Colors.white10 : Colors.grey.shade300;

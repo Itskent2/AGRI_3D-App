@@ -201,7 +201,7 @@ class _LiveCamHero extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, const Color(0xFF030712).withOpacity(0.4), const Color(0xFF030712)],
+                  colors: [Colors.transparent, const Color(0xFF030712).withValues(alpha: 0.4), const Color(0xFF030712)],
                   stops: const [0.0, 0.4, 1.0],
                 ),
               ),
@@ -213,7 +213,7 @@ class _LiveCamHero extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('CEBU TECHNOLOGICAL UNIVERSITY',
-                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11, fontFamily: 'monospace', letterSpacing: 1.2)),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontFamily: 'monospace', letterSpacing: 1.2)),
                   const SizedBox(height: 8),
                   RichText(
                     text: TextSpan(

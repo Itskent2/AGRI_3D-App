@@ -241,7 +241,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
             Container(
               width: 48, height: 48,
               decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withOpacity(0.2),
+                color: const Color(0xFFEF4444).withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
@@ -485,7 +485,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.8),
+                        color: isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -500,7 +500,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.8),
+                        color: isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -547,7 +547,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                                           color: accentColor,
                                           borderRadius: BorderRadius.circular(4),
                                           boxShadow: [
-                                            BoxShadow(color: accentColor.withOpacity(0.6), blurRadius: 12, spreadRadius: 2),
+                                            BoxShadow(color: accentColor.withValues(alpha: 0.6), blurRadius: 12, spreadRadius: 2),
                                           ],
                                         ),
                                       ),
