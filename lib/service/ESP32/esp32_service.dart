@@ -2,17 +2,16 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:shared_preferences/shared_preferences.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'esp32_socket_stub.dart'
-    if (dart.library.io) 'esp32_socket_io.dart';
+import 'esp32_socket_stub.dart' if (dart.library.io) 'esp32_socket_io.dart';
 
 class ESP32Service extends ChangeNotifier {
   WebSocketChannel? _channel;
   bool isConnected = false;
   bool isScanning = false;
-  String? _lastKnownIP; 
-  String? get currentIP => _lastKnownIP; 
+  String? _lastKnownIP;
+  String? get currentIP => _lastKnownIP;
   List<String> logs = [];
 
   // Binary frame listener for the Live Feed
@@ -40,13 +39,22 @@ class ESP32Service extends ChangeNotifier {
         await _connectAndVerify(_lastKnownIP!);
       }
 
-      // If still not connected do full scan
+      // 2. Try mDNS Name natively
       if (!isConnected) {
-        if (kIsWeb) {
-          await _discoverWeb();
-        } else {
-          await _discoverMobile();
-        }
+        _addLog("SYS: Trying mDNS → farmbot.local");
+        await _connectAndVerify("farmbot.local");
+      }
+
+      // 3. Try Default Hotspot IP
+      if (!isConnected) {
+        _addLog("SYS: Trying Hotspot → 192.168.4.1");
+        await _connectAndVerify("192.168.4.1");
+      }
+
+      // 4. Try legacy subnet sweep if still not connected
+      if (!isConnected && !kIsWeb) {
+        _addLog("SYS: Sweeping IP subnets...");
+        await _discoverMobile();
       }
 
       if (!isConnected) {
@@ -57,10 +65,6 @@ class ESP32Service extends ChangeNotifier {
 
     isScanning = false;
     notifyListeners();
-  }
-
-  Future<void> _discoverWeb() async {
-    await _connectAndVerify("farmbot.local");
   }
 
   Future<void> _discoverMobile() async {
@@ -81,54 +85,74 @@ class ESP32Service extends ChangeNotifier {
     try {
       _addLog("SYS: Trying $host...");
 
-      final url = "ws://$host/ws";
+      // Standard WebSocket mapping: Connect exactly to port 80
+      final url = "ws://$host:80/";
       final channel = WebSocketChannel.connect(Uri.parse(url));
       await channel.ready.timeout(const Duration(seconds: 3));
 
-      if (isConnected) {
-        channel.sink.close();
-        return;
-      }
-
+      final completer = Completer<bool>();
       bool identified = false;
       _channel = channel;
 
       _channel!.stream.listen(
-        (msg) async { 
+        (msg) async {
           // 1. Binary frames are pure JPEG images from the camera
-          if (msg is Uint8List || msg is List<int>) {
-            // Note: In kIsWeb it might come in as List<int>, on mobile as Uint8List
-            cameraFrame.value = msg is Uint8List ? msg : Uint8List.fromList(msg as List<int>);
+          if (msg is List<int>) {
+            // Covers both Uint8List and generic List<int>
+            if (identified) {
+              int size = msg.length;
+              cameraFrame.value = msg is Uint8List
+                  ? msg
+                  : Uint8List.fromList(msg);
+
+              // Lightly log frame arrival to terminal every ~50 frames to confirm receipt
+              if (DateTime.now().millisecond < 20) {
+                _addLog("SYS: [Video] Rx Frame $size bytes");
+              }
+            }
             return;
           }
 
           // 2. String messages are commands/logs
           String textMsg = msg.toString();
-          
+
           if (!identified) {
             if (textMsg.startsWith("FARMBOT_ID:")) {
               identified = true;
               isConnected = true;
-              
+
               // Save the IP to storage on successful connection
-              _lastKnownIP = host;  
+              _lastKnownIP = host;
               final prefs = await SharedPreferences.getInstance();
               await prefs.setString('lastKnownIP', host);
-              
+
               _addLog("SYS: Online → $host");
+              if (!completer.isCompleted) completer.complete(true);
             } else {
-              _channel!.sink.close();
+              _channel?.sink.close();
               _channel = null;
+              if (!completer.isCompleted) completer.complete(false);
             }
             return;
           }
           _addLog("RX: $msg");
         },
-        onDone: () => _handleDisconnect(),
-        onError: (_) => _handleDisconnect(),
+        onDone: () {
+          if (!completer.isCompleted) completer.complete(false);
+          _handleDisconnect();
+        },
+        onError: (_) {
+          if (!completer.isCompleted) completer.complete(false);
+          _handleDisconnect();
+        },
       );
+
+      // Await confirmation payload before returning to scanner loop!
+      await completer.future.timeout(const Duration(seconds: 2));
     } catch (_) {
       _addLog("SYS: $host unreachable.");
+      _channel?.sink.close();
+      _channel = null;
     }
   }
 
@@ -160,6 +184,6 @@ class ESP32Service extends ChangeNotifier {
   void _addLog(String m) {
     logs.add(m);
     if (logs.length > 50) logs.removeAt(0);
-    notifyListeners(); 
+    notifyListeners();
   }
 }

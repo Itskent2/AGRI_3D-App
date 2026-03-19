@@ -17,6 +17,7 @@ class _Esp32LiveFeedState extends State<Esp32LiveFeed> {
   void initState() {
     super.initState();
     ESP32Service.instance.addListener(_onServiceUpdate);
+    ESP32Service.instance.autoDiscover(); // FORCE search when entering screen
     _checkAndStartStream();
   }
 
@@ -37,8 +38,13 @@ class _Esp32LiveFeedState extends State<Esp32LiveFeed> {
     final service = ESP32Service.instance;
     // If we just came online, command the ESP32 to start beaming frames
     if (service.isConnected && !_didStartStream) {
+      // PREVENT STACK OVERFLOW: Set this lock IMMEDIATELY before sending commands
+      // because sendCommand triggers an _addLog which synchronously fires our listener again!
+      _didStartStream = true; 
+      
       service.sendCommand("START_STREAM");
-      _didStartStream = true;
+      // Tell ESP32 to drop to QQVGA (160x120) initially to guarantee frame delivery
+      service.sendCommand("SET_RES:13"); 
     } 
     // If we dropped offline, reset the flag so we can ask for the stream again on reconnect
     else if (!service.isConnected && _didStartStream) {
@@ -127,6 +133,16 @@ class _Esp32LiveFeedState extends State<Esp32LiveFeed> {
                     frameBytes,
                     fit: BoxFit.cover,
                     gaplessPlayback: true, // Prevents flickering between frames!
+                    errorBuilder: (context, error, stackTrace) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.broken_image, color: Colors.orange, size: 40),
+                          const SizedBox(height: 8),
+                          Text("Corrupted Frame (${frameBytes.length} bytes)", style: const TextStyle(color: Colors.orange, fontSize: 10)),
+                        ],
+                      );
+                    },
                   );
                 },
               ),
