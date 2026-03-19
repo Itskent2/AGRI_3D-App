@@ -11,6 +11,7 @@ import 'screens/log_panel.dart';
 import 'screens/plot_map.dart';
 import 'screens/weather_forecast.dart';
 import 'screens/settings.dart';
+import 'screens/live_screen.dart';
 
 // Widgets
 import 'widgets/side_bar.dart';
@@ -38,6 +39,7 @@ class _AppInnerState extends ConsumerState<AppInner> {
   String _tabDisplayName(String tab) {
     const names = <String, String>{
       'dashboard': 'DASHBOARD',
+      'liveFeeddashboard': 'LIVE FEED DASHBOARD',
       'controls': 'CONTROL PANEL',
       'monitoring': 'MONITORING',
       'map': 'PLOT MAP',
@@ -52,6 +54,8 @@ class _AppInnerState extends ConsumerState<AppInner> {
     switch (_activeTab) {
       case 'dashboard':
         return _DashboardLayout(accent: accent);
+      case 'liveFeeddashboard':
+        return const LiveScreen(streamUrl: '');
       case 'controls':
         return const ControlPanel();
       case 'monitoring':

@@ -23,6 +23,7 @@ dependencies:
   flutter_spinkit: ^5.2.2
   shimmer: ^3.0.0
   web_socket_channel: ^3.0.3
+  flutter_mjpeg: ^2.0.4 
 
 dev_dependencies:
   flutter_test:
@@ -43,3 +44,6 @@ flutter:
 
   assets:
     - assets/image.png
+
+dependency_overrides:
+  http: ^1.6.0

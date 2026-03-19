@@ -29,6 +29,7 @@ class Sidebar extends ConsumerWidget {
 
     final List<Map<String, dynamic>> menuItems = [
       {'id': 'dashboard', 'icon': Icons.grid_view_rounded, 'label': 'Dashboard'},
+      {'id': 'liveFeeddashboard', 'icon': Icons.videocam_outlined, 'label': 'Live Feed Dashboard'},
       {'id': 'controls', 'icon': Icons.tune_rounded, 'label': 'Manual Control'},
       {'id': 'monitoring', 'icon': Icons.show_chart_rounded, 'label': 'Live Monitoring'},
       {'id': 'weather', 'icon': Icons.wb_sunny_outlined, 'label': 'Weather Forecast'},
