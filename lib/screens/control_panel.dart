@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart'; // Added for terminal timestamps
 
 import '../providers/theme_provider.dart'; 
-import '../service/farmbot_service.dart'; // Added to connect to ESP32
+import '../service/ESP32/esp32_service.dart'; // Added to connect to ESP32
 
 // ─────────────────────────────────────────────────────────────
 // Data model
@@ -66,12 +66,12 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startScan();
     });
-    FarmbotService.instance.addListener(_scrollToBottom);
+    ESP32Service.instance.addListener(_scrollToBottom);
   }
 
   @override
   void dispose() {
-    FarmbotService.instance.removeListener(_scrollToBottom);
+    ESP32Service.instance.removeListener(_scrollToBottom);
     _terminalController.dispose();
     _terminalScrollController.dispose();
     _fertilizeTimer?.cancel();
@@ -85,7 +85,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     setState(() => _isScanning = true);
     HapticFeedback.mediumImpact();
 
-    await FarmbotService.instance.autoDiscover();
+    await ESP32Service.instance.autoDiscover();
 
     if (mounted) setState(() => _isScanning = false);
   }
@@ -124,7 +124,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     // 3. Prevent crashing into physical boundaries
     if (nextVal < 0 || nextVal > 1000) {
       _showLimitWarning(axis, nextVal < 0 ? "Minimum" : "Maximum");
-      FarmbotService.instance.addLog("SYS: Boundary limit reached on $axis");
+      ESP32Service.instance.addLog("SYS: Boundary limit reached on $axis");
       HapticFeedback.heavyImpact(); 
       return; 
     }
@@ -140,7 +140,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
 
     // 5. Send actual G-Code to hardware
     final gcode = "G0 ${axis.toUpperCase()}${nextVal.toStringAsFixed(1)} F${(_velocity * 60).toInt()}";
-    FarmbotService.instance.updatePos(axis, nextVal, gcode);
+    ESP32Service.instance.updatePos(axis, nextVal, gcode);
     HapticFeedback.lightImpact();
   }
 
@@ -148,12 +148,12 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     setState(() => _position = const GantryPosition(x: 0, y: 0, z: 0));
     
     // Update internal tracking
-    FarmbotService.instance.x = 0;
-    FarmbotService.instance.y = 0;
-    FarmbotService.instance.z = 0;
+    ESP32Service.instance.x = 0;
+    ESP32Service.instance.y = 0;
+    ESP32Service.instance.z = 0;
     
     // Send G-Code to physically home
-    FarmbotService.instance.sendCommand("G0 X0 Y0 Z0 F${(_velocity * 60).toInt()}");
+    ESP32Service.instance.sendCommand("G0 X0 Y0 Z0 F${(_velocity * 60).toInt()}");
     HapticFeedback.mediumImpact();
   }
 
@@ -297,9 +297,9 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     final accentColor = themeState.currentAccentColor; 
 
     return ListenableBuilder(
-      listenable: FarmbotService.instance,
+      listenable: ESP32Service.instance,
       builder: (context, _) {
-        final service = FarmbotService.instance;
+        final service = ESP32Service.instance;
 
         // Wrap with RefreshIndicator for pull-to-refresh hardware scanning
         return RefreshIndicator(
@@ -327,7 +327,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
 
   // ── GCode Terminal Widget ────────────────────────────────
   
-  Widget _buildGCodeTerminal(FarmbotService service, Color accentColor, bool isDark) {
+  Widget _buildGCodeTerminal(ESP32Service service, Color accentColor, bool isDark) {
     final containerBg = isDark ? const Color(0xFF1F2937) : Colors.white;
     final containerBorder = isDark ? const Color(0xFF374151) : Colors.grey.shade300;
 

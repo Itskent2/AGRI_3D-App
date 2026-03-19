@@ -1,21 +1,26 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:shared_preferences/shared_preferences.dart'; 
 
-import 'socket_stub.dart'
-    if (dart.library.io) 'socket_io.dart';
+import 'esp32_socket_stub.dart'
+    if (dart.library.io) 'esp32_socket_io.dart';
 
-class FarmbotService extends ChangeNotifier {
+class ESP32Service extends ChangeNotifier {
   WebSocketChannel? _channel;
   bool isConnected = false;
   bool isScanning = false;
   String? _lastKnownIP; 
+  String? get currentIP => _lastKnownIP; 
   List<String> logs = [];
+
+  // Binary frame listener for the Live Feed
+  final ValueNotifier<Uint8List?> cameraFrame = ValueNotifier(null);
 
   double x = 0, y = 0, z = 0;
 
-  static final FarmbotService instance = FarmbotService();
+  static final ESP32Service instance = ESP32Service();
 
   Future<void> autoDiscover() async {
     if (isConnected || isScanning) return;
@@ -27,8 +32,7 @@ class FarmbotService extends ChangeNotifier {
     _lastKnownIP = prefs.getString('lastKnownIP');
 
     while (!isConnected) {
-      _addLog("SYS: Searching for FarmBot...");
-      // notifyListeners() is already handled inside _addLog
+      _addLog("SYS: Searching for ESP32...");
 
       // Try last known IP first (fast)
       if (_lastKnownIP != null) {
@@ -91,8 +95,18 @@ class FarmbotService extends ChangeNotifier {
 
       _channel!.stream.listen(
         (msg) async { 
+          // 1. Binary frames are pure JPEG images from the camera
+          if (msg is Uint8List || msg is List<int>) {
+            // Note: In kIsWeb it might come in as List<int>, on mobile as Uint8List
+            cameraFrame.value = msg is Uint8List ? msg : Uint8List.fromList(msg as List<int>);
+            return;
+          }
+
+          // 2. String messages are commands/logs
+          String textMsg = msg.toString();
+          
           if (!identified) {
-            if (msg.toString().startsWith("FARMBOT_ID:")) {
+            if (textMsg.startsWith("FARMBOT_ID:")) {
               identified = true;
               isConnected = true;
               
@@ -123,6 +137,7 @@ class FarmbotService extends ChangeNotifier {
   void _handleDisconnect() {
     isConnected = false;
     _channel = null;
+    cameraFrame.value = null; // Clear frame on disconnect
     _addLog("SYS: Offline.");
   }
 
@@ -130,7 +145,6 @@ class FarmbotService extends ChangeNotifier {
     if (_channel != null && isConnected) {
       _channel!.sink.add(cmd);
       _addLog("TX: $cmd");
-      // REMOVED notifyListeners() here - _addLog handles it
     }
   }
 
@@ -139,7 +153,6 @@ class FarmbotService extends ChangeNotifier {
     if (axis == 'y') y = val;
     if (axis == 'z') z = val;
     sendCommand(gcode);
-    // REMOVED notifyListeners() here - sendCommand -> _addLog handles it
   }
 
   void addLog(String m) => _addLog(m);
@@ -147,6 +160,6 @@ class FarmbotService extends ChangeNotifier {
   void _addLog(String m) {
     logs.add(m);
     if (logs.length > 50) logs.removeAt(0);
-    notifyListeners(); // This is now the sole trigger for UI updates when logging/moving
+    notifyListeners(); 
   }
 }
