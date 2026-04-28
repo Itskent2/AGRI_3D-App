@@ -8,14 +8,16 @@ class ESP32GCodeControl extends ChangeNotifier {
   double currentY = 0;
   double currentZ = 0;
 
-  /// TODO: Build the proper G-Code string and send it via ESP32Service
+  /// Builds the proper G-Code string and sends it via ESP32Service
   void moveToPosition(double x, double y, double z) {
-    // Example: String gcode = "G0 X$x Y$y Z$z";
-    // ESP32Service.instance.sendCommand(gcode);
+    // Standard GRBL fast-move command
+    String gcode = "G0 X${x.toStringAsFixed(2)} Y${y.toStringAsFixed(2)} Z${z.toStringAsFixed(2)}";
+    ESP32Service.instance.sendCommand(gcode);
   }
 
-  /// TODO: Handle homing sequence
+  /// Handle homing sequence using standard GRBL home command
   void homeAllAxes() {
-    ESP32Service.instance.sendCommand("G28");
+    // $H is the standard GRBL homing cycle command
+    ESP32Service.instance.sendCommand("\$H");
   }
 }

@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'esp32_sensors.dart';
 
 import 'esp32_socket_stub.dart' if (dart.library.io) 'esp32_socket_io.dart';
 
@@ -135,6 +137,22 @@ class ESP32Service extends ChangeNotifier {
             }
             return;
           }
+          
+          // Try to decode as JSON first (Telemetry)
+          try {
+            final decoded = jsonDecode(textMsg);
+            if (decoded is Map<String, dynamic>) {
+              ESP32Sensors.instance.updateSensorsFromJson(decoded);
+              // Only log json if it's not the frequent telemetry to avoid spam
+              if (decoded['type'] != 'telemetry') {
+                _addLog("RX JSON: $textMsg");
+              }
+              return;
+            }
+          } catch (e) {
+            // Not a JSON string, just a regular string message
+          }
+
           _addLog("RX: $msg");
         },
         onDone: () {
