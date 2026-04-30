@@ -187,23 +187,25 @@ class _LiveScreenState extends State<LiveScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: accentColor.withOpacity(0.15),
+              color: accentColor.withValues(alpha: 0.15), // ✅ fixed
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: accentColor, size: 22),
           ),
           const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value,
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: textColor)),
-              Text(label,
-                  style: TextStyle(color: subTextColor, fontSize: 12)),
-            ],
+          Expanded( // ✅ overflow fix
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value,
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: textColor)),
+                Text(label,
+                    style: TextStyle(color: subTextColor, fontSize: 12)),
+              ],
+            ),
           ),
         ],
       ),
