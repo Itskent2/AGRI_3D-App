@@ -30,20 +30,67 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   final TextEditingController _terminalController = TextEditingController();
   final ScrollController _terminalScrollController = ScrollController();
 
+  bool _isBusy = false;
+
+  final List<String> _commandHistory = [];
+  int _historyIndex = -1;
+  final FocusNode _terminalFocusNode = FocusNode(); 
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) { _startScan(); });
     ESP32Service.instance.addListener(_scrollToBottom);
+    ESP32Service.instance.addListener(_onServiceUpdate); 
   }
 
   @override
   void dispose() {
     ESP32Service.instance.removeListener(_scrollToBottom);
+    ESP32Service.instance.removeListener(_onServiceUpdate); 
     _terminalController.dispose();
     _terminalScrollController.dispose();
     _fertilizeTimer?.cancel();
+    _terminalFocusNode.dispose(); 
     super.dispose();
+  }
+
+  void _onServiceUpdate() {
+    if (!mounted) return;
+    final service = ESP32Service.instance; 
+    
+    if (_isBusy && service.machineState == 'Idle') {
+      setState(() {
+        _isBusy = false;
+      });
+    }
+  }
+
+  void _handleHistoryKey(RawKeyEvent event) {
+    if (event is! RawKeyDownEvent) return;
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (_commandHistory.isNotEmpty && _historyIndex < _commandHistory.length - 1) {
+        setState(() {
+          _historyIndex++;
+          _terminalController.text = _commandHistory[_commandHistory.length - 1 - _historyIndex];
+          _terminalController.selection = TextSelection.fromPosition(TextPosition(offset: _terminalController.text.length));
+        });
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (_historyIndex > 0) {
+        setState(() {
+          _historyIndex--;
+          _terminalController.text = _commandHistory[_commandHistory.length - 1 - _historyIndex];
+          _terminalController.selection = TextSelection.fromPosition(TextPosition(offset: _terminalController.text.length));
+        });
+      } else if (_historyIndex == 0) {
+        setState(() {
+          _historyIndex = -1;
+          _terminalController.clear();
+        });
+      }
+    }
   }
 
   Future<void> _startScan() async {
@@ -67,11 +114,21 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   }
 
   void _move(String axis, int direction) {
+    if (_isBusy) return; 
+
     final now = DateTime.now();
     if (_lastMoveTime != null && now.difference(_lastMoveTime!).inMilliseconds < 200) return;
     _lastMoveTime = now;
 
     final service = ESP32Service.instance;
+
+    if (service.machineState == 'Alarm') {
+      service.addLog("SYS: Move rejected. Machine not homed.");
+      HapticFeedback.heavyImpact(); 
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Motors locked! Press "HOME ALL" to unlock.'), backgroundColor: Color(0xFFEF4444), duration: Duration(seconds: 2)));
+      return; 
+    }
+
     final delta = direction * _speedMode;
     double nextVal = 0;
     double currentMax = 1000.0;
@@ -89,12 +146,18 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
       return; 
     }
     
+    setState(() => _isBusy = true);
+
     final gcode = "G1 ${axis.toUpperCase()}${nextVal.toStringAsFixed(1)} F${_feedrate.toInt()}";
     service.updatePos(axis, nextVal, gcode);
     HapticFeedback.lightImpact();
   }
 
   void _handleHome({String? axis}) {
+    if (_isBusy) return; 
+    
+    setState(() => _isBusy = true);
+
     final service = ESP32Service.instance;
     if (axis == null) {
       service.updatePos('x', 0, ''); 
@@ -201,7 +264,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
             child: Column(
               children: [
                 _buildVisualization(service, accentColor, isDark), const SizedBox(height: 16),
-                _buildManualControl(accentColor, isDark), const SizedBox(height: 24),
+                _buildManualControl(service, accentColor, isDark), const SizedBox(height: 24),
                 _buildGCodeTerminal(service, accentColor, isDark), const SizedBox(height: 32),
               ],
             ),
@@ -215,35 +278,101 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     final containerBg = isDark ? const Color(0xFF1F2937) : Colors.white;
     final containerBorder = isDark ? const Color(0xFF374151) : Colors.grey.shade300;
     
+    final bool hasLogs = service.logs.isNotEmpty;
+    final Color enabledIconColor = isDark ? Colors.white70 : Colors.grey.shade800;
+    final Color disabledIconColor = isDark ? Colors.white12 : Colors.grey.shade200;
+
     return Container(
       decoration: BoxDecoration(color: containerBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: containerBorder)),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
             child: Row(
               children: [
                 const Icon(Icons.terminal, color: Color(0xFFF59E0B), size: 20), const SizedBox(width: 10),
-                Text("GCODE TERMINAL", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, fontSize: 14)), const Spacer(),
-                IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: Icon(Icons.copy, size: 20, color: isDark ? Colors.white54 : Colors.grey), onPressed: () { if (service.logs.isEmpty) return; Clipboard.setData(ClipboardData(text: service.logs.join('\n'))); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Terminal logs copied to clipboard!'), backgroundColor: accentColor, duration: const Duration(seconds: 2))); HapticFeedback.lightImpact(); }, tooltip: "Copy Logs"), const SizedBox(width: 16),
-                IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: Icon(Icons.delete_outline, size: 20, color: isDark ? Colors.white54 : Colors.grey), onPressed: () { service.clearLogs(); HapticFeedback.lightImpact(); }, tooltip: "Clear Terminal"), const SizedBox(width: 16),
-                _isScanning ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: accentColor)) : IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: Icon(Icons.refresh, size: 20, color: isDark ? Colors.white54 : Colors.grey), onPressed: _startScan, tooltip: "Scan for ESP32"), const SizedBox(width: 12),
+                Text("GCODE TERMINAL", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, fontSize: 14)), 
+                const Spacer(),
                 Icon(Icons.circle, size: 10, color: service.isConnected ? const Color(0xFF10B981) : const Color(0xFFEF4444)), const SizedBox(width: 6),
                 Text(service.isConnected ? "Online" : "Offline", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: service.isConnected ? const Color(0xFF10B981) : const Color(0xFFEF4444))),
               ],
             ),
           ),
+          
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 40, minHeight: 36), 
+                  icon: Icon(Icons.content_copy, size: 18, color: hasLogs ? enabledIconColor : disabledIconColor), 
+                  onPressed: !hasLogs ? null : () { 
+                    final linesToCopy = service.logs.length > 100 ? service.logs.sublist(service.logs.length - 100) : service.logs;
+                    Clipboard.setData(ClipboardData(text: linesToCopy.join('\n'))); 
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Last ${linesToCopy.length} logs copied!'), backgroundColor: accentColor, duration: const Duration(seconds: 2))); 
+                    HapticFeedback.lightImpact(); 
+                  }, 
+                  tooltip: "Copy Last 100 Logs"
+                ), 
+                const SizedBox(width: 8),
+                IconButton(
+                  padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 40, minHeight: 36), 
+                  icon: Icon(Icons.copy_all, size: 22, color: hasLogs ? enabledIconColor : disabledIconColor), 
+                  onPressed: !hasLogs ? null : () { 
+                    Clipboard.setData(ClipboardData(text: service.logs.join('\n'))); 
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('All ${service.logs.length} logs copied!'), backgroundColor: accentColor, duration: const Duration(seconds: 2))); 
+                    HapticFeedback.lightImpact(); 
+                  }, 
+                  tooltip: "Copy All Logs"
+                ), 
+                const SizedBox(width: 8),
+                IconButton(
+                  padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 40, minHeight: 36), 
+                  icon: Icon(Icons.delete_outline, size: 20, color: hasLogs ? enabledIconColor : disabledIconColor), 
+                  onPressed: !hasLogs ? null : () { 
+                    service.clearLogs(); 
+                    HapticFeedback.lightImpact(); 
+                  }, 
+                  tooltip: "Clear Terminal"
+                ), 
+                const SizedBox(width: 8),
+                _isScanning 
+                  ? SizedBox(width: 40, height: 36, child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: accentColor)))) 
+                  : IconButton(
+                      padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 40, minHeight: 36), 
+                      icon: Icon(Icons.refresh, size: 20, color: enabledIconColor), 
+                      onPressed: _startScan, 
+                      tooltip: "Scan for ESP32"
+                    ),
+              ],
+            ),
+          ),
+
           Container(
             height: 200, margin: const EdgeInsets.symmetric(horizontal: 16), padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: isDark ? const Color(0xFF030712) : const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(8), border: Border.all(color: containerBorder)),
             child: ListView.builder(controller: _terminalScrollController, itemCount: service.logs.length, itemBuilder: (context, i) => _buildLogLine(service.logs[i], isDark)),
           ),
+          
           Padding(
             padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _terminalController, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13, fontFamily: 'monospace'),
-              decoration: InputDecoration(hintText: "Type GCode...", hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38), prefixText: "\$ ", filled: true, fillColor: isDark ? const Color(0xFF374151) : Colors.grey.shade100, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: containerBorder)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: containerBorder)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: accentColor))),
-              onSubmitted: (val) { service.sendCommand(val); _terminalController.clear(); },
+            child: RawKeyboardListener(
+              focusNode: _terminalFocusNode,
+              onKey: _handleHistoryKey,
+              child: TextField(
+                controller: _terminalController, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13, fontFamily: 'monospace'),
+                decoration: InputDecoration(hintText: "Type GCode...", hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38), prefixText: "\$ ", filled: true, fillColor: isDark ? const Color(0xFF374151) : Colors.grey.shade100, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: containerBorder)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: containerBorder)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: accentColor))),
+                onSubmitted: (val) { 
+                  if (val.trim().isNotEmpty) {
+                    service.sendCommand(val); 
+                    _commandHistory.add(val);
+                    _historyIndex = -1;
+                    _terminalController.clear(); 
+                  }
+                },
+              ),
             ),
           ),
         ],
@@ -285,7 +414,6 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                           children: [
                             Positioned.fill(child: CustomPaint(painter: _DashedBorderPainter(color: containerBorder))),
                             
-                            // FIXED: AnimatedPositioned for Buttery Smooth Real-Time Animation
                             AnimatedPositioned(
                               left: (service.x / (service.maxX > 0 ? service.maxX : 1000)) * 182,
                               bottom: (service.y / (service.maxY > 0 ? service.maxY : 1000)) * 182,
@@ -320,21 +448,54 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     return RichText(text: TextSpan(style: TextStyle(fontFamily: 'monospace', fontSize: 13, color: textColor), children: [TextSpan(text: '$axis: ', style: TextStyle(color: accentColor)), TextSpan(text: val.toStringAsFixed(1))]));
   }
 
-  Widget _buildManualControl(Color accentColor, bool isDark) {
+  Widget _buildManualControl(ESP32Service service, Color accentColor, bool isDark) {
     final isWide = MediaQuery.of(context).size.width >= 700;
     final containerBg = isDark ? const Color(0xFF1F2937) : Colors.white;
     final containerBorder = isDark ? const Color(0xFF374151) : Colors.grey.shade300;
     final textColor = isDark ? Colors.white : Colors.black87;
+
+    final isOffline = !service.isConnected;
+    final shouldDisable = _isBusy || isOffline;
+
+    // ── THE FIX: Intercept the Accent Color and strip it to Grey if disabled ──
+    final effectiveAccent = shouldDisable ? Colors.grey.shade600 : accentColor;
 
     return Container(
       decoration: BoxDecoration(color: containerBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: containerBorder)), padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, color: textColor), children: [const TextSpan(text: 'Manual '), TextSpan(text: 'Control', style: TextStyle(color: accentColor))])), const SizedBox(height: 20),
-          _buildHomingRow(accentColor, isDark), const SizedBox(height: 24),
-          if (isWide) Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: _buildDPad(accentColor, isDark)), const SizedBox(width: 32), Expanded(child: _buildRightColumn(accentColor, isDark))])
-          else Column(children: [_buildDPad(accentColor, isDark), const SizedBox(height: 24), _buildRightColumn(accentColor, isDark)]),
+          RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, color: textColor), children: [const TextSpan(text: 'Manual '), TextSpan(text: 'Control', style: TextStyle(color: accentColor))])), 
+          
+          if (isOffline)
+            Container(
+              margin: const EdgeInsets.only(top: 16), padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey)),
+              child: Row(children: [const Icon(Icons.wifi_off_rounded, color: Colors.grey), const SizedBox(width: 12), Expanded(child: Text('SYSTEM OFFLINE. Please connect to the ESP32 to enable manual controls.', style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.bold)))]),
+            )
+          else if (service.machineState == 'Alarm')
+            Container(
+              margin: const EdgeInsets.only(top: 16), padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFEF4444))),
+              child: Row(children: [const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444)), const SizedBox(width: 12), Expanded(child: Text('MACHINE NOT HOMED. Motors are locked for safety.\nPlease press "HOME ALL" to unlock the gantry.', style: TextStyle(color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C), fontSize: 12, fontWeight: FontWeight.bold)))]),
+            ),
+
+          const SizedBox(height: 20),
+          
+          AnimatedOpacity(
+            opacity: shouldDisable ? 0.25 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            child: IgnorePointer(
+              ignoring: shouldDisable,
+              child: Column(
+                children: [
+                  _buildHomingRow(effectiveAccent, isDark), const SizedBox(height: 24),
+                  if (isWide) Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: _buildDPad(effectiveAccent, isDark)), const SizedBox(width: 32), Expanded(child: _buildRightColumn(effectiveAccent, isDark, shouldDisable))])
+                  else Column(children: [_buildDPad(effectiveAccent, isDark), const SizedBox(height: 24), _buildRightColumn(effectiveAccent, isDark, shouldDisable)]),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -375,10 +536,20 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     );
   }
 
-  Widget _buildRightColumn(Color accentColor, bool isDark) {
+  // ── UPDATED: Now receives the shouldDisable flag so it can strip custom colors ──
+  Widget _buildRightColumn(Color accentColor, bool isDark, bool shouldDisable) {
     final idleBtnColor = isDark ? const Color(0xFF374151) : Colors.grey.shade100;
     final idleBorderColor = isDark ? const Color(0xFF4B5563) : Colors.grey.shade300;
     final textColor = isDark ? Colors.white : Colors.black87;
+
+    // ── THE FIX: Strip bright colors when disabled ──
+    final irrigateBg = shouldDisable ? Colors.grey.shade600 : const Color(0xFF2563EB);
+    final irrigateBorder = shouldDisable ? Colors.grey.shade600 : const Color(0xFF60A5FA);
+
+    final fertilizeColor = shouldDisable ? Colors.grey.shade600 : const Color(0xFF16A34A);
+    
+    final weederBg = shouldDisable ? Colors.grey.shade600 : const Color(0xFFDC2626);
+    final weederBorder = shouldDisable ? Colors.grey.shade600 : const Color(0xFFEF4444);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -388,9 +559,9 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
         Row(children: [0.1, 1.0, 10.0, 100.0].map((v) { final selected = _speedMode == v; return Expanded(child: Padding(padding: const EdgeInsets.only(right: 6), child: GestureDetector(onTap: () => setState(() => _speedMode = v), child: Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: selected ? accentColor : idleBtnColor, borderRadius: BorderRadius.circular(8), border: Border.all(color: selected ? accentColor : idleBorderColor)), child: Text('${v % 1 == 0 ? v.toInt() : v}mm', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: selected ? Colors.white : (isDark ? const Color(0xFF9CA3AF) : Colors.grey.shade700))))))); }).toList()), const SizedBox(height: 16),
         _label('FEEDRATE (mm/min)', isDark), const SizedBox(height: 6),
         _numberField(value: _feedrate, onChanged: (v) => setState(() => _feedrate = v), accentColor: accentColor, isDark: isDark, textColor: textColor), const SizedBox(height: 20),
-        GestureDetector(onTap: _handleIrrigateToggle, child: Container(padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: const Color(0xFF2563EB), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFF60A5FA))), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.water_drop_outlined, color: Colors.white, size: 16), const SizedBox(width: 8), Text('Irrigate: ${_isIrrigating ? "ON" : "OFF"}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))]))), const SizedBox(height: 10),
-        _ActionRow(amount: _fertilizeAmount, onAmountChanged: (v) => setState(() => _fertilizeAmount = v), amountEnabled: !_isFertilizing, onAction: _handleFertilize, onStop: _handleStopFertilize, isActive: _isFertilizing, activeLabel: 'Fertilizing...', idleLabel: 'Fertilize', hintText: 'mL', activeColor: const Color(0xFF16A34A), textColor: textColor, icon: Icons.eco_outlined, accentColor: accentColor, isDark: isDark), const SizedBox(height: 10),
-        GestureDetector(onTap: _handleWeederToggle, child: Container(padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: const Color(0xFFDC2626), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFEF4444))), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.content_cut, color: Colors.white, size: 16), const SizedBox(width: 8), Text('Weeder: ${_isWeederOn ? "ON" : "OFF"}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))]))),
+        GestureDetector(onTap: _handleIrrigateToggle, child: Container(padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: irrigateBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: irrigateBorder)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.water_drop_outlined, color: Colors.white, size: 16), const SizedBox(width: 8), Text('Irrigate: ${_isIrrigating ? "ON" : "OFF"}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))]))), const SizedBox(height: 10),
+        _ActionRow(amount: _fertilizeAmount, onAmountChanged: (v) => setState(() => _fertilizeAmount = v), amountEnabled: !_isFertilizing, onAction: _handleFertilize, onStop: _handleStopFertilize, isActive: _isFertilizing, activeLabel: 'Fertilizing...', idleLabel: 'Fertilize', hintText: 'mL', activeColor: fertilizeColor, textColor: textColor, icon: Icons.eco_outlined, accentColor: accentColor, isDark: isDark), const SizedBox(height: 10),
+        GestureDetector(onTap: _handleWeederToggle, child: Container(padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: weederBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: weederBorder)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.content_cut, color: Colors.white, size: 16), const SizedBox(width: 8), Text('Weeder: ${_isWeederOn ? "ON" : "OFF"}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))]))),
       ],
     );
   }
@@ -414,13 +585,22 @@ class _ControlBtn extends StatelessWidget {
 class _ActionRow extends StatelessWidget {
   const _ActionRow({required this.amount, required this.onAmountChanged, required this.amountEnabled, required this.onAction, required this.onStop, required this.isActive, required this.activeLabel, required this.idleLabel, required this.hintText, required this.activeColor, required this.textColor, required this.icon, required this.accentColor, required this.isDark});
   final double amount; final ValueChanged<double> onAmountChanged; final bool amountEnabled; final VoidCallback onAction, onStop; final bool isActive; final String activeLabel, idleLabel, hintText; final Color activeColor, textColor; final IconData icon; final Color accentColor; final bool isDark;
-  @override Widget build(BuildContext context) {
+  
+  @override 
+  Widget build(BuildContext context) {
     final fieldBg = isDark ? const Color(0xFF374151) : Colors.grey.shade100;
     final fieldBorder = isDark ? const Color(0xFF4B5563) : Colors.grey.shade300;
+    
+    final btnBg = isActive ? (isDark ? const Color(0xFF374151) : Colors.grey.shade300) : activeColor;
+    final btnBorderColor = isActive ? Colors.transparent : activeColor.withValues(alpha: 0.6);
+    final btnTextColor = isActive ? (isDark ? Colors.white30 : Colors.grey.shade500) : Colors.white;
+
     return Row(
       children: [
         SizedBox(width: 72, child: TextFormField(initialValue: amount.toInt().toString(), keyboardType: TextInputType.number, enabled: amountEnabled, style: TextStyle(color: textColor, fontSize: 13), decoration: InputDecoration(hintText: hintText, hintStyle: TextStyle(color: isDark ? const Color(0xFF6B7280) : Colors.grey, fontSize: 13), filled: true, fillColor: fieldBg, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: fieldBorder)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: fieldBorder)), disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: fieldBg)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: accentColor))), onChanged: (s) { final v = double.tryParse(s); if (v != null) onAmountChanged(v); })), const SizedBox(width: 8),
-        Expanded(child: GestureDetector(onTap: isActive ? null : onAction, child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: activeColor, borderRadius: BorderRadius.circular(10), border: Border.all(color: activeColor.withValues(alpha: 0.6))), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: Colors.white, size: 16), const SizedBox(width: 6), Text(isActive ? activeLabel : idleLabel, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))])))),
+        
+        Expanded(child: GestureDetector(onTap: isActive ? null : onAction, child: AnimatedContainer(duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: btnBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: btnBorderColor)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: btnTextColor, size: 16), const SizedBox(width: 6), Text(isActive ? activeLabel : idleLabel, style: TextStyle(color: btnTextColor, fontSize: 12, fontWeight: FontWeight.bold))])))),
+        
         if (isActive) ...[const SizedBox(width: 8), GestureDetector(onTap: onStop, child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), decoration: BoxDecoration(color: const Color(0xFFDC2626), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFEF4444))), child: const Text('Stop', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))))],
       ],
     );

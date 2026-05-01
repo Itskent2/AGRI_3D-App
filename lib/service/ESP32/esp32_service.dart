@@ -19,6 +19,9 @@ class ESP32Service extends ChangeNotifier {
   double x = 0, y = 0, z = 0;
   double maxX = 1000.0, maxY = 1000.0, maxZ = 1000.0;
 
+  // ── NEW: Track if the machine is Homed, Idle, or Running ──
+  String machineState = "Unknown";
+
   static final ESP32Service instance = ESP32Service();
 
   Future<void> autoDiscover() async {
@@ -30,7 +33,7 @@ class ESP32Service extends ChangeNotifier {
     _lastKnownIP = prefs.getString('lastKnownIP');
 
     while (!isConnected) {
-      if (kIsWeb) await _connectAndVerify("192.168.0.130");
+      if (kIsWeb) await _connectAndVerify("192.168.0.134");
       if (!isConnected && _lastKnownIP != null) await _connectAndVerify(_lastKnownIP!);
       if (!isConnected && !kIsWeb) await _connectAndVerify("farmbot.local");
       if (!isConnected) await _connectAndVerify("192.168.4.1");
@@ -86,10 +89,10 @@ class ESP32Service extends ChangeNotifier {
             return;
           }
           
-          // FIXED: Prevent Terminal Spam from polling
-          if (!textMsg.contains("<") && !textMsg.contains(">")) {
+          // FIXED: Filter out continuous status reports from terminal logs
+          //if (!textMsg.contains("<") && !textMsg.contains(">")) {
             _addLog("RX: $textMsg");
-          }
+          //}
 
           try {
             final parsed = jsonDecode(textMsg);
@@ -113,6 +116,14 @@ class ESP32Service extends ChangeNotifier {
   }
 
   void _parseGrblStatus(String raw) {
+    // ── NEW: Extract Machine State (Idle, Run, Alarm, etc.) ──
+    if (raw.startsWith("<")) {
+      int firstPipe = raw.indexOf("|");
+      if (firstPipe > 1) {
+        machineState = raw.substring(1, firstPipe);
+      }
+    }
+
     int posStart = raw.indexOf("MPos:");
     if (posStart == -1) posStart = raw.indexOf("WPos:");
     

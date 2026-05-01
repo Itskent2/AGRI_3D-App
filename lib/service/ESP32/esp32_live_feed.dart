@@ -36,17 +36,15 @@ class _Esp32LiveFeedState extends State<Esp32LiveFeed> {
 
   void _checkAndStartStream() {
     final service = ESP32Service.instance;
-    // If we just came online, command the ESP32 to start beaming frames
     if (service.isConnected && !_didStartStream) {
-      // PREVENT STACK OVERFLOW: Set this lock IMMEDIATELY before sending commands
-      // because sendCommand triggers an _addLog which synchronously fires our listener again!
       _didStartStream = true; 
       
       service.sendCommand("START_STREAM");
-      // Tell ESP32 to drop to QQVGA (160x120) initially to guarantee frame delivery
-      service.sendCommand("SET_RES:13"); 
+      
+      // CHANGE 13 to 8 (VGA - 640x480) or 5 (QVGA - 320x240)
+      // Do NOT send 13.
+      service.sendCommand("SET_RES:8"); 
     } 
-    // If we dropped offline, reset the flag so we can ask for the stream again on reconnect
     else if (!service.isConnected && _didStartStream) {
       _didStartStream = false;
     }
