@@ -143,23 +143,34 @@ async def run_test(tester, test_type, num_trials=100):
             elif test_type == "Z":
                 target_z = round(random.uniform(0, tester.max_z), 1)
 
-            # Generate Movement Command
+            # --- RETURN TO ORIGIN (0) BEFORE EACH TRIAL ---
+            print(f"Trial {trial}/{num_trials}: Returning to origin (0) before testing...")
             if test_type == "Z":
-                # For Z test, XY stay exactly the same, only move Z
-                cmd = f"G0 Z{target_z} F1000"
-                print(f"Trial {trial}/{num_trials}: Moving Z to {target_z} mm")
+                await tester.send_gcode("G0 Z0 F1000")
             else:
-                # Retract Z first just to be absolutely safe (Rule enforced)
-                await tester.send_gcode("G0 Z0")
+                await tester.send_gcode("G0 Z0") # Retract Z first
                 await tester.wait_for_idle()
                 
+                if test_type == "X":
+                    await tester.send_gcode("G0 X0 F1000")
+                elif test_type == "Y":
+                    await tester.send_gcode("G0 Y0 F1000")
+                elif test_type == "XY":
+                    await tester.send_gcode("G0 X0 Y0 F1000")
+            await tester.wait_for_idle()
+
+            # --- MOVE TO TARGET ---
+            if test_type == "Z":
+                cmd = f"G0 Z{target_z} F1000"
+                print(f"Trial {trial}/{num_trials}: Moving Z to target {target_z} mm")
+            else:
                 cmd = f"G0 X{target_x} Y{target_y} F1000"
                 if test_type == "X":
-                    print(f"Trial {trial}/{num_trials}: Moving X to {target_x} mm")
+                    print(f"Trial {trial}/{num_trials}: Moving X to target {target_x} mm")
                 elif test_type == "Y":
-                    print(f"Trial {trial}/{num_trials}: Moving Y to {target_y} mm")
+                    print(f"Trial {trial}/{num_trials}: Moving Y to target {target_y} mm")
                 else:
-                    print(f"Trial {trial}/{num_trials}: Moving to X={target_x}, Y={target_y}")
+                    print(f"Trial {trial}/{num_trials}: Moving to target X={target_x}, Y={target_y}")
 
             # Send Command and Wait
             await tester.send_gcode(cmd)
