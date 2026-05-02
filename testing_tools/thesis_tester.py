@@ -119,9 +119,8 @@ class FarmbotTester:
 
 
 async def run_test(tester, test_type, num_trials=100, seed_val=None, dry_run=False):
-    if seed_val is not None:
-        random.seed(seed_val)
-        print(f"\n[!] Using Random Seed: {seed_val}")
+    random.seed(seed_val)
+    print(f"\n[!] Using Random Seed: {seed_val}")
         
     filename = f"results_{test_type}_{int(time.time())}.csv"
     if dry_run:
@@ -321,7 +320,7 @@ async def main():
         trials = int(trials_input) if trials_input.strip().isdigit() else 100
         
         seed_input = input("Enter a random seed (leave blank for random): ")
-        seed_val = int(seed_input) if seed_input.strip().isdigit() else None
+        seed_val = int(seed_input) if seed_input.strip().isdigit() else int(time.time())
         
         dry_run_input = input("Dry run only? (generate targets without moving machine) (y/N): ")
         dry_run = dry_run_input.strip().lower() == 'y'
