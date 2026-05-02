@@ -6,6 +6,7 @@ import random
 import time
 import os
 import socket
+import math
 
 class FarmbotTester:
     def __init__(self, uri):
@@ -102,7 +103,7 @@ async def run_test(tester, test_type, num_trials=100):
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
         if test_type == "XY":
-            writer.writerow(["Trial", "Target_X", "Target_Y", "Actual_X", "Actual_Y"])
+            writer.writerow(["Trial", "Target_X", "Target_Y", "Target_Diagonal", "Actual_Diagonal"])
         else:
             writer.writerow(["Trial", f"Target_{test_type}", f"Actual_{test_type}"])
             
@@ -184,9 +185,9 @@ async def run_test(tester, test_type, num_trials=100):
             # Wait for user to measure
             print("\033[92mMovement Complete.\033[0m")
             if test_type == "XY":
-                actual_x = input(f"  > Measure physical X (Target was {target_x}): ")
-                actual_y = input(f"  > Measure physical Y (Target was {target_y}): ")
-                writer.writerow([trial, target_x, target_y, actual_x, actual_y])
+                target_diag = round(math.hypot(target_x, target_y), 2)
+                actual_diag = input(f"  > Measure physical Diagonal (Target was {target_diag} mm): ")
+                writer.writerow([trial, target_x, target_y, target_diag, actual_diag])
             else:
                 target_val = target_x if test_type == "X" else target_y if test_type == "Y" else target_z
                 actual_val = input(f"  > Measure physical {test_type} (Target was {target_val}): ")
