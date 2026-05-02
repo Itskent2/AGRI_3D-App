@@ -24,6 +24,7 @@ dependencies:
   shimmer: ^3.0.0
   web_socket_channel: ^3.0.3
   flutter_mjpeg: ^2.0.4 
+  file_picker: ^8.1.4
 
 dev_dependencies:
   flutter_test:

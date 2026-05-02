@@ -164,8 +164,19 @@ class ESP32Service extends ChangeNotifier {
   void addLog(String m) => _addLog(m);
   void _addLog(String m) { logs.add(m); if (logs.length > 50) logs.removeAt(0); notifyListeners(); }
   void clearLogs() { logs.clear(); notifyListeners(); }
-}
 
+  Future<void> executeGCode(List<String> lines) async {
+    for (var line in lines) {
+      if (!isConnected) break;
+      line = line.trim();
+      if (line.isEmpty || line.startsWith(';')) continue;
+      
+      sendCommand(line);
+      // Wait a bit to not overwhelm the ESP32 / GRBL buffer
+      await Future.delayed(const Duration(milliseconds: 100)); 
+    }
+  }
+}
 Future<void> sweepMobileSubnets(ESP32Service service) async {
   await Future.delayed(const Duration(seconds: 2));
 }

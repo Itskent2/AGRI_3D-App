@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 
 import '../providers/theme_provider.dart';
 import '../service/ESP32/esp32_service.dart'; 
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 
 class ControlPanel extends ConsumerStatefulWidget {
   const ControlPanel({super.key});
@@ -35,6 +37,10 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   final List<String> _commandHistory = [];
   int _historyIndex = -1;
   final FocusNode _terminalFocusNode = FocusNode(); 
+
+  double _targetX = 0;
+  double _targetY = 0;
+  double _targetZ = 0;
 
   @override
   void initState() {
@@ -247,6 +253,24 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     );
   }
 
+  Future<void> _uploadGCode() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['gcode', 'txt', 'nc'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        final lines = await file.readAsLines();
+        ESP32Service.instance.addLog("SYS: Uploaded ${result.files.single.name} (${lines.length} lines)");
+        await ESP32Service.instance.executeGCode(lines);
+      }
+    } catch (e) {
+      ESP32Service.instance.addLog("SYS: Error uploading G-Code: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeProvider);
@@ -346,6 +370,18 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                       onPressed: _startScan, 
                       tooltip: "Scan for ESP32"
                     ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: service.isConnected ? _uploadGCode : null,
+                  icon: const Icon(Icons.upload_file, size: 16),
+                  label: const Text('Upload'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
               ],
             ),
           ),
@@ -559,6 +595,13 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
         Row(children: [0.1, 1.0, 10.0, 100.0].map((v) { final selected = _speedMode == v; return Expanded(child: Padding(padding: const EdgeInsets.only(right: 6), child: GestureDetector(onTap: () => setState(() => _speedMode = v), child: Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: selected ? accentColor : idleBtnColor, borderRadius: BorderRadius.circular(8), border: Border.all(color: selected ? accentColor : idleBorderColor)), child: Text('${v % 1 == 0 ? v.toInt() : v}mm', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: selected ? Colors.white : (isDark ? const Color(0xFF9CA3AF) : Colors.grey.shade700))))))); }).toList()), const SizedBox(height: 16),
         _label('FEEDRATE (mm/min)', isDark), const SizedBox(height: 6),
         _numberField(value: _feedrate, onChanged: (v) => setState(() => _feedrate = v), accentColor: accentColor, isDark: isDark, textColor: textColor), const SizedBox(height: 20),
+        _label('ABSOLUTE MOVEMENT', isDark), const SizedBox(height: 6),
+        Row(children: [
+          Expanded(child: _coordField(label: 'X', value: _targetX, onChanged: (v) => _targetX = v, accentColor: accentColor, isDark: isDark, textColor: textColor)), const SizedBox(width: 8),
+          Expanded(child: _coordField(label: 'Y', value: _targetY, onChanged: (v) => _targetY = v, accentColor: accentColor, isDark: isDark, textColor: textColor)), const SizedBox(width: 8),
+          Expanded(child: _coordField(label: 'Z', value: _targetZ, onChanged: (v) => _targetZ = v, accentColor: accentColor, isDark: isDark, textColor: textColor)), const SizedBox(width: 8),
+          ElevatedButton(onPressed: () { final gcode = "G0 X${_targetX.toStringAsFixed(1)} Y${_targetY.toStringAsFixed(1)} Z${_targetZ.toStringAsFixed(1)} F${_feedrate.toInt()}"; ESP32Service.instance.sendCommand(gcode); HapticFeedback.lightImpact(); }, style: ElevatedButton.styleFrom(backgroundColor: accentColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14)), child: const Text('Move', style: TextStyle(fontWeight: FontWeight.bold))),
+        ]), const SizedBox(height: 20),
         GestureDetector(onTap: _handleIrrigateToggle, child: Container(padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: irrigateBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: irrigateBorder)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.water_drop_outlined, color: Colors.white, size: 16), const SizedBox(width: 8), Text('Irrigate: ${_isIrrigating ? "ON" : "OFF"}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))]))), const SizedBox(height: 10),
         _ActionRow(amount: _fertilizeAmount, onAmountChanged: (v) => setState(() => _fertilizeAmount = v), amountEnabled: !_isFertilizing, onAction: _handleFertilize, onStop: _handleStopFertilize, isActive: _isFertilizing, activeLabel: 'Fertilizing...', idleLabel: 'Fertilize', hintText: 'mL', activeColor: fertilizeColor, textColor: textColor, icon: Icons.eco_outlined, accentColor: accentColor, isDark: isDark), const SizedBox(height: 10),
         GestureDetector(onTap: _handleWeederToggle, child: Container(padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: weederBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: weederBorder)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.content_cut, color: Colors.white, size: 16), const SizedBox(width: 8), Text('Weeder: ${_isWeederOn ? "ON" : "OFF"}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))]))),
@@ -571,6 +614,11 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     final fieldBg = isDark ? const Color(0xFF374151) : Colors.grey.shade100;
     final fieldBorder = isDark ? const Color(0xFF4B5563) : Colors.grey.shade300;
     return TextFormField(initialValue: value.toString(), keyboardType: TextInputType.number, style: TextStyle(color: textColor, fontSize: 14), decoration: InputDecoration(filled: true, fillColor: fieldBg, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: fieldBorder)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: fieldBorder)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: accentColor))), onChanged: (s) { final parsed = double.tryParse(s); if (parsed != null) onChanged(parsed); });
+  }
+  Widget _coordField({required String label, required double value, required ValueChanged<double> onChanged, required Color accentColor, required bool isDark, required Color textColor}) {
+    final fieldBg = isDark ? const Color(0xFF374151) : Colors.grey.shade100;
+    final fieldBorder = isDark ? const Color(0xFF4B5563) : Colors.grey.shade300;
+    return TextFormField(initialValue: value.toString(), keyboardType: TextInputType.number, style: TextStyle(color: textColor, fontSize: 14), decoration: InputDecoration(labelText: label, labelStyle: TextStyle(color: accentColor, fontWeight: FontWeight.bold), filled: true, fillColor: fieldBg, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: fieldBorder)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: fieldBorder)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: accentColor))), onChanged: (s) { final parsed = double.tryParse(s); if (parsed != null) onChanged(parsed); });
   }
 }
 
