@@ -14,6 +14,13 @@ class ESP32Service extends ChangeNotifier {
   String? get currentIP => _lastKnownIP;
   List<String> logs = [];
 
+  // ── PING-PONG VARIABLES ──
+  Timer? _pingTimer;
+  int _missedPings = 0;
+  int latencyMs = 0;        // Round-trip time in ms
+  int pingCount = 0;        // Total pings acknowledged by ESP32
+  DateTime? _lastPingSentAt; // When we sent the last PING
+
   final ValueNotifier<Uint8List?> cameraFrame = ValueNotifier(null);
 
   double x = 0, y = 0, z = 0;
@@ -21,6 +28,13 @@ class ESP32Service extends ChangeNotifier {
 
   // ── NEW: Track if the machine is Homed, Idle, or Running ──
   String machineState = "Unknown";
+
+  // ── Nano (GRBL) connection status ──
+  bool nanoConnected = false;
+
+  // ── G-Code Job Progress (0.0 = idle, 0.0–1.0 = running, 1.0 = done) ──
+  final ValueNotifier<double> jobProgress = ValueNotifier(0.0);
+  bool _jobCancelled = false;
 
   static final ESP32Service instance = ESP32Service();
 
@@ -33,7 +47,7 @@ class ESP32Service extends ChangeNotifier {
     _lastKnownIP = prefs.getString('lastKnownIP');
 
     while (!isConnected) {
-      if (kIsWeb) await _connectAndVerify("192.168.0.134");
+      if (kIsWeb) await _connectAndVerify("192.168.0.107");
       if (!isConnected && _lastKnownIP != null) await _connectAndVerify(_lastKnownIP!);
       if (!isConnected && !kIsWeb) await _connectAndVerify("farmbot.local");
       if (!isConnected) await _connectAndVerify("192.168.4.1");
@@ -74,6 +88,7 @@ class ESP32Service extends ChangeNotifier {
               _lastKnownIP = host;
               SharedPreferences.getInstance().then((prefs) => prefs.setString('lastKnownIP', host));
               _addLog("SYS: Online → $host");
+              _startPingLoop();
 
               try {
                 final parsed = jsonDecode(textMsg);
@@ -88,7 +103,27 @@ class ESP32Service extends ChangeNotifier {
             }
             return;
           }
-          
+
+          // ── CATCH THE PONG IMMEDIATELY ──
+          if (textMsg.contains('"status":"PONG"')) {
+            _missedPings = 0; // Reset strike counter
+
+            // Calculate round-trip latency
+            if (_lastPingSentAt != null) {
+              latencyMs = DateTime.now().difference(_lastPingSentAt!).inMilliseconds;
+              _lastPingSentAt = null;
+            }
+
+            // Extract ping count from ESP32 response
+            try {
+              final pong = jsonDecode(textMsg);
+              if (pong['ping_no'] != null) pingCount = (pong['ping_no'] as num).toInt();
+            } catch (_) {}
+
+            notifyListeners(); // Update UI with new latency
+            return; // Don't spam the terminal log with PONGs
+          }
+
           // FIXED: Filter out continuous status reports from terminal logs
           //if (!textMsg.contains("<") && !textMsg.contains(">")) {
             _addLog("RX: $textMsg");
@@ -96,6 +131,20 @@ class ESP32Service extends ChangeNotifier {
 
           try {
             final parsed = jsonDecode(textMsg);
+
+            // ── Nano connection status from ESP32 ──
+            if (parsed['nano_connected'] != null) {
+              final wasConnected = nanoConnected;
+              nanoConnected = parsed['nano_connected'] as bool;
+              if (nanoConnected != wasConnected) {
+                _addLog(nanoConnected
+                    ? "SYS: Nano (GRBL) connected."
+                    : "SYS: ⚠ Nano (GRBL) not detected — check Serial1 wiring.");
+                notifyListeners();
+              }
+              return; // Don't show nano_connected messages in terminal
+            }
+
             if (parsed['nano_raw'] != null) {
               String raw = parsed['nano_raw'].toString();
               _parseGrblStatus(raw);
@@ -148,8 +197,37 @@ class ESP32Service extends ChangeNotifier {
   Future<void> connectAndVerifyHost(String host) => _connectAndVerify(host);
 
   void _handleDisconnect() {
-    isConnected = false; _channel = null; cameraFrame.value = null; 
-    _addLog("SYS: Offline."); notifyListeners(); 
+    isConnected = false;
+    nanoConnected = false; // Reset Nano state on disconnect
+    _pingTimer?.cancel(); // Kill the Ping loop
+    _channel = null;
+    cameraFrame.value = null;
+    _addLog("SYS: Offline.");
+    notifyListeners();
+  }
+
+  void _startPingLoop() {
+    _pingTimer?.cancel();
+    _missedPings = 0;
+
+    // Ping the ESP32 every 2 seconds
+    _pingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (!isConnected) {
+        timer.cancel();
+        return;
+      }
+
+      // If we missed 2 PONGs in a row (4 seconds total), the ESP32 is gone!
+      if (_missedPings >= 2) {
+        _addLog("SYS: Connection Lost (No PONG received).");
+        _handleDisconnect();
+        return;
+      }
+
+      _missedPings++;         // Add a strike
+      _lastPingSentAt = DateTime.now(); // Record send time for latency
+      sendCommand("PING");   // Send the ping to the ESP32
+    });
   }
 
   void sendCommand(String cmd) {
@@ -175,6 +253,41 @@ class ESP32Service extends ChangeNotifier {
       // Wait a bit to not overwhelm the ESP32 / GRBL buffer
       await Future.delayed(const Duration(milliseconds: 100)); 
     }
+  }
+
+  // ── G-Code Job Runner (with progress tracking) ──
+  Future<void> startGcodeJob(String gcodeText) async {
+    final lines = gcodeText
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty && !l.startsWith(';'))
+        .toList();
+
+    if (lines.isEmpty) return;
+
+    _jobCancelled = false;
+    jobProgress.value = 0.01; // Signal job started
+    _addLog('SYS: G-Code job started (${lines.length} lines)');
+
+    for (int i = 0; i < lines.length; i++) {
+      if (!isConnected || _jobCancelled) break;
+      sendCommand(lines[i]);
+      jobProgress.value = (i + 1) / lines.length;
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    if (_jobCancelled) {
+      _addLog('SYS: G-Code job cancelled.');
+      sendCommand('!'); // GRBL feed hold
+    } else {
+      _addLog('SYS: G-Code job complete.');
+    }
+
+    jobProgress.value = 0.0; // Reset to idle
+  }
+
+  void cancelGcodeJob() {
+    _jobCancelled = true;
   }
 }
 Future<void> sweepMobileSubnets(ESP32Service service) async {

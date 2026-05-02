@@ -1,10 +1,12 @@
 // lib/screens/control_panel.dart
 
 import 'dart:async';
+import 'dart:io'; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart'; 
+import 'package:file_picker/file_picker.dart'; 
 
 import '../providers/theme_provider.dart';
 import '../service/ESP32/esp32_service.dart'; 
@@ -59,6 +61,31 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     _fertilizeTimer?.cancel();
     _terminalFocusNode.dispose(); 
     super.dispose();
+  }
+
+  // ── CNC G-CODE FILE UPLOAD LOGIC ──
+  Future<void> _pickAndRunGcode() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.any);
+      if (result != null && result.files.single.path != null) {
+        File file = File(result.files.single.path!);
+        String gcodeText = await file.readAsString();
+        
+        ESP32Service.instance.startGcodeJob(gcodeText);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("G-Code Job Started!"), backgroundColor: Colors.green),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error reading file: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _onServiceUpdate() {
@@ -288,13 +315,177 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
             child: Column(
               children: [
                 _buildVisualization(service, accentColor, isDark), const SizedBox(height: 16),
-                _buildManualControl(service, accentColor, isDark), const SizedBox(height: 24),
+                _buildWorkCoordinates(service, accentColor, isDark), const SizedBox(height: 16), // ── THE NEW WORK COORDINATES PANEL ──
+                _buildCncAutomation(service, accentColor, isDark), const SizedBox(height: 16),   // ── THE NEW CNC AUTOMATION FILE PICKER ──
+                _buildManualControl(service, accentColor, isDark), const SizedBox(height: 16),
                 _buildGCodeTerminal(service, accentColor, isDark), const SizedBox(height: 32),
               ],
             ),
           ),
         );
       }
+    );
+  }
+
+  // ── THE WORK COORDINATES WIDGET ──
+  Widget _buildWorkCoordinates(ESP32Service service, Color accentColor, bool isDark) {
+    final containerBg = isDark ? const Color(0xFF111111) : Colors.white;
+    final containerBorder = isDark ? const Color(0xFF374151) : Colors.grey.shade300;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: containerBg, 
+        borderRadius: BorderRadius.circular(12), 
+        border: Border.all(color: containerBorder)
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text("Work Coordinates", style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w500)),
+              const SizedBox(width: 8),
+              Icon(Icons.keyboard_arrow_down, color: isDark ? Colors.white70 : Colors.black54, size: 20),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Divider(color: isDark ? Colors.white12 : Colors.black12, height: 1),
+          const SizedBox(height: 24),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                children: [
+                  _coordRowOriginal('X', service.x, isDark, () => _handleHome(axis: 'x')),
+                  const SizedBox(height: 16),
+                  _coordRowOriginal('Y', service.y, isDark, () => _handleHome(axis: 'y')),
+                  const SizedBox(height: 16),
+                  _coordRowOriginal('Z', service.z, isDark, () => _handleHome(axis: 'z')),
+                ],
+              ),
+              Container(
+                width: 75, height: 75,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF222222) : Colors.grey.shade900,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.share_location, color: Colors.white, size: 32),
+                  onPressed: () => _handleHome(), 
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          GestureDetector(
+            onTap: () {
+              ESP32Service.instance.addLog("SYS: Running Boundary Routine...");
+            },
+            child: Text(
+              "Run Boundary",
+              style: TextStyle(
+                color: Colors.blueAccent.shade400,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                decoration: TextDecoration.underline,
+                decorationColor: Colors.blueAccent.shade400,
+              ),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _coordRowOriginal(String axis, double value, bool isDark, VoidCallback onTargetPressed) {
+    return Row(
+      children: [
+        SizedBox(width: 30, child: Text(axis, style: const TextStyle(color: Colors.grey, fontSize: 22, fontWeight: FontWeight.bold))),
+        SizedBox(
+          width: 100,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(value.toStringAsFixed(2), style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 4),
+              const Text("mm", style: TextStyle(color: Colors.grey, fontSize: 14)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        GestureDetector(
+          onTap: onTargetPressed,
+          child: Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(color: isDark ? const Color(0xFF222222) : Colors.grey.shade900, shape: BoxShape.circle),
+            child: const Icon(Icons.my_location, color: Colors.white, size: 18),
+          ),
+        )
+      ],
+    );
+  }
+
+  // ── CNC AUTOMATION WIDGET ──
+  Widget _buildCncAutomation(ESP32Service service, Color accentColor, bool isDark) {
+    final containerBg = isDark ? const Color(0xFF1F2937) : Colors.white;
+    final containerBorder = isDark ? const Color(0xFF374151) : Colors.grey.shade300;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
+    return Container(
+      decoration: BoxDecoration(color: containerBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: containerBorder)), padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(text: TextSpan(style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, color: textColor), children: [const TextSpan(text: 'CNC '), TextSpan(text: 'Automation', style: TextStyle(color: accentColor))])), 
+          const SizedBox(height: 16),
+          
+          ValueListenableBuilder<double>(
+            valueListenable: service.jobProgress,
+            builder: (context, progress, child) {
+              if (progress <= 0.0 || progress >= 1.0) {
+                return SizedBox(
+                  width: double.infinity, height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _pickAndRunGcode,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text("UPLOAD G-CODE FILE", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent.shade700, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                  ),
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Running Job...", style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+                      Text("${(progress * 100).toInt()}%", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(borderRadius: BorderRadius.circular(8), child: LinearProgressIndicator(value: progress, minHeight: 12, backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade300, color: accentColor)),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity, height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: () => service.cancelGcodeJob(),
+                      icon: const Icon(Icons.warning_amber_rounded),
+                      label: const Text("EMERGENCY STOP", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -386,6 +577,30 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
             ),
           ),
 
+          // ── Nano Disconnected Warning Banner ──
+          if (service.isConnected && !service.nanoConnected)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFF59E0B)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.cable_rounded, color: Color(0xFFF59E0B), size: 16),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'No Nano connected — GRBL not responding on Serial1. Check TX/RX wiring (pins 43/44).',
+                      style: TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           Container(
             height: 200, margin: const EdgeInsets.symmetric(horizontal: 16), padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: isDark ? const Color(0xFF030712) : const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(8), border: Border.all(color: containerBorder)),
@@ -449,12 +664,10 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                         child: Stack(
                           children: [
                             Positioned.fill(child: CustomPaint(painter: _DashedBorderPainter(color: containerBorder))),
-                            
                             AnimatedPositioned(
                               left: (service.x / (service.maxX > 0 ? service.maxX : 1000)) * 182,
                               bottom: (service.y / (service.maxY > 0 ? service.maxY : 1000)) * 182,
-                              duration: const Duration(milliseconds: 250), 
-                              curve: Curves.linear, 
+                              duration: const Duration(milliseconds: 250), curve: Curves.linear, 
                               child: Transform.scale(
                                 scale: 1.0 + service.z / 500, 
                                 child: Container(
@@ -492,8 +705,6 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
 
     final isOffline = !service.isConnected;
     final shouldDisable = _isBusy || isOffline;
-
-    // ── THE FIX: Intercept the Accent Color and strip it to Grey if disabled ──
     final effectiveAccent = shouldDisable ? Colors.grey.shade600 : accentColor;
 
     return Container(
@@ -572,18 +783,14 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     );
   }
 
-  // ── UPDATED: Now receives the shouldDisable flag so it can strip custom colors ──
   Widget _buildRightColumn(Color accentColor, bool isDark, bool shouldDisable) {
     final idleBtnColor = isDark ? const Color(0xFF374151) : Colors.grey.shade100;
     final idleBorderColor = isDark ? const Color(0xFF4B5563) : Colors.grey.shade300;
     final textColor = isDark ? Colors.white : Colors.black87;
 
-    // ── THE FIX: Strip bright colors when disabled ──
     final irrigateBg = shouldDisable ? Colors.grey.shade600 : const Color(0xFF2563EB);
     final irrigateBorder = shouldDisable ? Colors.grey.shade600 : const Color(0xFF60A5FA);
-
     final fertilizeColor = shouldDisable ? Colors.grey.shade600 : const Color(0xFF16A34A);
-    
     final weederBg = shouldDisable ? Colors.grey.shade600 : const Color(0xFFDC2626);
     final weederBorder = shouldDisable ? Colors.grey.shade600 : const Color(0xFFEF4444);
 
@@ -610,6 +817,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   }
 
   Widget _label(String text, bool isDark) => Text(text, style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF9CA3AF) : Colors.grey.shade600, letterSpacing: 2));
+  
   Widget _numberField({required double value, required ValueChanged<double> onChanged, required Color accentColor, required bool isDark, required Color textColor}) {
     final fieldBg = isDark ? const Color(0xFF374151) : Colors.grey.shade100;
     final fieldBorder = isDark ? const Color(0xFF4B5563) : Colors.grey.shade300;
@@ -638,7 +846,6 @@ class _ActionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final fieldBg = isDark ? const Color(0xFF374151) : Colors.grey.shade100;
     final fieldBorder = isDark ? const Color(0xFF4B5563) : Colors.grey.shade300;
-    
     final btnBg = isActive ? (isDark ? const Color(0xFF374151) : Colors.grey.shade300) : activeColor;
     final btnBorderColor = isActive ? Colors.transparent : activeColor.withValues(alpha: 0.6);
     final btnTextColor = isActive ? (isDark ? Colors.white30 : Colors.grey.shade500) : Colors.white;
@@ -646,9 +853,7 @@ class _ActionRow extends StatelessWidget {
     return Row(
       children: [
         SizedBox(width: 72, child: TextFormField(initialValue: amount.toInt().toString(), keyboardType: TextInputType.number, enabled: amountEnabled, style: TextStyle(color: textColor, fontSize: 13), decoration: InputDecoration(hintText: hintText, hintStyle: TextStyle(color: isDark ? const Color(0xFF6B7280) : Colors.grey, fontSize: 13), filled: true, fillColor: fieldBg, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: fieldBorder)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: fieldBorder)), disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: fieldBg)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: accentColor))), onChanged: (s) { final v = double.tryParse(s); if (v != null) onAmountChanged(v); })), const SizedBox(width: 8),
-        
         Expanded(child: GestureDetector(onTap: isActive ? null : onAction, child: AnimatedContainer(duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: btnBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: btnBorderColor)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: btnTextColor, size: 16), const SizedBox(width: 6), Text(isActive ? activeLabel : idleLabel, style: TextStyle(color: btnTextColor, fontSize: 12, fontWeight: FontWeight.bold))])))),
-        
         if (isActive) ...[const SizedBox(width: 8), GestureDetector(onTap: onStop, child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), decoration: BoxDecoration(color: const Color(0xFFDC2626), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFEF4444))), child: const Text('Stop', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))))],
       ],
     );
