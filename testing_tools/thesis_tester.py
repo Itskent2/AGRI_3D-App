@@ -39,29 +39,41 @@ class FarmbotTester:
         print("-" * 40)
 
     async def listen(self):
-        try:
-            async for message in self.ws:
-                if isinstance(message, str):
-                    if not self.identified and ("FARMBOT_ID:" in message or '"system":"AGRI_3D"' in message):
-                        self.identified = True
+        while True:
+            try:
+                if not self.ws or self.ws.closed:
+                    print(f"\n[\u26A0] Connection lost! Attempting to reconnect to {self.uri}...")
+                    try:
+                        self.ws = await websockets.connect(self.uri)
+                        self.is_connected = True
+                        self.identified = False
+                        print("[\u2713] Reconnected successfully! Resuming test...")
+                    except Exception:
+                        await asyncio.sleep(2)
+                        continue
+
+                async for message in self.ws:
+                    if isinstance(message, str):
+                        if not self.identified and ("FARMBOT_ID:" in message or '"system":"AGRI_3D"' in message):
+                            self.identified = True
+                            try:
+                                data = json.loads(message)
+                                if 'maxX' in data: self.max_x = float(data['maxX'])
+                                if 'maxY' in data: self.max_y = float(data['maxY'])
+                                if 'maxZ' in data: self.max_z = float(data['maxZ'])
+                            except Exception:
+                                pass
+                        
                         try:
                             data = json.loads(message)
-                            if 'maxX' in data: self.max_x = float(data['maxX'])
-                            if 'maxY' in data: self.max_y = float(data['maxY'])
-                            if 'maxZ' in data: self.max_z = float(data['maxZ'])
+                            if 'nano_raw' in data:
+                                raw = data['nano_raw']
+                                self.parse_grbl(raw)
                         except Exception:
-                            pass
-                    
-                    try:
-                        data = json.loads(message)
-                        if 'nano_raw' in data:
-                            raw = data['nano_raw']
-                            self.parse_grbl(raw)
-                    except Exception:
-                        self.parse_grbl(message)
-        except websockets.exceptions.ConnectionClosed:
-            self.is_connected = False
-            print("\nConnection lost.")
+                            self.parse_grbl(message)
+            except Exception:
+                self.is_connected = False
+                await asyncio.sleep(1)
 
     def parse_grbl(self, raw):
         if raw.startswith("<"):
@@ -84,16 +96,25 @@ class FarmbotTester:
         if raw.startswith("$132="): self.max_z = float(raw[5:])
 
     async def send_gcode(self, cmd):
-        if self.ws and self.is_connected:
+        while not self.is_connected or not self.ws or self.ws.closed:
+            print("\n[\u29D7] Waiting for connection before sending command...")
+            await asyncio.sleep(2)
+        try:
             await self.ws.send(cmd)
-            # Short delay to ensure it enters the buffer
             await asyncio.sleep(0.1)
+        except Exception:
+            self.is_connected = False
+            await asyncio.sleep(1)
+            await self.send_gcode(cmd) # Retry sending
 
     async def wait_for_idle(self):
         # Give GRBL a moment to switch from Idle -> Run
         await asyncio.sleep(0.5)
         # Wait until GRBL reports Idle again
         while self.machine_state != "Idle":
+            if not self.is_connected:
+                await asyncio.sleep(1)
+                continue
             await asyncio.sleep(0.1)
 
 
