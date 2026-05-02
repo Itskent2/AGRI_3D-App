@@ -124,6 +124,11 @@ async def run_test(tester, test_type, num_trials=100):
             await tester.send_gcode("$HZ")
             await tester.wait_for_idle()
 
+        print("[!] Refreshing machine dimensions after auto-dimensioning...")
+        await tester.send_gcode("$$")
+        await asyncio.sleep(2) # Give it time to parse the updated $130, $131, $132
+        print(f"    Updated Dimensions -> X: {tester.max_x}mm | Y: {tester.max_y}mm | Z: {tester.max_z}mm")
+
         print("[!] Enforcing Rule: Retracting Z axis before XY movement...")
         await tester.send_gcode("G0 Z0")
         await tester.wait_for_idle()
@@ -134,14 +139,14 @@ async def run_test(tester, test_type, num_trials=100):
             target_z = tester.current_z
             
             if test_type == "X":
-                target_x = round(random.uniform(0, tester.max_x), 1)
+                target_x = random.randint(0, int(tester.max_x))
             elif test_type == "Y":
-                target_y = round(random.uniform(0, tester.max_y), 1)
+                target_y = random.randint(0, int(tester.max_y))
             elif test_type == "XY":
-                target_x = round(random.uniform(0, tester.max_x), 1)
-                target_y = round(random.uniform(0, tester.max_y), 1)
+                target_x = random.randint(0, int(tester.max_x))
+                target_y = random.randint(0, int(tester.max_y))
             elif test_type == "Z":
-                target_z = round(random.uniform(0, tester.max_z), 1)
+                target_z = random.randint(0, int(tester.max_z))
 
             # --- RETURN TO ORIGIN (0) BEFORE EACH TRIAL ---
             print(f"Trial {trial}/{num_trials}: Returning to origin (0) before testing...")
