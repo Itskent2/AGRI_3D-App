@@ -118,42 +118,55 @@ class FarmbotTester:
             await asyncio.sleep(0.1)
 
 
-async def run_test(tester, test_type, num_trials=100):
+async def run_test(tester, test_type, num_trials=100, seed_val=None, dry_run=False):
+    if seed_val is not None:
+        random.seed(seed_val)
+        print(f"\n[!] Using Random Seed: {seed_val}")
+        
     filename = f"results_{test_type}_{int(time.time())}.csv"
+    if dry_run:
+        filename = f"dry_run_{test_type}_{seed_val if seed_val else 'random'}.csv"
     
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
         if test_type == "XY":
-            writer.writerow(["Trial", "Target_X", "Target_Y", "Target_Diagonal", "Actual_Diagonal"])
+            if dry_run:
+                writer.writerow(["Trial", "Target_X", "Target_Y", "Target_Diagonal"])
+            else:
+                writer.writerow(["Trial", "Target_X", "Target_Y", "Target_Diagonal", "Actual_Diagonal"])
         else:
-            writer.writerow(["Trial", f"Target_{test_type}", f"Actual_{test_type}"])
+            if dry_run:
+                writer.writerow(["Trial", f"Target_{test_type}"])
+            else:
+                writer.writerow(["Trial", f"Target_{test_type}", f"Actual_{test_type}"])
             
         print(f"\n[!] Starting {test_type} test for {num_trials} trials.")
         
-        print("[!] Executing specific homing sequence for this test...")
-        if test_type == "X":
-            await tester.send_gcode("$HX")
-            await tester.wait_for_idle()
-        elif test_type == "Y":
-            await tester.send_gcode("$HY")
-            await tester.wait_for_idle()
-        elif test_type == "XY":
-            await tester.send_gcode("$HX")
-            await tester.wait_for_idle()
-            await tester.send_gcode("$HY")
-            await tester.wait_for_idle()
-        elif test_type == "Z":
-            await tester.send_gcode("$HZ")
-            await tester.wait_for_idle()
+        if not dry_run:
+            print("[!] Executing specific homing sequence for this test...")
+            if test_type == "X":
+                await tester.send_gcode("$HX")
+                await tester.wait_for_idle()
+            elif test_type == "Y":
+                await tester.send_gcode("$HY")
+                await tester.wait_for_idle()
+            elif test_type == "XY":
+                await tester.send_gcode("$HX")
+                await tester.wait_for_idle()
+                await tester.send_gcode("$HY")
+                await tester.wait_for_idle()
+            elif test_type == "Z":
+                await tester.send_gcode("$HZ")
+                await tester.wait_for_idle()
 
-        print("[!] Refreshing machine dimensions after auto-dimensioning...")
-        await tester.send_gcode("$$")
-        await asyncio.sleep(2) # Give it time to parse the updated $130, $131, $132
-        print(f"    Updated Dimensions -> X: {tester.max_x}mm | Y: {tester.max_y}mm | Z: {tester.max_z}mm")
+            print("[!] Refreshing machine dimensions after auto-dimensioning...")
+            await tester.send_gcode("$$")
+            await asyncio.sleep(2) # Give it time to parse the updated $130, $131, $132
+            print(f"    Updated Dimensions -> X: {tester.max_x}mm | Y: {tester.max_y}mm | Z: {tester.max_z}mm")
 
-        print("[!] Enforcing Rule: Retracting Z axis before XY movement...")
-        await tester.send_gcode("G0 Z0")
-        await tester.wait_for_idle()
+            print("[!] Enforcing Rule: Retracting Z axis before XY movement...")
+            await tester.send_gcode("G0 Z0")
+            await tester.wait_for_idle()
 
         for trial in range(1, num_trials + 1):
             target_x = tester.current_x
@@ -171,33 +184,45 @@ async def run_test(tester, test_type, num_trials=100):
                 target_z = random.randint(0, int(tester.max_z))
 
             # --- RETURN TO ORIGIN (0) BEFORE EACH TRIAL ---
-            print(f"Trial {trial}/{num_trials}: Returning to origin (0) before testing...")
-            if test_type == "Z":
-                await tester.send_gcode("G0 Z0 F1000")
-            else:
-                await tester.send_gcode("G0 Z0") # Retract Z first
+            if not dry_run:
+                print(f"Trial {trial}/{num_trials}: Returning to origin (0) before testing...")
+                if test_type == "Z":
+                    await tester.send_gcode("G0 Z0 F1000")
+                else:
+                    await tester.send_gcode("G0 Z0") # Retract Z first
+                    await tester.wait_for_idle()
+                    
+                    if test_type == "X":
+                        await tester.send_gcode("G0 X0 F1000")
+                    elif test_type == "Y":
+                        await tester.send_gcode("G0 Y0 F1000")
+                    elif test_type == "XY":
+                        await tester.send_gcode("G0 X0 Y0 F1000")
                 await tester.wait_for_idle()
-                
-                if test_type == "X":
-                    await tester.send_gcode("G0 X0 F1000")
-                elif test_type == "Y":
-                    await tester.send_gcode("G0 Y0 F1000")
-                elif test_type == "XY":
-                    await tester.send_gcode("G0 X0 Y0 F1000")
-            await tester.wait_for_idle()
 
             # --- MOVE TO TARGET ---
             if test_type == "Z":
                 cmd = f"G0 Z{target_z} F1000"
-                print(f"Trial {trial}/{num_trials}: Moving Z to target {target_z} mm")
+                if not dry_run: print(f"Trial {trial}/{num_trials}: Moving Z to target {target_z} mm")
             else:
                 cmd = f"G0 X{target_x} Y{target_y} F1000"
                 if test_type == "X":
-                    print(f"Trial {trial}/{num_trials}: Moving X to target {target_x} mm")
+                    if not dry_run: print(f"Trial {trial}/{num_trials}: Moving X to target {target_x} mm")
                 elif test_type == "Y":
-                    print(f"Trial {trial}/{num_trials}: Moving Y to target {target_y} mm")
+                    if not dry_run: print(f"Trial {trial}/{num_trials}: Moving Y to target {target_y} mm")
                 else:
-                    print(f"Trial {trial}/{num_trials}: Moving to target X={target_x}, Y={target_y}")
+                    if not dry_run: print(f"Trial {trial}/{num_trials}: Moving to target X={target_x}, Y={target_y}")
+
+            if dry_run:
+                print(f"Trial {trial}/{num_trials}: Target Generated -> " + (f"X={target_x}, Y={target_y}" if test_type=="XY" else f"{test_type}={target_z if test_type=='Z' else target_x if test_type=='X' else target_y}"))
+                if test_type == "XY":
+                    target_diag = round(math.hypot(target_x, target_y), 2)
+                    writer.writerow([trial, target_x, target_y, target_diag])
+                else:
+                    target_val = target_x if test_type == "X" else target_y if test_type == "Y" else target_z
+                    writer.writerow([trial, target_val])
+                file.flush()
+                continue # Skip physical movement and measurement
 
             # Send Command and Wait
             await tester.send_gcode(cmd)
@@ -294,8 +319,14 @@ async def main():
 
         trials_input = input("Enter number of trials (default 100): ")
         trials = int(trials_input) if trials_input.strip().isdigit() else 100
+        
+        seed_input = input("Enter a random seed (leave blank for random): ")
+        seed_val = int(seed_input) if seed_input.strip().isdigit() else None
+        
+        dry_run_input = input("Dry run only? (generate targets without moving machine) (y/N): ")
+        dry_run = dry_run_input.strip().lower() == 'y'
 
-        await run_test(tester, test_type, trials)
+        await run_test(tester, test_type, trials, seed_val, dry_run)
 
 if __name__ == "__main__":
     try:
