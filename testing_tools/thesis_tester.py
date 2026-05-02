@@ -107,6 +107,23 @@ async def run_test(tester, test_type, num_trials=100):
             writer.writerow(["Trial", f"Target_{test_type}", f"Actual_{test_type}"])
             
         print(f"\n[!] Starting {test_type} test for {num_trials} trials.")
+        
+        print("[!] Executing specific homing sequence for this test...")
+        if test_type == "X":
+            await tester.send_gcode("$HX")
+            await tester.wait_for_idle()
+        elif test_type == "Y":
+            await tester.send_gcode("$HY")
+            await tester.wait_for_idle()
+        elif test_type == "XY":
+            await tester.send_gcode("$HX")
+            await tester.wait_for_idle()
+            await tester.send_gcode("$HY")
+            await tester.wait_for_idle()
+        elif test_type == "Z":
+            await tester.send_gcode("$HZ")
+            await tester.wait_for_idle()
+
         print("[!] Enforcing Rule: Retracting Z axis before XY movement...")
         await tester.send_gcode("G0 Z0")
         await tester.wait_for_idle()
