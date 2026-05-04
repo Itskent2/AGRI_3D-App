@@ -20,16 +20,17 @@ class NpkLevel {
   Map<String, dynamic> toJson() => {'n': n, 'p': p, 'k': k};
 }
 
-/// A single crop plot in the 1000×1000mm bed grid
+/// A single crop plant in the bed
 class Plot {
   final int id;
   final String name;
-  final int x; // Grid column position (1-based)
-  final int y; // Grid row position (1-based)
+  final double x; // Grid X position (mm)
+  final double y; // Grid Y position (mm)
   final String type; // Fixed as 'crop'
   final double moisture; // Soil moisture percentage (0–100)
   final NpkLevel npk; // Current NPK reading
   final NpkLevel targetNpk; // Operator-set target NPK
+  final bool aiDetected; // True if detected by AI automatically
 
   const Plot({
     required this.id,
@@ -40,17 +41,19 @@ class Plot {
     required this.moisture,
     required this.npk,
     required this.targetNpk,
+    this.aiDetected = false,
   });
 
   /// standard Flutter method to update state without mutating the original object
   Plot copyWith({
     int? id,
     String? name,
-    int? x,
-    int? y,
+    double? x,
+    double? y,
     double? moisture,
     NpkLevel? npk,
     NpkLevel? targetNpk,
+    bool? aiDetected,
   }) {
     return Plot(
       id: id ?? this.id,
@@ -60,6 +63,7 @@ class Plot {
       moisture: moisture ?? this.moisture,
       npk: npk ?? this.npk,
       targetNpk: targetNpk ?? this.targetNpk,
+      aiDetected: aiDetected ?? this.aiDetected,
     );
   }
 }
@@ -73,8 +77,8 @@ final List<Plot> initialPlots = [
   const Plot(
     id: 7,
     name: 'Lettuce',
-    x: 2,
-    y: 2,
+    x: 300.0,
+    y: 200.0,
     moisture: 60,
     npk: NpkLevel(n: 45, p: 30, k: 40),
     targetNpk: NpkLevel(n: 50, p: 35, k: 45),
@@ -82,8 +86,8 @@ final List<Plot> initialPlots = [
   const Plot(
     id: 8,
     name: 'Tomato',
-    x: 3,
-    y: 2,
+    x: 450.0,
+    y: 350.0,
     moisture: 55,
     npk: NpkLevel(n: 38, p: 28, k: 35),
     targetNpk: NpkLevel(n: 60, p: 40, k: 50),

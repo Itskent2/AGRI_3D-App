@@ -1,46 +1,24 @@
 // lib/screens/plot_map.dart
 
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/theme_provider.dart';
 
+import '../models/plot_model.dart';
+import '../service/ESP32/esp32_service.dart';
+
 // ─────────────────────────────────────────────────────────────
-// Constants & model
+// Constants
 // ─────────────────────────────────────────────────────────────
 
-const int kGridCols = 7;
-const int kGridRows = 7;
+const double kBedWidthMm = 1000.0;
+const double kBedHeightMm = 1000.0;
 
-class Plot {
-  final String id;
-  final String name;
-  final int col; 
-  final int row; 
-  final int moisture;
-  final Map<String, int> npk;
-  final Map<String, int> targetNpk;
-
-  Plot({
-    required this.id,
-    required this.name,
-    required this.col,
-    required this.row,
-    required this.moisture,
-    required this.npk,
-    required this.targetNpk,
-  });
-
-  Plot copyWithTarget(Map<String, int> t) => Plot(
-        id: id, name: name, col: col, row: row,
-        moisture: moisture, npk: npk, targetNpk: t,
-      );
-}
-
-final List<Plot> _initialPlots = [
-  Plot(id: '1', name: 'LETTUCE', col: 1, row: 2, moisture: 60, npk: {'n': 45, 'p': 30, 'k': 40}, targetNpk: {'n': 50, 'p': 35, 'k': 45}),
-  Plot(id: '2', name: 'TOMATO', col: 3, row: 2, moisture: 55, npk: {'n': 38, 'p': 22, 'k': 30}, targetNpk: {'n': 45, 'p': 28, 'k': 35}),
-  Plot(id: '3', name: 'BASIL', col: 5, row: 4, moisture: 40, npk: {'n': 20, 'p': 15, 'k': 18}, targetNpk: {'n': 25, 'p': 18, 'k': 22}),
-];
+// The grid visual uses fixed lines just for aesthetic structure,
+// but the actual plot dots are placed via mm coordinates.
+const int kGridCols = 5;
+const int kGridRows = 5;
 
 // ─────────────────────────────────────────────────────────────
 // Screen
@@ -54,13 +32,95 @@ class PlotMapScreen extends ConsumerStatefulWidget {
 }
 
 class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
-  List<Plot> _plots = List.from(_initialPlots);
+  List<Plot> _plots = List.from(initialPlots);
   Plot? _selectedPlot;
   bool _isEditingNpk = false;
+
+  // Map to hold our scanned thumbnails (Key: "x_y" string)
+  final Map<String, Uint8List> _stitchedImages = {};
 
   final _nCtrl = TextEditingController();
   final _pCtrl = TextEditingController();
   final _kCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    ESP32Service.instance.onFrameCaptured.listen(_handleFrameCaptured);
+    ESP32Service.instance.onPlantCandidate.listen(_handlePlantCandidate);
+  }
+
+  void _handlePlantCandidate(Map<String, dynamic> data) {
+    if (!mounted) return;
+    
+    final double x = double.parse(data['x'].toString());
+    final double y = double.parse(data['y'].toString());
+    final double conf = double.parse(data['conf'].toString());
+    final Uint8List image = data['image'] as Uint8List;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("Plant Candidate Detected"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.memory(image, height: 150),
+              const SizedBox(height: 10),
+              Text("Location: X:${x.toStringAsFixed(1)} Y:${y.toStringAsFixed(1)}"),
+              Text("Confidence: ${(conf * 100).toStringAsFixed(0)}%"),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                ESP32Service.instance.rejectPlant(x, y);
+                Navigator.pop(ctx);
+              },
+              child: const Text("Reject", style: TextStyle(color: Colors.red)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                ESP32Service.instance.confirmPlant(x, y, "AI_Weed");
+                // Add it to our local plot list temporarily
+                setState(() {
+                  _plots.add(Plot(
+                    id: DateTime.now().millisecondsSinceEpoch,
+                    name: "AI_Weed",
+                    x: x,
+                    y: y,
+                    moisture: 0,
+                    npk: const NpkLevel(n: 0, p: 0, k: 0),
+                    targetNpk: const NpkLevel(n: 0, p: 0, k: 0),
+                    aiDetected: true,
+                  ));
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text("Confirm"),
+            ),
+          ],
+        );
+      }
+    );
+  }
+
+  void _handleFrameCaptured(Map<String, dynamic> data) {
+    if (!mounted) return;
+    try {
+      final double x = double.parse(data['x'].toString());
+      final double y = double.parse(data['y'].toString());
+      final Uint8List image = data['image'] as Uint8List;
+      
+      setState(() {
+        _stitchedImages["${x.toStringAsFixed(0)}_${y.toStringAsFixed(0)}"] = image;
+      });
+    } catch (e) {
+      debugPrint("Error handling frame: $e");
+    }
+  }
 
   @override
   void dispose() {
@@ -72,19 +132,21 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
 
   void _startEditing() {
     if (_selectedPlot == null) return;
-    _nCtrl.text = _selectedPlot!.targetNpk['n'].toString();
-    _pCtrl.text = _selectedPlot!.targetNpk['p'].toString();
-    _kCtrl.text = _selectedPlot!.targetNpk['k'].toString();
+    _nCtrl.text = _selectedPlot!.targetNpk.n.toString();
+    _pCtrl.text = _selectedPlot!.targetNpk.p.toString();
+    _kCtrl.text = _selectedPlot!.targetNpk.k.toString();
     setState(() => _isEditingNpk = true);
   }
 
   void _saveNpk() {
     if (_selectedPlot == null) return;
-    final updated = _selectedPlot!.copyWithTarget({
-      'n': int.tryParse(_nCtrl.text) ?? _selectedPlot!.targetNpk['n']!,
-      'p': int.tryParse(_pCtrl.text) ?? _selectedPlot!.targetNpk['p']!,
-      'k': int.tryParse(_kCtrl.text) ?? _selectedPlot!.targetNpk['k']!,
-    });
+    final updated = _selectedPlot!.copyWith(
+      targetNpk: NpkLevel(
+        n: double.tryParse(_nCtrl.text) ?? _selectedPlot!.targetNpk.n,
+        p: double.tryParse(_pCtrl.text) ?? _selectedPlot!.targetNpk.p,
+        k: double.tryParse(_kCtrl.text) ?? _selectedPlot!.targetNpk.k,
+      ),
+    );
     setState(() {
       _plots = _plots.map((p) => p.id == updated.id ? updated : p).toList();
       _selectedPlot = updated;
@@ -110,14 +172,51 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          RichText(
-            text: TextSpan(
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, color: textColor),
-              children: [
-                const TextSpan(text: 'PLOT '),
-                TextSpan(text: 'GRID MAP', style: TextStyle(color: accent)),
-              ],
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, color: textColor),
+                  children: [
+                    const TextSpan(text: 'PLOT '),
+                    TextSpan(text: 'GRID MAP', style: TextStyle(color: accent)),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      ESP32Service.instance.startAutoDetect(3, 3, 200.0, 200.0, 200.0);
+                    },
+                    icon: const Icon(Icons.search, size: 16),
+                    label: const Text('Auto-Detect'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      ESP32Service.instance.startPhotoScan(3, 3, 200.0, 200.0, 200.0);
+                    },
+                    icon: const Icon(Icons.camera_alt, size: 16),
+                    label: const Text('Scan Bed'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                  ),
+                ],
+              ),
+
+            ],
           ),
           const SizedBox(height: 16),
           _buildGrid(accent, isDark, gridBg, borderColor),
@@ -151,10 +250,50 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                   size: Size(box.maxWidth, box.maxHeight),
                   painter: _GridPainter(cols: kGridCols, rows: kGridRows, color: borderColor.withOpacity(0.5)),
                 ),
+                // ── Image Stitching Overlay ──
+                ..._stitchedImages.entries.map((entry) {
+                  final parts = entry.key.split('_');
+                  final x = double.parse(parts[0]);
+                  final y = double.parse(parts[1]);
+
+                  final double maxX = ESP32Service.instance.maxX > 0 ? ESP32Service.instance.maxX : kBedWidthMm;
+                  final double maxY = ESP32Service.instance.maxY > 0 ? ESP32Service.instance.maxY : kBedHeightMm;
+                  
+                  // Approximate image size on screen based on step size used in startPhotoScan (200mm)
+                  // In a real app we'd use groundW/groundH from the FRAME_META
+                  final imgSizeW = (200.0 / maxX) * box.maxWidth;
+                  final imgSizeH = (200.0 / maxY) * box.maxHeight;
+                  
+                  final cx = (x / maxX) * box.maxWidth - (imgSizeW / 2);
+                  final cy = (y / maxY) * box.maxHeight - (imgSizeH / 2);
+
+                  return Positioned(
+                    left: cx,
+                    top: cy,
+                    width: imgSizeW,
+                    height: imgSizeH,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white24, width: 0.5),
+                      ),
+                      child: Image.memory(
+                        entry.value,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                      ),
+                    ),
+                  );
+                }),
+                // ── Plant Dots ──
                 ..._plots.map((plot) {
                   final isSelected = _selectedPlot?.id == plot.id;
-                  final cx = plot.col * cellW + cellW / 2;
-                  final cy = plot.row * cellH + cellH / 2;
+                  // Map mm coordinates to screen pixels based on max bed dimensions
+                  // We flip Y if the physical origin is bottom-left
+                  final double maxX = ESP32Service.instance.maxX > 0 ? ESP32Service.instance.maxX : kBedWidthMm;
+                  final double maxY = ESP32Service.instance.maxY > 0 ? ESP32Service.instance.maxY : kBedHeightMm;
+                  
+                  final cx = (plot.x / maxX) * box.maxWidth;
+                  final cy = (plot.y / maxY) * box.maxHeight;
                   final dotR = isSelected ? 10.0 : 7.0;
 
                   return Positioned(
@@ -223,13 +362,13 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
         children: [
           Text('${plot.name} DETAILS', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1)),
           const SizedBox(height: 12),
-          _row('X', '${plot.col * 250} mm', subTextColor, textColor),
-          _row('Y', '${plot.row * 250} mm', subTextColor, textColor),
+          _row('X', '${plot.x.toStringAsFixed(1)} mm', subTextColor, textColor),
+          _row('Y', '${plot.y.toStringAsFixed(1)} mm', subTextColor, textColor),
           _row('Moisture', '${plot.moisture}%', subTextColor, textColor),
           const SizedBox(height: 16),
           Text('NPK LEVEL', style: TextStyle(fontSize: 10, color: subTextColor, letterSpacing: 2, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text('N: ${plot.npk['n']}  |  P: ${plot.npk['p']}  |  K: ${plot.npk['k']}', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+          Text('N: ${plot.npk.n}  |  P: ${plot.npk.p}  |  K: ${plot.npk.k}', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -239,7 +378,7 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
             ],
           ),
           if (!_isEditingNpk)
-            Text('N: ${plot.targetNpk['n']}  |  P: ${plot.targetNpk['p']}  |  K: ${plot.targetNpk['k']}', style: TextStyle(color: textColor, fontWeight: FontWeight.bold))
+            Text('N: ${plot.targetNpk.n}  |  P: ${plot.targetNpk.p}  |  K: ${plot.targetNpk.k}', style: TextStyle(color: textColor, fontWeight: FontWeight.bold))
           else
             Column(
               children: [
