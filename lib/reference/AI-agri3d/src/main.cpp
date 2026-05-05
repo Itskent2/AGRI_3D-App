@@ -1,43 +1,50 @@
 #include <Arduino.h>
 #include "AI_Agri3D.h"
 
+// ── Task Handlers ──────────────────────────────────────────────────────────
+TaskHandle_t CommTaskHandle = NULL;
+
+/**
+ * @brief Core 0 Task: Communication Bridge.
+ * Grouping WiFi and Nano Serial here ensures that the link between 
+ * Flutter and the Motors is never interrupted by heavy logic on Core 1.
+ */
+void commTask(void *pvParameters) {
+    AgriLog(TAG_SYSTEM, "Communication Task started on Core %d", xPortGetCoreID());
+    for (;;) {
+        networkLoop();  // Handles WebSocket, WiFi, and Discovery
+        grblLoop();     // Continuous autonomous polling of the Nano/GRBL status
+        vTaskDelay(pdMS_TO_TICKS(1)); // Yield to allow background WiFi stack processing
+    }
+}
+
 void setup() {
     Serial.begin(115200);
-    
-    // Give the USB OTG Serial port time to connect to the computer
-    // before we start printing things or connecting to WiFi
     delay(3000);
-    Serial.println("\n\n========================================");
-    Serial.println("ESP32-S3 BOOTING UP...");
-    Serial.println("========================================\n");
     
-    // Initialize AI-agri3d Core Systems
-    Serial.printf("[%lu] [BOOT] Starting networkInit()... (Free Heap: %u)\n", millis(), ESP.getFreeHeap());
-    networkInit();      // Sets up WiFi/AP, MDNS, WebSockets
-    Serial.printf("[%lu] [BOOT] networkInit() complete. (Free Heap: %u)\n", millis(), ESP.getFreeHeap());
-
-    Serial.printf("[%lu] [BOOT] Starting grblInit()... (Free Heap: %u)\n", millis(), ESP.getFreeHeap());
-    grblInit();         // Initializes UART connection to Nano
-    Serial.printf("[%lu] [BOOT] grblInit() complete. (Free Heap: %u)\n", millis(), ESP.getFreeHeap());
-
-    Serial.printf("[%lu] [BOOT] Starting cameraInit()... (Free Heap: %u)\n", millis(), ESP.getFreeHeap());
-    cameraInit();       // Initializes camera and stream task
-    Serial.printf("[%lu] [BOOT] cameraInit() complete. (Free Heap: %u)\n", millis(), ESP.getFreeHeap());
-
-    // NOTE: Unavailable for now (commented out for testing purposes)
-    // Serial.println("[BOOT] Starting routineInit()...");
-    // routineInit();      // Loads plant registry from NVS
-    // Serial.println("[BOOT] Starting sdInit()...");
-    // sdInit();           // Initializes the SD card
-    // Serial.println("[BOOT] Starting npkInit()...");
-    // npkInit();          // Initializes NPK sensor
-    // Serial.println("[BOOT] Starting environmentInit()...");
-    // environmentInit();  // Initializes environment sensors
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "========================================");
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "ESP32-S3 BOOTING UP (COMM BRIDGE)");
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "========================================\n");
     
-    Serial.println("[BOOT] SETUP COMPLETE. Entering loop().");
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "Initialising network layer...");
+    networkInit();      
+
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "Initialising GRBL bridge...");
+    grblInit();         
+
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "Initialising sensors (Rain/NPK)...");
+    sensorsInit();
+
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "Initialising camera...");
+    cameraInit();
+
+    xTaskCreatePinnedToCore(commTask, "CommTask", 8192, NULL, 3, &CommTaskHandle, 0);
+
+    AgriLog(TAG_SYSTEM, LEVEL_SUCCESS, "SETUP COMPLETE. Communication Bridge active on Core 0.");
 }
 
 void loop() {
-    networkLoop();  // Handles UDP beacon, WS polling
-    grblLoop();     // Polls GRBL status
+    // Core 1 is now reserved for the Brain/Routine task (to be implemented).
+    // For now, we yield to prevent WDT triggers.
+    vTaskDelay(pdMS_TO_TICKS(1000));
 }

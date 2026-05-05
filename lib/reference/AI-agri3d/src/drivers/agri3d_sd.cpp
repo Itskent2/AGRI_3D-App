@@ -27,11 +27,11 @@ static uint32_t      _linesSent     = 0;
 bool sdInit() {
     SD_MMC.setPins(SD_MMC_CLK_PIN, SD_MMC_CMD_PIN, SD_MMC_D0_PIN);
     if (!SD_MMC.begin("/sdcard", true)) {  // true = 1-bit mode
-        Serial.println("[SD] No card or mount failed — SD disabled.");
+        AgriLog(TAG_SD, "No card or mount failed — SD disabled.");
         return false;
     }
     uint64_t cardSize = SD_MMC.cardSize() / (1024 * 1024);
-    Serial.printf("[SD] Card mounted: %llu MB\n", cardSize);
+    AgriLog(TAG_SD, "Card mounted: %llu MB", cardSize);
     return true;
 }
 
@@ -49,7 +49,7 @@ void handleStartSD(uint8_t clientNum, const String& filename) {
         doc["reason"] = "File not found: " + filename;
         String out; serializeJson(doc, out);
         webSocket.sendTXT(clientNum, out);
-        Serial.printf("[SD] File not found: %s\n", filename.c_str());
+        AgriLog(TAG_SD, "File not found: %s", filename.c_str());
         return;
     }
 
@@ -76,7 +76,7 @@ void handleStartSD(uint8_t clientNum, const String& filename) {
     doc["lines"] = _linesTotal;
     String out; serializeJson(doc, out);
     webSocket.sendTXT(clientNum, out);
-    Serial.printf("[SD] Streaming: %s (%lu lines)\n",
+    AgriLog(TAG_SD, "Streaming: %s (%lu lines)",
                   filename.c_str(), _linesTotal);
 }
 
@@ -87,7 +87,7 @@ void handleStopSD(uint8_t clientNum) {
     if (_sdFile) _sdFile.close();
     setOperation(OP_IDLE);
     webSocket.sendTXT(clientNum, "{\"evt\":\"SD_STOPPED\"}");
-    Serial.println("[SD] Stream stopped by user.");
+    AgriLog(TAG_SD, "Stream stopped by user.");
 }
 
 void sdSignalOk() {
@@ -117,7 +117,7 @@ void sdLoop() {
         doc["lines"] = _linesSent;
         String out; serializeJson(doc, out);
         webSocket.sendTXT(_sdClientNum, out);
-        Serial.printf("[SD] Job complete. %lu lines sent.\n", _linesSent);
+        AgriLog(TAG_SD, "Job complete. %lu lines sent.", _linesSent);
         return;
     }
 
@@ -183,13 +183,13 @@ bool sdSaveImage(const uint8_t* buf, size_t len,
 
     File f = SD_MMC.open(filename, FILE_WRITE);
     if (!f) {
-        Serial.printf("[SD] Save failed: %s\n", filename);
+        AgriLog(TAG_SD, "Save failed: %s", filename);
         return false;
     }
     f.write(buf, len);
     f.close();
 
-    Serial.printf("[SD] Saved: %s (%u B)\n", filename, len);
+    AgriLog(TAG_SD, "Saved: %s (%u B)", filename, len);
     if (outPath) strncpy(outPath, filename, 96);
     return true;
 }

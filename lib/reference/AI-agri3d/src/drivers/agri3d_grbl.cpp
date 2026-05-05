@@ -36,10 +36,16 @@ static const char* NVS_MAX_Z    = "maxZ";
 static const char* NVS_DIM_VALID = "dimOk";
 static const char* NVS_CRASH    = "crash";
 
+#include <deque>
+
 // ── Internal state ─────────────────────────────────────────────────────────
 static String        _rxBuf;
 static unsigned long _lastReplyMs = 0;
 static unsigned long _lastPollMs  = 0;
+
+// ── Command Queue ──────────────────────────────────────────────────────────
+static std::deque<String> _cmdQueue;
+static bool              _nanoReady = true; // Set to true initially so the first command can fire
 
 // ============================================================================
 // ALARM CODE LOOKUP
@@ -73,10 +79,10 @@ static void loadDimensionsFromNVS() {
     _prefs.end();
 
     if (machineDim.valid) {
-        Serial.printf("[GRBL] NVS dims loaded: X=%.1f Y=%.1f Z=%.1f\n",
+        AgriLog(TAG_GRBL, "NVS dims loaded: X=%.1f Y=%.1f Z=%.1f",
                       machineDim.maxX, machineDim.maxY, machineDim.maxZ);
     } else {
-        Serial.println("[GRBL] No cached dimensions — will wait for homing.");
+        AgriLog(TAG_GRBL, "No cached dimensions — will wait for homing.");
     }
 }
 
@@ -87,7 +93,7 @@ void saveDimensionsToNVS() {
     _prefs.putFloat(NVS_MAX_Z,  machineDim.maxZ);
     _prefs.putBool(NVS_DIM_VALID, machineDim.valid);
     _prefs.end();
-    Serial.printf("[GRBL] Dims saved to NVS: X=%.1f Y=%.1f Z=%.1f\n",
+    AgriLog(TAG_GRBL, "Dims saved to NVS: X=%.1f Y=%.1f Z=%.1f",
                   machineDim.maxX, machineDim.maxY, machineDim.maxZ);
 }
 
@@ -103,7 +109,7 @@ static void loadCrashFromNVS() {
     if (stored.length() > 0) {
         lastCrash.hasRecord = true;
         stored.toCharArray(lastCrash.raw, sizeof(lastCrash.raw));
-        Serial.printf("[GRBL] NVS crash record: %s\n", lastCrash.raw);
+        AgriLog(TAG_GRBL, "NVS crash record: %s", lastCrash.raw);
     }
 }
 
@@ -118,7 +124,7 @@ void clearCrashRecord() {
     _prefs.begin(NVS_NS, false);
     _prefs.remove(NVS_CRASH);
     _prefs.end();
-    Serial.println("[GRBL] Crash record cleared.");
+    AgriLog(TAG_GRBL, "Crash record cleared.");
 }
 
 // ============================================================================
@@ -140,7 +146,7 @@ static void parseStatusString(const String& msg) {
         else if (stateStr == "Alarm") newGrbl = GRBL_ALARM;
         else if (stateStr == "Check") newGrbl = GRBL_CHECK;
         else if (stateStr == "Door")  newGrbl = GRBL_DOOR;
-        setGrbl(newGrbl);
+        sysState.setGrbl(newGrbl);
     }
 
     // ── MPos ──
@@ -157,7 +163,7 @@ static void parseStatusString(const String& msg) {
                 float x = posStr.substring(0, c1).toFloat();
                 float y = posStr.substring(c1 + 1, c2).toFloat();
                 float z = posStr.substring(c2 + 1).toFloat();
-                setPosition(x, y, z);
+                sysState.setPosition(x, y, z);
             }
         }
     }
@@ -207,7 +213,7 @@ static void parsePreviousCrash(const String& msg) {
     lastCrash.tmcZ  = extractVal("Z");
 
     saveCrashToNVS();
-    Serial.printf("[GRBL] PREVIOUS CRASH from Nano: %s\n", lastCrash.raw);
+    AgriLog(TAG_GRBL, "PREVIOUS CRASH from Nano: %s", lastCrash.raw);
 
     // Broadcast crash info to Flutter
     StaticJsonDocument<192> doc;
@@ -227,7 +233,7 @@ static void handleNanoLine(const String& line) {
 
     // Every valid reply resets the watchdog
     _lastReplyMs = millis();
-    if (sysState.nano != NANO_CONNECTED) setNano(NANO_CONNECTED);
+    if (sysState.getNano() != NANO_CONNECTED) sysState.setNano(NANO_CONNECTED);
 
     // ── Real-time status string ──
     if (line.startsWith("<") && line.endsWith(">")) {
@@ -260,8 +266,8 @@ static void handleNanoLine(const String& line) {
     // ── ALARM ──
     else if (line.startsWith("ALARM:")) {
         uint8_t code = line.substring(6).toInt();
-        setOperation(OP_ALARM_RECOVERY);
-        setGrbl(GRBL_ALARM);
+        sysState.setOperation(OP_ALARM_RECOVERY);
+        sysState.setGrbl(GRBL_ALARM);
 
         StaticJsonDocument<128> doc;
         doc["evt"]   = "ALARM";
@@ -269,7 +275,7 @@ static void handleNanoLine(const String& line) {
         doc["desc"]  = alarmCodeDescription(code);
         String out; serializeJson(doc, out);
         webSocket.broadcastTXT(out);
-        Serial.printf("[GRBL] ALARM %d: %s\n", code, alarmCodeDescription(code));
+        AgriLog(TAG_GRBL, "ALARM %d: %s", code, alarmCodeDescription(code));
         return;
     }
 
@@ -285,7 +291,7 @@ static void handleNanoLine(const String& line) {
     // ── ok ──
     else if (line == "ok") {
         sdSignalOk(); // Release SD flow-control gate
-        // Forward raw so Flutter terminal sees it
+        _nanoReady = true; // Nano is ready for the next command in the queue
     }
 
     // Forward every raw line to Flutter for the terminal view
@@ -297,7 +303,7 @@ static void handleNanoLine(const String& line) {
 // ============================================================================
 
 static uint16_t getPollInterval() {
-    switch (sysState.grbl) {
+    switch (sysState.getGrbl()) {
         case GRBL_RUN:
         case GRBL_JOG:    return POLL_INTERVAL_RUN;
         case GRBL_HOME:   return POLL_INTERVAL_HOME;
@@ -318,11 +324,11 @@ void grblInit() {
     loadDimensionsFromNVS();
     loadCrashFromNVS();
 
-    Serial.println("[GRBL] Bridge initialised.");
+    AgriLog(TAG_GRBL, "Bridge initialised.");
 }
 
 void grblLoop() {
-    // ── Non-blocking serial reader ──
+    // ── 1. Non-blocking serial reader ──
     while (NanoSerial.available()) {
         char c = (char)NanoSerial.read();
         if (c == '\n') {
@@ -334,21 +340,31 @@ void grblLoop() {
         }
     }
 
-    // ── Adaptive status poll ──
+    // ── 2. Adaptive status poll ──
+    // We poll more frequently when moving for smooth UI updates
     uint16_t interval = getPollInterval();
     if (millis() - _lastPollMs >= interval) {
         _lastPollMs = millis();
         NanoSerial.print('?');
     }
 
-    // ── Nano watchdog ──
-    // Window = max(4 × poll interval, NANO_WATCHDOG_FLOOR_MS)
-    if (sysState.nano == NANO_CONNECTED) {
-        unsigned long window = max((unsigned long)(getPollInterval() * 4),
-                                   (unsigned long)NANO_WATCHDOG_FLOOR_MS);
+    // ── 3. Command Queue Processing ──
+    if (_nanoReady && !_cmdQueue.empty()) {
+        String nextCmd = _cmdQueue.front();
+        _cmdQueue.pop_front();
+        _nanoReady = false; // Wait for 'ok' before sending next
+        NanoSerial.println(nextCmd);
+        AgriLog(TAG_GRBL, "Sent from Queue: %s", nextCmd.c_str());
+    }
+
+    // ── 4. Nano watchdog ──
+    // If the Nano stops responding to '?', mark it as unresponsive
+    if (sysState.getNano() == NANO_CONNECTED) {
+        // Window = max(4 * poll interval, 2000ms floor)
+        unsigned long window = max((unsigned long)(interval * 4), 2000UL);
         if (millis() - _lastReplyMs > window) {
-            setNano(NANO_UNRESPONSIVE);
-            Serial.println("[GRBL] WARNING: Nano unresponsive!");
+            sysState.setNano(NANO_UNRESPONSIVE);
+            AgriLog(TAG_GRBL, LEVEL_ERR, "Nano heartbeat lost! (No reply for %lu ms)", window);
         }
     }
 }
@@ -357,10 +373,10 @@ bool waitForGrblIdle(uint32_t timeoutMs) {
     unsigned long start = millis();
     // Give GRBL a moment to leave Idle before we start checking
     delay(300);
-    while (sysState.grbl != GRBL_IDLE) {
+    while (sysState.getGrbl() != GRBL_IDLE) {
         grblLoop(); // Keep reading serial while waiting
         if (millis() - start > timeoutMs) {
-            Serial.println("[GRBL] waitForIdle: TIMEOUT");
+            AgriLog(TAG_GRBL, LEVEL_ERR, "waitForIdle: TIMEOUT");
             return false;
         }
         delay(50);
@@ -369,6 +385,19 @@ bool waitForGrblIdle(uint32_t timeoutMs) {
 }
 
 void requestMachineDimensions() {
-    NanoSerial.println("$$");
-    Serial.println("[GRBL] Requested $$ from Nano.");
+    enqueueGrblCommand("$$");
+    AgriLog(TAG_GRBL, LEVEL_INFO, "Enqueued $$ for Nano.");
+}
+
+void enqueueGrblCommand(const String& cmd) {
+    if (cmd.length() == 0) return;
+    
+    // Real-time overrides bypass the queue
+    if (cmd == "?" || cmd == "!" || cmd == "~") {
+        NanoSerial.print(cmd);
+        return;
+    }
+
+    _cmdQueue.push_back(cmd);
+    AgriLog(TAG_GRBL, LEVEL_INFO, "Enqueued: %s (Queue size: %d)", cmd.c_str(), _cmdQueue.size());
 }

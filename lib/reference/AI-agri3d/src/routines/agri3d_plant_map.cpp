@@ -21,18 +21,18 @@
  * @return true if both homing cycles completed successfully.
  */
 static bool homeScanAxes() {
-    Serial.println("[SCAN] Homing X...");
-    NanoSerial.println("$HX");
+    AgriLog(TAG_ROUTINE, LEVEL_INFO, "Homing X...");
+    enqueueGrblCommand("$HX");
     if (!waitForGrblIdle(SCAN_HOME_TIMEOUT_MS)) {
-        Serial.println("[SCAN] ERROR: $HX timeout");
+        AgriLog(TAG_ROUTINE, LEVEL_ERR, "$HX timeout");
         return false;
     }
     delay(300);
 
-    Serial.println("[SCAN] Homing Y...");
-    NanoSerial.println("$HY");
+    AgriLog(TAG_ROUTINE, LEVEL_INFO, "Homing Y...");
+    enqueueGrblCommand("$HY");
     if (!waitForGrblIdle(SCAN_HOME_TIMEOUT_MS)) {
-        Serial.println("[SCAN] ERROR: $HY timeout");
+        AgriLog(TAG_ROUTINE, LEVEL_ERR, "$HY timeout");
         return false;
     }
     delay(300);
@@ -41,7 +41,7 @@ static bool homeScanAxes() {
     requestMachineDimensions();
     delay(1000); // Give Nano time to dump $130/$131 replies
 
-    Serial.printf("[SCAN] Homed. Workspace: X=%.1f Y=%.1f\n",
+    AgriLog(TAG_ROUTINE, LEVEL_SUCCESS, "Homed. Workspace: X=%.1f Y=%.1f",
                   machineDim.maxX, machineDim.maxY);
     return true;
 }
@@ -82,7 +82,7 @@ static void broadcastScanError(uint8_t clientNum, const char* reason) {
     doc["reason"] = reason;
     String out; serializeJson(doc, out);
     webSocket.sendTXT(clientNum, out);
-    Serial.printf("[SCAN] ERROR: %s\n", reason);
+    AgriLog(TAG_SCAN, LEVEL_ERR, "%s", reason);
 }
 
 // ============================================================================
@@ -114,7 +114,7 @@ void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
     }
 
     int total = cols * rows;
-    Serial.printf("[SCAN] Starting %dx%d scan (%d frames) stepX=%.1f stepY=%.1f z=%.1f\n",
+    AgriLog(TAG_SCAN, LEVEL_INFO, "Starting %dx%d scan (%d frames) stepX=%.1f stepY=%.1f z=%.1f",
                   cols, rows, total, stepX, stepY, zHeight);
 
     // ── Guard: no scan while already scanning / alarmed ──────────────────
@@ -166,7 +166,7 @@ void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
 
             // Abort if client disconnected mid-scan
             if (sysState.flutter == FLUTTER_DISCONNECTED) {
-                Serial.println("[SCAN] Client disconnected — aborting scan");
+                AgriLog(TAG_ROUTINE, "Client disconnected — aborting scan");
                 aborted = true;
                 break;
             }
@@ -175,15 +175,15 @@ void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
             bool ok = captureFrameAtPosition(clientNum, frameIdx, total,
                                               targetX, targetY);
             if (!ok) {
-                Serial.printf("[SCAN] Frame %d failed — continuing\n", frameIdx);
+                AgriLog(TAG_ROUTINE, "Frame %d failed — continuing", frameIdx);
                 // Non-fatal: skip this frame, keep scanning
             }
         }
     }
 
     // ── Return to origin ──────────────────────────────────────────────────
-    Serial.println("[SCAN] Returning to origin (0, 0)");
-    NanoSerial.printf("G0 X0 Y0 F%d\n", GRBL_DEFAULT_FEEDRATE);
+    AgriLog(TAG_ROUTINE, "Returning to origin (0, 0)");
+    enqueueGrblCommand("G0 X0 Y0 F1000");
     waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
 
     // ── Restore state ─────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
     if (streamWasActive) setStreaming(true);
     broadcastScanComplete(clientNum, frameIdx, aborted);
 
-    Serial.printf("[SCAN] Done. %d/%d frames captured.\n", frameIdx, total);
+    AgriLog(TAG_ROUTINE, "Done. %d/%d frames captured.", frameIdx, total);
 }
 
 // =============================================================================

@@ -23,6 +23,11 @@ static WiFiUDP _udp;
 static unsigned long _lastBeacon = 0;
 static unsigned long _lastRetry = 0;
 
+// ── IP Lock & Watchdog ──────────────────────────────────────────────────────
+static IPAddress _lockedIP = IPAddress(0,0,0,0);
+static unsigned long _lastCommMs = 0;
+static const unsigned long COMM_TIMEOUT_MS = 10000; // 10s auto-release
+
 // ── Known WiFi networks (edit agri3d_config.h to add/remove) ──────────────
 struct WifiCred {
   const char *ssid;
@@ -43,7 +48,7 @@ static const WifiCred knownNetworks[WIFI_NET_COUNT] = {
  * @return true if connected within WIFI_CONNECT_TIMEOUT_MS.
  */
 static bool tryConnect(const char *ssid, const char *pass) {
-  Serial.printf("[NET] Trying: %s\n", ssid);
+  AgriLog(TAG_NET, LEVEL_INFO, "Trying: %s", ssid);
   WiFi.begin(ssid, pass);
 
   unsigned long start = millis();
@@ -53,28 +58,24 @@ static bool tryConnect(const char *ssid, const char *pass) {
       return false;
     }
     delay(250);
-    Serial.print('.');
   }
-  Serial.println();
   return true;
 }
 
 /** Called once a station connection is confirmed. */
 static void onStationConnected() {
-  setWifi(WIFI_CONNECTED);
-  Serial.printf("[NET] ✓ WiFi connected → %s\n",
-                WiFi.localIP().toString().c_str());
+  sysState.setWifi(WIFI_CONNECTED);
+  AgriLog(TAG_NET, LEVEL_SUCCESS, "✓ WiFi connected → %s", WiFi.localIP().toString().c_str());
 
   // Make it highly visible for the user
-  Serial.println("\n========================================");
-  Serial.print("WIFI CONNECTED! IP ADDRESS: ");
-  Serial.println(WiFi.localIP());
-  Serial.println("========================================\n");
+  AgriLog(TAG_NET, LEVEL_INFO, "========================================");
+  AgriLog(TAG_NET, LEVEL_SUCCESS, "WIFI CONNECTED! IP ADDRESS: %s", WiFi.localIP().toString().c_str());
+  AgriLog(TAG_NET, LEVEL_INFO, "========================================\n");
 
   // Start mDNS so Flutter can find the device as farmbot.local
   if (MDNS.begin(MDNS_HOSTNAME)) {
     MDNS.addService("ws", "tcp", WS_PORT);
-    Serial.printf("[NET] mDNS: ws://%s.local:%d\n", MDNS_HOSTNAME, WS_PORT);
+    AgriLog(TAG_NET, LEVEL_SUCCESS, "mDNS: ws://%s.local:%d", MDNS_HOSTNAME, WS_PORT);
   }
 
   // Start UDP for auto-discovery
@@ -96,13 +97,13 @@ void startAPMode() {
 
   // AP_MAX_CONN = 1 enforces the singleton at the network layer too
   WiFi.softAP(AP_SSID, AP_PASS, AP_CHANNEL, 0, AP_MAX_CONN);
-  Serial.printf("[NET] AP started: SSID=%s  IP=%s\n", AP_SSID,
+  AgriLog(TAG_NET, "AP started: SSID=%s  IP=%s", AP_SSID,
                 WiFi.softAPIP().toString().c_str());
 
   // UDP still works on the AP interface for local discovery
   _udp.begin(UDP_DISCOVERY_PORT);
 
-  setWifi(WIFI_DISCONNECTED); // Station is not connected — state reflects that
+  sysState.setWifi(WIFI_DISCONNECTED); // Station is not connected — state reflects that
 }
 
 void stopAPMode() {
@@ -110,7 +111,7 @@ void stopAPMode() {
     return;
   _apModeActive = false;
   WiFi.softAPdisconnect(true);
-  Serial.println("[NET] AP stopped — switched to station mode");
+  AgriLog(TAG_NET, "AP stopped — switched to station mode");
 }
 
 bool isAPMode() { return _apModeActive; }
@@ -137,8 +138,8 @@ static void wifiRetryTask(void * /*pvParameters*/) {
       return;
     }
 
-    setWifi(WIFI_CONNECTING);
-    Serial.println("[NET] Background WiFi retry...");
+    sysState.setWifi(WIFI_CONNECTING);
+    AgriLog(TAG_NET, "Background WiFi retry...");
 
     for (int i = 0; i < WIFI_NET_COUNT; i++) {
       if (tryConnect(knownNetworks[i].ssid, knownNetworks[i].pass)) {
@@ -149,8 +150,8 @@ static void wifiRetryTask(void * /*pvParameters*/) {
     }
 
     // Still nothing — stay in AP mode
-    setWifi(WIFI_DISCONNECTED);
-    Serial.println("[NET] Retry failed — staying in AP mode");
+    sysState.setWifi(WIFI_DISCONNECTED);
+    AgriLog(TAG_NET, "Retry failed — staying in AP mode");
   }
 }
 
@@ -167,65 +168,51 @@ static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
                            size_t length) {
   if (type == WStype_CONNECTED) {
 #if WS_SINGLETON
-    // Get the client's IP address and query (sid)
     IPAddress remoteIP = webSocket.remoteIP(num);
     String currentIP = remoteIP.toString();
-    String sid = "none";
-    
-    // The 'payload' for WStype_CONNECTED is the URL
-    if (payload != NULL) {
-      String url = String((char*)payload);
-      int sidIdx = url.indexOf("sid=");
-      if (sidIdx != -1) {
-        sid = url.substring(sidIdx + 4);
-        // Cut off at next param if any
-        int endIdx = sid.indexOf('&');
-        if (endIdx != -1) sid = sid.substring(0, endIdx);
-      }
-    }
 
-    // GHOST PROTECTION: If we already have a session, and the new one has NO sid,
-    // REJECT the new one immediately without touching the active session.
-    if (activeClientNum != -1 && sid == "none") {
-       Serial.printf("[NET] 🛡 Rejected Ghost (no sid) from %s to protect active client #%d\n", 
-                     currentIP.c_str(), activeClientNum);
-       webSocket.disconnect(num);
-       return;
+    // 1. IP TAKEOVER: If it's the same IP, always allow it and kick the old slot.
+    // This solves the "Ghost Session" problem when Flutter restarts.
+    if (_lockedIP != IPAddress(0,0,0,0) && _lockedIP == remoteIP) {
+        if (activeClientNum != -1 && activeClientNum != (int8_t)num) {
+            AgriLog(TAG_NET, "♻ IP Takeover: %s swapped slot #%d -> #%d", 
+                          currentIP.c_str(), activeClientNum, num);
+            webSocket.disconnect(activeClientNum);
+        }
+        _lockedIP = remoteIP;
+        _lastCommMs = millis();
+        activeClientNum = (int8_t)num;
+    } 
+    // 2. NEW LOCK: If no one is connected, lock to this IP.
+    else if (activeClientNum == -1) {
+        _lockedIP = remoteIP;
+        _lastCommMs = millis();
+        activeClientNum = (int8_t)num;
+        AgriLog(TAG_NET, "🔒 IP Locked: %s (slot #%d)", currentIP.c_str(), num);
     }
-    
-    if (activeClientNum != -1 && activeClientNum != (int8_t)num) {
-      IPAddress oldIP = webSocket.remoteIP(activeClientNum);
-      
-      // If same IP, it's a legitimate reconnection/refresh from the same device
-      if (oldIP == remoteIP) {
-        Serial.printf("[NET] ♻ Reconnection from %s (sid: %s). Swapping slots #%d -> #%d\n", 
-                      currentIP.c_str(), sid.c_str(), activeClientNum, num);
-      } else {
-        Serial.printf("[NET] ⚔ Conflict! New client %s (sid: %s) kicking old client %s\n", 
-                      currentIP.c_str(), sid.c_str(), oldIP.toString().c_str());
-      }
-      
-      webSocket.disconnect(activeClientNum);
-      activeClientNum = -1;
+    // 3. REJECTION: Someone else is using it.
+    else {
+        AgriLog(TAG_NET, LEVEL_ERR, "🛡 Rejection: %s tried to connect but %s is locked.", 
+                      currentIP.c_str(), _lockedIP.toString().c_str());
+        webSocket.disconnect(num);
+        return;
     }
-    activeClientNum = (int8_t)num;
-    Serial.printf("[NET] ✓ Flutter client #%d connected from %s (sid: %s)\n", num, currentIP.c_str(), sid.c_str());
 #endif
-    setFlutter(FLUTTER_CONNECTED);
-    // Send the full system state snapshot immediately on connect
-    broadcastSystemState();
+    sysState.setFlutter(FLUTTER_CONNECTED);
+    sysState.broadcast();
   }
 
   else if (type == WStype_DISCONNECTED) {
     if ((int8_t)num == activeClientNum) {
       activeClientNum = -1;
-      setFlutter(FLUTTER_DISCONNECTED);
-      // Stop stream and cancel any scan if the client drops
-      if (sysState.isStreaming)
-        setStreaming(false);
-      Serial.printf("[NET] Flutter client #%d disconnected\n", num);
+      // We DON'T clear _lockedIP here immediately. We allow a 10s grace period
+      // so if the app is reconnecting, it gets priority.
+      sysState.setFlutter(FLUTTER_DISCONNECTED);
+      if (sysState.isStreaming())
+        sysState.setStreaming(false);
+      AgriLog(TAG_NET, "Locked client #%d disconnected. Lock held for %s", num, _lockedIP.toString().c_str());
     }
-    return; // Don't forward disconnect to command router
+    return;
   }
 
   // Forward TEXT / BIN / PING / PONG to the command router
@@ -237,7 +224,7 @@ static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
 // ============================================================================
 
 void networkInit() {
-  setWifi(WIFI_CONNECTING);
+  sysState.setWifi(WIFI_CONNECTING);
 
   // Station mode — try every known network
   WiFi.mode(WIFI_STA);
@@ -250,7 +237,7 @@ void networkInit() {
   if (connected) {
     onStationConnected();
   } else {
-    Serial.println("[NET] All networks failed — starting AP fallback");
+    AgriLog(TAG_NET, "All networks failed — starting AP fallback");
     WiFi.mode(WIFI_AP_STA); // AP + STA so background retry can still scan
     startAPMode();
 
@@ -262,7 +249,7 @@ void networkInit() {
   // Start WebSocket server with the singleton-enforcing wrapper
   webSocket.begin();
   webSocket.onEvent(wsEventWrapper);
-  Serial.printf("[NET] WebSocket server started on port %d\n", WS_PORT);
+  AgriLog(TAG_NET, LEVEL_SUCCESS, "WebSocket server started on port %d", WS_PORT);
 }
 
 void sendDiscoveryBeacon() {
@@ -289,13 +276,14 @@ void sendDiscoveryBeacon() {
 void networkLoop() {
   webSocket.loop();
 
-  // ── Safe Frame Handoff: Process pending camera frames ──
-  // We do this AFTER webSocket.loop() to ensure pings/pongs are handled first.
-  if (sysState.pendingFrame != nullptr) {
+  // ── Zero-Copy Frame Handoff ──
+  if (sysState.pendingFrameFB != nullptr) {
     if (sysState.pendingFrameClient >= 0) {
       webSocket.sendBIN((uint8_t)sysState.pendingFrameClient, sysState.pendingFrame, sysState.pendingFrameLen);
     }
-    free(sysState.pendingFrame);
+    // Return the buffer to the camera driver now that it's sent
+    esp_camera_fb_return(sysState.pendingFrameFB);
+    sysState.pendingFrameFB = nullptr;
     sysState.pendingFrame = nullptr;
     sysState.pendingFrameLen = 0;
     sysState.pendingFrameClient = -1;
@@ -305,5 +293,16 @@ void networkLoop() {
   if (millis() - _lastBeacon >= UDP_BROADCAST_INTERVAL) {
     _lastBeacon = millis();
     sendDiscoveryBeacon();
+  }
+
+  // ── 🔒 IP Lock Watchdog ──
+  if (activeClientNum != -1) {
+    _lastCommMs = millis(); // If someone is connected, they are active by definition of webSocket.loop()
+  } else if (_lockedIP != IPAddress(0,0,0,0)) {
+    // If no one is connected but we have a lock, check timeout
+    if (millis() - _lastCommMs > COMM_TIMEOUT_MS) {
+      AgriLog(TAG_NET, "🔓 Lock released: %s timed out.", _lockedIP.toString().c_str());
+      _lockedIP = IPAddress(0,0,0,0);
+    }
   }
 }

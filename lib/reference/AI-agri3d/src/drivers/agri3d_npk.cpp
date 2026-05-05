@@ -145,7 +145,7 @@ static void broadcastNpkLive(const NpkReading& r) {
         webSocket.broadcastTXT(out);
     }
 
-    Serial.printf("[NPK] Grid(%d,%d) N=%.1f P=%.1f K=%.1f\n",
+    AgriLog(TAG_SENSORS, "Grid(%d,%d) N=%.1f P=%.1f K=%.1f",
                   r.gridX, r.gridY, r.n, r.p, r.k);
 }
 
@@ -165,7 +165,7 @@ bool npkReadNow() {
     unsigned long t = millis();
     while (NpkSerial.available() < NPK_RESP_LEN) {
         if (millis() - t > 500) {
-            Serial.println("[NPK] Timeout — no response from sensor");
+            AgriLog(TAG_SENSORS, "Timeout — no response from sensor");
             return false;
         }
         delay(10);
@@ -177,7 +177,7 @@ bool npkReadNow() {
 
     // Basic validation: check slave addr and function code
     if (buf[0] != 0x01 || buf[1] != 0x03 || buf[2] != 0x06) {
-        Serial.printf("[NPK] Bad frame: %02X %02X %02X\n", buf[0], buf[1], buf[2]);
+        AgriLog(TAG_SENSORS, "Bad frame: %02X %02X %02X", buf[0], buf[1], buf[2]);
         return false;
     }
 
@@ -276,7 +276,7 @@ void npkSendFullHistory(uint8_t clientNum) {
 
     String out; serializeJson(doc, out);
     webSocket.sendTXT(clientNum, out);
-    Serial.printf("[NPK] Sent full history for %s (%d readings)\n",
+    AgriLog(TAG_SENSORS, "Sent full history for %s (%d readings)",
                   date.c_str(), readings.size());
 }
 
@@ -288,7 +288,7 @@ void npkInit() {
     pinMode(NPK_DERE, OUTPUT);
     digitalWrite(NPK_DERE, LOW);  // Default to receive mode
     NpkSerial.begin(NPK_BAUD, SERIAL_8N1, NPK_RX_PIN, NPK_TX_PIN);
-    Serial.println("[NPK] Sensor initialised (RS485 UART2)");
+    AgriLog(TAG_SENSORS, "Sensor initialised (RS485 UART2)");
 }
 
 void npkLoop() {

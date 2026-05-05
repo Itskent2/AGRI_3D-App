@@ -56,12 +56,12 @@ bool cameraInit() {
     config.fb_count = 1;
     config.fb_location = CAMERA_FB_IN_DRAM;
     config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
-    Serial.println("[CAM] WARNING: No PSRAM — falling back to QVGA to save memory");
+    AgriLog(TAG_CAM, LEVEL_WARN, "No PSRAM — falling back to QVGA to save memory");
   }
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.printf("[CAM] ERROR: Init failed (0x%x)\n", err);
+    AgriLog(TAG_CAM, LEVEL_ERR, "Init failed (0x%x)", err);
     return false;
   }
 
@@ -78,7 +78,7 @@ bool cameraInit() {
     s->set_aec2(s, 1);          // Better AEC algorithm
   }
 
-  Serial.println("[CAM] Camera OK (UXGA JPEG)");
+  AgriLog(TAG_CAM, "Camera OK (UXGA JPEG)");
 
   // Launch stream task on Core 0 to offload it from the main network/grbl loop on Core 1
   xTaskCreatePinnedToCore(streamTask, "streamTask", 8192, nullptr, 2, nullptr,
@@ -93,41 +93,35 @@ bool cameraInit() {
 void streamTask(void * /*pvParameters*/) {
   while (true) {
     // Only stream if: flag set, camera not locked, and a client is connected
-    if (sysState.isStreaming && isCameraAvailable() &&
-        sysState.flutter == FLUTTER_CONNECTED) {
+    if (sysState.isStreaming() && isCameraAvailable() &&
+        sysState.getFlutter() == FLUTTER_CONNECTED) {
+
+      // CONGESTION CONTROL: If the network task hasn't finished sending the previous
+      // frame, don't even capture a new one. This keeps the heap clean and the CPU cool.
+      if (sysState.pendingFrame != nullptr) {
+        vTaskDelay(pdMS_TO_TICKS(10)); // Busy wait/throttle
+        continue;
+      }
 
       camera_fb_t *fb = esp_camera_fb_get();
       if (!fb) {
-        Serial.println("[CAM] [STREAM] esp_camera_fb_get() failed! Running watchdog...");
-        cameraSanityCheck();
         vTaskDelay(pdMS_TO_TICKS(100));
         continue;
       }
 
-      // Send to singleton client only
-      if (activeClientNum >= 0) {
-        // Safe Handoff: only pass to network task if previous frame is gone
-        if (sysState.pendingFrame == nullptr) {
-          sysState.pendingFrame = (uint8_t*)malloc(fb->len);
-          if (sysState.pendingFrame) {
-            memcpy(sysState.pendingFrame, fb->buf, fb->len);
-            sysState.pendingFrameLen = fb->len;
-            sysState.pendingFrameClient = activeClientNum;
-          }
-        } else {
-          // Network is busy — dropping frame to keep loop responsive
-        }
-      }
-
-      esp_camera_fb_return(fb);
+      // ZERO-COPY HANDOFF: 
+      // We pass the RAW pointer from the camera driver to the NetworkTask (Core 0).
+      // The NetworkTask is responsible for calling esp_camera_fb_return(fb).
+      sysState.pendingFrameFB = fb; 
+      sysState.pendingFrame = fb->buf;
+      sysState.pendingFrameLen = fb->len;
+      sysState.pendingFrameClient = activeClientNum;
 
       // Convert FPM to delay: delay_ms = 60000 / fpm
-      // fpm is already clamped to [1, 300] by setFpm()
-      uint32_t delayMs = 60000UL / (uint32_t)sysState.fpm;
+      uint32_t delayMs = 60000UL / (uint32_t)sysState.getFpm();
       vTaskDelay(pdMS_TO_TICKS(delayMs));
 
     } else {
-      // Nothing to stream — sleep to free the CPU
       vTaskDelay(pdMS_TO_TICKS(STREAM_IDLE_DELAY));
     }
   }
@@ -139,94 +133,63 @@ void streamTask(void * /*pvParameters*/) {
 
 bool captureFrameAtPosition(uint8_t clientNum, int idx, int total,
                             float targetX, float targetY) {
-  // ── 1. Send G-code move (skip Z — axis broken) ────────────────────────
+  // 1. Move to position
   char gcode[48];
   snprintf(gcode, sizeof(gcode), "G0 X%.2f Y%.2f F%d", targetX, targetY,
            GRBL_DEFAULT_FEEDRATE);
-  NanoSerial.println(gcode);
-  Serial.printf("[CAM] Frame %d/%d → moving to X=%.1f Y=%.1f\n", idx, total,
-                targetX, targetY);
+  enqueueGrblCommand(gcode);
+  
+  if (!waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS)) return false;
 
-  // ── 2. Wait for GRBL Idle ────────────────────────────────────────────────
-  if (!waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS)) {
-    Serial.printf("[CAM] Frame %d: move timeout — skipping capture\n", idx);
-    return false;
-  }
+  // 2. Request a high-quality frame
+  // We tell Core 0 to stop streaming and give us a dedicated shot
+  sysState.setStreaming(false);
+  delay(200); // Wait for stream task to yield
 
-  // ── 3. Stabilisation pause ────────────────────────────────────────────────
-  delay(150);
-
-  // ── 4. Capture JPEG ─────────────────────────────────────────────────────
   camera_fb_t *fb = esp_camera_fb_get();
-  if (!fb) {
-    Serial.printf("[CAM] Frame %d: esp_camera_fb_get() failed\n", idx);
-    return false;
-  }
+  if (!fb) return false;
 
-  // ── 5. Timestamp + metadata ─────────────────────────────────────────────
+  // 3. Metadata & SD Save
   time_t now = time(nullptr);
-  struct tm *tm_ = localtime(&now);
   char dateStr[12], timeStr[10];
-  snprintf(dateStr, sizeof(dateStr), "%04d-%02d-%02d", tm_->tm_year + 1900,
-           tm_->tm_mon + 1, tm_->tm_mday);
-  snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d", tm_->tm_hour,
-           tm_->tm_min, tm_->tm_sec);
+  struct tm *tm_ = localtime(&now);
+  snprintf(dateStr, sizeof(dateStr), "%04d-%02d-%02d", tm_->tm_year + 1900, tm_->tm_mon + 1, tm_->tm_mday);
+  snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d", tm_->tm_hour, tm_->tm_min, tm_->tm_sec);
 
-  // Ground coverage at current Z (using OV5640 FOV constants)
-  // When Z is fixed/unknown, use a nominal 200mm height for reference
-  float nominalZ = 200.0f; // TODO: use actual Z when axis is repaired
-  float groundW = 2.0f * nominalZ * tanf(CAM_FOV_H_DEG * 0.5f * M_PI / 180.0f);
-  float groundH = 2.0f * nominalZ * tanf(CAM_FOV_V_DEG * 0.5f * M_PI / 180.0f);
-
-  // ── 6. Always save to SD (works even when Flutter is offline) ────────────
   char sdPath[96] = {0};
 #if HW_SD_CONNECTED
-  sdSaveImage(fb->buf, fb->len, SD_IMG_PLANTMAP, 'f', idx, sysState.grblX,
-              sysState.grblY, now, sdPath);
+  sdSaveImage(fb->buf, fb->len, SD_IMG_PLANTMAP, 'f', idx, targetX, targetY, now, sdPath);
 #endif
 
-  // ── 7. Send JSON metadata header to Flutter (if connected) ────────────
-  if (sysState.flutter == FLUTTER_CONNECTED) {
+  // 4. Handoff to Core 0 for transmission
+  if (sysState.getFlutter() == FLUTTER_CONNECTED) {
     StaticJsonDocument<256> meta;
     meta["evt"] = "FRAME_META";
     meta["idx"] = idx;
     meta["total"] = total;
-    meta["x"] = serialized(String(sysState.grblX, 2));
-    meta["y"] = serialized(String(sysState.grblY, 2));
-    meta["z"] = serialized(String(sysState.grblZ, 2));
-    meta["ts"] = (long)now;
-    meta["date"] = dateStr;
-    meta["time"] = timeStr;
-    meta["groundW"] = (int)groundW; // mm — Flutter uses for stitch alignment
-    meta["groundH"] = (int)groundH;
-    meta["fovH"] = CAM_FOV_H_DEG;
-    meta["fovV"] = CAM_FOV_V_DEG;
-    if (sdPath[0])
-      meta["sdPath"] = sdPath;
-    String metaStr;
-    serializeJson(meta, metaStr);
+    meta["x"] = targetX;
+    meta["y"] = targetY;
+    meta["sdPath"] = sdPath;
+    String metaStr; serializeJson(meta, metaStr);
     webSocket.sendTXT(clientNum, metaStr);
 
-    // ── 8. Send raw JPEG immediately after metadata (Safe Handoff) ────────────
-    if (sysState.pendingFrame != nullptr) {
-        free(sysState.pendingFrame); // Clean up if something was stuck
-    }
-    sysState.pendingFrame = (uint8_t*)malloc(fb->len);
-    if (sysState.pendingFrame) {
-        memcpy(sysState.pendingFrame, fb->buf, fb->len);
-        sysState.pendingFrameLen = fb->len;
-        sysState.pendingFrameClient = clientNum;
-    }
+    // Use our new Zero-Copy bridge
+    sysState.pendingFrameFB = fb;
+    sysState.pendingFrame = fb->buf;
+    sysState.pendingFrameLen = fb->len;
+    sysState.pendingFrameClient = clientNum;
+  } else {
+    esp_camera_fb_return(fb);
   }
 
-  Serial.printf("[CAM] Frame %d: %s %s (%.1f,%.1f) %uB%s\n", idx, dateStr,
-                timeStr, sysState.grblX, sysState.grblY, fb->len,
+  return true;
+}
+
+  AgriLog(TAG_CAM, LEVEL_INFO, "Frame %d: %s %s (%.1f,%.1f) %uB%s", idx, dateStr,
+                timeStr, targetX, targetY, fb->len,
                 sdPath[0] ? " [SD]" : "");
 
-  esp_camera_fb_return(fb);
-  return true;
-                            }
-                            
+
   // =========================================================================
   // TODO(Luna): AI Hook — uncomment when ready
   // After esp_camera_fb_get(), before return:
@@ -243,7 +206,7 @@ void cameraSanityCheck() {
     }
     
     if (millis() - lastSuccess > 10000) { 
-        Serial.println("[WATCHDOG] Camera unresponsive for 10s. Attempting reset...");
+        AgriLog(TAG_CAM, LEVEL_ERR, "[WATCHDOG] Camera unresponsive for 10s. Attempting reset...");
         esp_camera_deinit();
         delay(100);
         cameraInit(); // Re-init

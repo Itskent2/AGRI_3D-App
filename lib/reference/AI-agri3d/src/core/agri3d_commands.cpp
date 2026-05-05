@@ -56,7 +56,7 @@ void webSocketEvent(uint8_t num, WStype_t type,
     if (cmd.length() == 0) return;
 
 #if AGRI3D_DEBUG
-    Serial.printf("[CMD] #%d: %s\n", num, cmd.c_str());
+    AgriLog(TAG_CMD, LEVEL_INFO, "#%d: %s", num, cmd.c_str());
 #endif
 
     // ── Stream ──────────────────────────────────────────────────────────────
@@ -65,11 +65,11 @@ void webSocketEvent(uint8_t num, WStype_t type,
             sendError(num, "Camera locked by active operation");
             return;
         }
-        setStreaming(true);
+        sysState.setStreaming(true);
         return;
     }
     if (cmd == "STOP_STREAM") {
-        setStreaming(false);
+        sysState.setStreaming(false);
         return;
     }
     if (startsWith(cmd, "SET_FPM:")) {
@@ -78,7 +78,7 @@ void webSocketEvent(uint8_t num, WStype_t type,
             sendError(num, "FPM out of range (1-300)");
             return;
         }
-        setFpm(fpm);
+        sysState.setFpm(fpm);
         return;
     }
     if (startsWith(cmd, "SET_RES:")) {
@@ -86,14 +86,14 @@ void webSocketEvent(uint8_t num, WStype_t type,
         sensor_t *s = esp_camera_sensor_get();
         if (s) {
             s->set_framesize(s, (framesize_t)res);
-            Serial.printf("[CAM] Resolution set to %d\n", res);
+            AgriLog(TAG_CAM, LEVEL_INFO, "Resolution set to %d", res);
         }
         return;
     }
 
     // ── State queries ────────────────────────────────────────────────────────
     if (cmd == "GET_STATE") {
-        broadcastSystemState();
+        sysState.broadcast();
         // Also re-send plant map and today's NPK history on reconnect
         broadcastPlantMap(num);
         npkSendFullHistory(num);
@@ -123,29 +123,29 @@ void webSocketEvent(uint8_t num, WStype_t type,
 
     // ── Gantry / GRBL ────────────────────────────────────────────────────────
     if (cmd == "HOME_X") {
-        setOperation(OP_HOMING);
-        NanoSerial.println("$HX");
+        sysState.setOperation(OP_HOMING);
+        enqueueGrblCommand("$HX");
         return;
     }
     if (cmd == "HOME_Y") {
-        setOperation(OP_HOMING);
-        NanoSerial.println("$HY");
+        sysState.setOperation(OP_HOMING);
+        enqueueGrblCommand("$HY");
         return;
     }
     if (cmd == "UNLOCK") {
-        NanoSerial.println("$X");
-        setOperation(OP_IDLE);
+        enqueueGrblCommand("$X");
+        sysState.setOperation(OP_IDLE);
         return;
     }
     if (cmd == "ESTOP") {
         NanoSerial.write(0x18); // Ctrl-X — GRBL hard stop
-        setOperation(OP_ALARM_RECOVERY);
+        sysState.setOperation(OP_ALARM_RECOVERY);
         webSocket.sendTXT(num, "{\"evt\":\"ESTOP_SENT\"}");
         return;
     }
     if (startsWith(cmd, "GCODE:")) {
         // Raw G-code passthrough — forward directly
-        NanoSerial.println(args(cmd));
+        enqueueGrblCommand(args(cmd));
         return;
     }
 
@@ -253,7 +253,7 @@ void webSocketEvent(uint8_t num, WStype_t type,
     }
 
     if (cmd == "REBOOT") {
-        Serial.println("[CMD] REBOOTING ESP32...");
+        AgriLog(TAG_CMD, LEVEL_WARN, "REBOOTING ESP32 via command #%d", num);
         webSocket.sendTXT(num, "{\"evt\":\"REBOOTING\"}");
         delay(500);
         ESP.restart();
@@ -263,5 +263,5 @@ void webSocketEvent(uint8_t num, WStype_t type,
     // ── Fallback: raw G-code passthrough ────────────────────────────────────
     // Anything that didn't match a command is forwarded directly to the Nano.
     // This allows Flutter to send raw GRBL commands like $H, $X, G0 X10 etc.
-    NanoSerial.println(cmd);
+    enqueueGrblCommand(cmd);
 }

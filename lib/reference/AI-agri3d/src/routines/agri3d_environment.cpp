@@ -58,7 +58,7 @@ static void weatherTask(void* /*pvParameters*/) {
             // Gate if: WMO code ≥ 51 (drizzle/rain/storm) OR precip > 70%
             _weatherGated = (weatherCode >= WEATHER_RAIN_CODE_MIN || precipProb > 70);
 
-            Serial.printf("[ENV] Weather: code=%d precip=%d%% gated=%s\n",
+            AgriLog(TAG_ENV, "Weather: code=%d precip=%d%% gated=%s",
                           weatherCode, precipProb, _weatherGated ? "YES" : "NO");
 
             // Broadcast weather info to Flutter
@@ -70,7 +70,7 @@ static void weatherTask(void* /*pvParameters*/) {
             String out; serializeJson(doc, out);
             webSocket.broadcastTXT(out);
         } else {
-            Serial.printf("[ENV] Weather API failed: HTTP %d\n", code);
+            AgriLog(TAG_ENV, "Weather API failed: HTTP %d", code);
         }
         http.end();
 
@@ -95,7 +95,7 @@ void setWeatherLocation(float lat, float lon) {
     _prefs.putFloat("lat", lat);
     _prefs.putFloat("lon", lon);
     _prefs.end();
-    Serial.printf("[ENV] Location set: %.4f, %.4f\n", lat, lon);
+    AgriLog(TAG_ENV, "Location set: %.4f, %.4f", lat, lon);
 }
 
 void environmentInit() {
@@ -106,7 +106,7 @@ void environmentInit() {
     _prefs.end();
 
     pinMode(RAIN_PIN, INPUT_PULLDOWN);
-    Serial.printf("[ENV] Rain pin=%d  Location=%.4f,%.4f\n",
+    AgriLog(TAG_ENV, "Rain pin=%d  Location=%.4f,%.4f",
                   RAIN_PIN, _lat, _lon);
 
     // Weather task on Core 0 so it doesn't interfere with camera on Core 1
@@ -134,19 +134,17 @@ void environmentLoop() {
 
     if (newEnv == sysState.environment) return;
 
-    // Rain just started → send feed-hold to Nano
-    if (rainNow && sysState.environment == ENV_CLEAR) {
-        Serial.println("[ENV] Rain detected — sending feed-hold to Nano");
-        NanoSerial.print('!'); // GRBL real-time feed hold
-        setOperation(OP_RAIN_PAUSED);
+    if (rainNow && sysState.getEnvironment() == ENV_CLEAR) {
+        AgriLog(TAG_ENV, "Rain detected — sending feed-hold to Nano");
+        NanoSerial.print('!'); // Real-time bypass
+        sysState.setOperation(OP_RAIN_PAUSED);
     }
 
-    // Rain cleared → auto-resume if we had paused
     if (!rainNow && !_weatherGated &&
-        sysState.operation == OP_RAIN_PAUSED) {
-        Serial.println("[ENV] Rain cleared — resuming");
-        NanoSerial.print('~'); // GRBL cycle resume
-        setOperation(OP_IDLE);
+        sysState.getOperation() == OP_RAIN_PAUSED) {
+        AgriLog(TAG_ENV, "Rain cleared — resuming");
+        NanoSerial.print('~'); // Real-time bypass
+        sysState.setOperation(OP_IDLE);
     }
 
     setEnvironment(newEnv);

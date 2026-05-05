@@ -112,5 +112,12 @@ void saveDimensionsToNVS();
 /** Save lastCrash to NVS. Called automatically when a crash is parsed. */
 void saveCrashToNVS();
 
+/**
+ * @brief Enqueue a G-code command to be sent to the Nano.
+ *        Commands are sent sequentially only when the Nano is ready ('ok' received).
+ *        Real-time commands (?, !, ~) bypass the queue and are sent immediately.
+ */
+void enqueueGrblCommand(const String& cmd);
+
 /** Clear the crash record from RAM and NVS (e.g. after user acknowledges). */
 void clearCrashRecord();

@@ -12,14 +12,7 @@
  */
 
 #include "agri3d_routine.h"
-#include "agri3d_config.h"
-#include "agri3d_state.h"
-#include "agri3d_grbl.h"
-#include "agri3d_camera.h"
-#include "agri3d_plant_map.h"
-#include "agri3d_npk.h"
-#include "agri3d_environment.h"
-#include "agri3d_network.h"
+#include "../core/AI_Agri3D.h"
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <math.h>
@@ -83,7 +76,7 @@ static void loadPlantRegistry() {
         plantRegistry[i].active  = true;
     }
     _prefs.end();
-    Serial.printf("[ROUTINE] Loaded %d plants from NVS.\n", plantCount);
+    AgriLog(TAG_ROUTINE, "Loaded %d plants from NVS.", plantCount);
 }
 
 // ============================================================================
@@ -130,7 +123,7 @@ void broadcastPlantMap(uint8_t clientNum) {
 static void performFertigation(uint8_t clientNum, const PlantPosition& plant,
                                 const SoilReading& soil, const RoutineConfig& cfg) {
     // Weather gate check (isWeatherGated set by agri3d_environment)
-    if (sysState.environment != ENV_CLEAR) {
+    if (sysState.getEnvironment() != ENV_CLEAR) {
         webSocket.sendTXT(clientNum,
             "{\"evt\":\"FERTIGATION_SKIP\",\"reason\":\"WEATHER_GATED\"}");
         return;
@@ -139,10 +132,10 @@ static void performFertigation(uint8_t clientNum, const PlantPosition& plant,
     // ── Water ───────────────────────────────────────────────────────────────
     if (cfg.doWatering && soil.moisture < 40.0f) {
         // TODO: Make threshold configurable per plant
-        Serial.println("[ROUTINE] Watering: M7 (pump on)");
-        NanoSerial.println("M7");
+        AgriLog(TAG_FERT, "Watering: M7 (pump on)");
+        enqueueGrblCommand("M7");
         delay(3000); // TODO: Calculate duration from deficit
-        NanoSerial.println("M9"); // Pump off
+        enqueueGrblCommand("M9"); // Pump off
         webSocket.sendTXT(clientNum, "{\"evt\":\"WATERED\"}");
     }
 
@@ -164,8 +157,8 @@ static void performFertigation(uint8_t clientNum, const PlantPosition& plant,
 
         if (fertMl > 0) {
             String fertCmd = "M7 ml" + String((int)fertMl);
-            NanoSerial.println(fertCmd);
-            Serial.printf("[ROUTINE] Fertilizing: %s (%.0f mL)\n",
+            enqueueGrblCommand(fertCmd);
+            AgriLog(TAG_FERT, LEVEL_SUCCESS, "Fertilizing: %s (%.0f mL)",
                           fertCmd.c_str(), fertMl);
 
             StaticJsonDocument<96> doc;
@@ -227,7 +220,7 @@ static void performWeedAction(uint8_t clientNum, float captureX, float captureY,
 
     (void)clientNum; (void)captureX; (void)captureY;
     (void)jpegBuf;   (void)jpegLen;
-    Serial.println("[WEED] Detection stub — TODO(Luna)");
+    AgriLog(TAG_WEED, LEVEL_INFO, "Detection stub — TODO(Luna)");
 }
 
 // ============================================================================
@@ -242,17 +235,17 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
     }
 
     // Guard against running while busy
-    if (sysState.operation != OP_IDLE) {
+    if (sysState.getOperation() != OP_IDLE) {
         webSocket.sendTXT(clientNum,
             "{\"evt\":\"CYCLE_ERROR\",\"reason\":\"System busy\"}");
         return;
     }
 
     // ── Weather gate check ────────────────────────────────────────────────
-    if (sysState.environment != ENV_CLEAR) {
+    if (sysState.getEnvironment() != ENV_CLEAR) {
         webSocket.sendTXT(clientNum,
             "{\"evt\":\"CYCLE_SKIP\",\"reason\":\"WEATHER_GATED\"}");
-        Serial.println("[ROUTINE] Cycle skipped: weather gate active");
+        AgriLog(TAG_ENV, LEVEL_WARN, "Cycle skipped: weather gate active");
         return;
     }
 
@@ -265,13 +258,13 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
         webSocket.sendTXT(clientNum, out);
     }
 
-    bool streamWasActive = sysState.isStreaming;
-    setStreaming(false);
-    setOperation(OP_HOMING);
+    bool streamWasActive = sysState.isStreaming();
+    sysState.setStreaming(false);
+    sysState.setOperation(OP_HOMING);
 
     // ── Pre-cycle homing ──────────────────────────────────────────────────
-    NanoSerial.println("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
-    NanoSerial.println("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
+    enqueueGrblCommand("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
+    enqueueGrblCommand("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
     requestMachineDimensions();
     delay(1000);
 
@@ -279,13 +272,18 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
 
     for (int i = 0; i < MAX_PLANTS; i++) {
         if (!plantRegistry[i].active) continue;
-        if (sysState.flutter == FLUTTER_DISCONNECTED) break; // Abort if app disconnected
+        if (sysState.getFlutter() == FLUTTER_DISCONNECTED) break; // Abort if app disconnected
 
         PlantPosition& plant = plantRegistry[i];
-        plantsDone++;
+        
+        // 1. Weather Gate
+        if (isRaining()) {
+            AgriLog(TAG_ROUTINE, "⛈ Skipping plant because it's raining.");
+            return; 
+        }
 
-        Serial.printf("[ROUTINE] Plant %d/%d: %s (%.1f, %.1f)\n",
-                      plantsDone, plantCount, plant.name, plant.x, plant.y);
+        AgriLog(TAG_ROUTINE, "Starting cycle for plant: %s", plant.name);
+        plantsDone++;
 
         // ── Broadcast current plant ───────────────────────────────────────
         {
@@ -299,16 +297,18 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
             webSocket.sendTXT(clientNum, out);
         }
 
-        setOperation(OP_SD_RUNNING); // Reuse as "routine running" state for now
+        sysState.setOperation(OP_SD_RUNNING); // Reuse as "routine running" state for now
 
         // ── STEP 1: Move to plant ─────────────────────────────────────────
-        NanoSerial.printf("G0 X%.1f Y%.1f F%d\n",
-                          plant.x, plant.y, GRBL_DEFAULT_FEEDRATE);
+        char moveCmd[48];
+        snprintf(moveCmd, sizeof(moveCmd), "G0 X%.1f Y%.1f F%d", 
+                 plant.x, plant.y, GRBL_DEFAULT_FEEDRATE);
+        enqueueGrblCommand(moveCmd);
         waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
 
         // ── STEP 2: NPK read ─────────────────────────────────────────────
         // TODO: Lower Z to cfg.zSensorHeight when Z is fixed
-        // NanoSerial.printf("G0 Z%.1f F500\n", cfg.zSensorHeight);
+        // enqueueGrblCommand(String("G0 Z") + String(cfg.zSensorHeight) + " F500");
         // waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
         npkReadNow();
         SoilReading soil = latestSoil;
@@ -320,7 +320,7 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
         // ── STEP 4: Raise Z + Photo ───────────────────────────────────────
         // TODO: NanoSerial.printf("G0 Z%.1f F500\n", cfg.zCameraHeight);
         // TODO: waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
-        setOperation(OP_SCANNING);
+        sysState.setOperation(OP_SCANNING);
 
         camera_fb_t* fb = esp_camera_fb_get();
         if (fb) {
@@ -329,9 +329,9 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
             meta["evt"]   = "FRAME_META";
             meta["idx"]   = plantsDone;
             meta["total"] = plantCount;
-            meta["x"]     = sysState.grblX;
-            meta["y"]     = sysState.grblY;
-            meta["z"]     = sysState.grblZ;
+            meta["x"]     = sysState.getX();
+            meta["y"]     = sysState.getY();
+            meta["z"]     = sysState.getZ();
             meta["plant"] = plant.name;
             String metaStr; serializeJson(meta, metaStr);
             webSocket.sendTXT(clientNum, metaStr);
@@ -339,7 +339,14 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
 
             // ── STEP 5: Weed detection ─────────────────────────────────────
             if (cfg.doWeedScan) {
-                performWeedAction(clientNum, sysState.grblX, sysState.grblY,
+                // 4. Weed Detection (AI Hook)
+                AiResult ai = aiAnalyzeFrame(sysState.pendingFrame, sysState.pendingFrameLen);
+                if (ai.foundWeed && ai.confidence > 0.8f) {
+                    AgriLog(TAG_WEED, "⚠️ Weed detected at (+%d, +%d)! Taking action...", 
+                                  ai.xOffset, ai.yOffset);
+                    // TODO: Move to relative offset and activate weed tool
+                }
+                performWeedAction(clientNum, sysState.getX(), sysState.getY(),
                                    fb->buf, fb->len);
             }
 
@@ -351,15 +358,15 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
     NanoSerial.printf("G0 X0 Y0 F%d\n", GRBL_DEFAULT_FEEDRATE);
     waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
 
-    setOperation(OP_IDLE);
-    if (streamWasActive) setStreaming(true);
+    sysState.setOperation(OP_IDLE);
+    if (streamWasActive) sysState.setStreaming(true);
 
     StaticJsonDocument<96> doc;
     doc["evt"]   = "CYCLE_COMPLETE";
     doc["done"]  = plantsDone;
     String out; serializeJson(doc, out);
     webSocket.sendTXT(clientNum, out);
-    Serial.printf("[ROUTINE] Cycle complete. %d plants serviced.\n", plantsDone);
+    AgriLog(TAG_SCAN, LEVEL_SUCCESS, "Cycle complete. %d plants serviced.", plantsDone);
 }
 
 // ============================================================================
@@ -377,11 +384,11 @@ void handleScanNpk(uint8_t clientNum, float stepX, float stepY) {
     int rows = (int)(machineDim.maxY / stepY) + 1;
     int total = cols * rows;
 
-    setStreaming(false);
-    setOperation(OP_HOMING);
-    NanoSerial.println("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
-    NanoSerial.println("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
-    setOperation(OP_SCANNING);
+    sysState.setStreaming(false);
+    sysState.setOperation(OP_HOMING);
+    enqueueGrblCommand("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
+    enqueueGrblCommand("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
+    sysState.setOperation(OP_SCANNING);
 
     StaticJsonDocument<96> doc;
     doc["evt"]   = "SCAN_NPK_START";
@@ -398,7 +405,9 @@ void handleScanNpk(uint8_t clientNum, float stepX, float stepY) {
             tx = min(tx, machineDim.maxX);
             ty = min(ty, machineDim.maxY);
 
-            NanoSerial.printf("G0 X%.1f Y%.1f F%d\n", tx, ty, GRBL_DEFAULT_FEEDRATE);
+            char moveCmd[48];
+            snprintf(moveCmd, sizeof(moveCmd), "G0 X%.1f Y%.1f F%d", tx, ty, GRBL_DEFAULT_FEEDRATE);
+            enqueueGrblCommand(moveCmd);
             waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
             delay(200); // Stabilise before reading
             npkReadNow(); // Broadcasts to Flutter automatically
@@ -407,8 +416,8 @@ void handleScanNpk(uint8_t clientNum, float stepX, float stepY) {
 
     NanoSerial.printf("G0 X0 Y0 F%d\n", GRBL_DEFAULT_FEEDRATE);
     waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
-    setOperation(OP_IDLE);
-    setStreaming(true);
+    sysState.setOperation(OP_IDLE);
+    sysState.setStreaming(true);
     webSocket.sendTXT(clientNum, "{\"evt\":\"SCAN_NPK_COMPLETE\"}");
 }
 
@@ -438,8 +447,8 @@ void handleScanFull(uint8_t clientNum, const String& params) {
 
     setStreaming(false);
     setOperation(OP_HOMING);
-    NanoSerial.println("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
-    NanoSerial.println("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
+    enqueueGrblCommand("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
+    enqueueGrblCommand("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
     requestMachineDimensions(); delay(1000);
     setOperation(OP_SCANNING);
 
@@ -452,7 +461,7 @@ void handleScanFull(uint8_t clientNum, const String& params) {
     int frameIdx = 0;
     for (int row = 0; row < rows; row++) {
         for (int colStep = 0; colStep < cols; colStep++) {
-            if (sysState.flutter == FLUTTER_DISCONNECTED) goto done;
+            if (sysState.getFlutter() == FLUTTER_DISCONNECTED) goto done;
             int col = (row % 2 == 0) ? colStep : (cols - 1 - colStep);
             float tx = min(col * stepX, machineDim.maxX);
             float ty = min(row * stepY, machineDim.maxY);
@@ -471,8 +480,8 @@ void handleScanFull(uint8_t clientNum, const String& params) {
 done:
     NanoSerial.printf("G0 X0 Y0 F%d\n", GRBL_DEFAULT_FEEDRATE);
     waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
-    setOperation(OP_IDLE);
-    setStreaming(true);
+    sysState.setOperation(OP_IDLE);
+    sysState.setStreaming(true);
 
     StaticJsonDocument<64> done_doc;
     done_doc["evt"]   = "SCAN_FULL_COMPLETE";
@@ -545,7 +554,7 @@ void handleRegisterPlant(uint8_t clientNum, const String& params) {
     doc["y"]    = y;
     String out; serializeJson(doc, out);
     webSocket.sendTXT(clientNum, out);
-    Serial.printf("[ROUTINE] Plant registered: %s (%.1f, %.1f)\n",
+    AgriLog(TAG_ROUTINE, "Plant registered: %s (%.1f, %.1f)",
                   plantRegistry[slot].name, x, y);
 }
 
@@ -556,7 +565,7 @@ void handleClearPlants(uint8_t clientNum) {
     _prefs.clear();
     _prefs.end();
     webSocket.sendTXT(clientNum, "{\"evt\":\"PLANTS_CLEARED\"}");
-    Serial.println("[ROUTINE] Plant registry cleared.");
+    AgriLog(TAG_ROUTINE, "Plant registry cleared.");
 }
 
 // ============================================================================
@@ -584,11 +593,11 @@ void handleAutoDetectPlants(uint8_t clientNum, const String& params) {
     memset(candidateBuffer, 0, sizeof(candidateBuffer));
     candidateCount = 0;
 
-    bool streamWasActive = sysState.isStreaming;
-    setStreaming(false);
-    setOperation(OP_HOMING);
-    NanoSerial.println("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
-    NanoSerial.println("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
+    bool streamWasActive = sysState.isStreaming();
+    sysState.setStreaming(false);
+    sysState.setOperation(OP_HOMING);
+    enqueueGrblCommand("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
+    enqueueGrblCommand("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
     requestMachineDimensions(); delay(1000);
     setOperation(OP_SCANNING);
 
@@ -601,7 +610,7 @@ void handleAutoDetectPlants(uint8_t clientNum, const String& params) {
     int frameIdx = 0;
     for (int row = 0; row < rows; row++) {
         for (int colStep = 0; colStep < cols; colStep++) {
-            if (sysState.flutter == FLUTTER_DISCONNECTED) goto detect_done;
+            if (sysState.getFlutter() == FLUTTER_DISCONNECTED) goto detect_done;
             int col = (row % 2 == 0) ? colStep : (cols - 1 - colStep);
             float tx = min(col * stepX, machineDim.maxX);
             float ty = min(row * stepY, machineDim.maxY);
@@ -654,7 +663,7 @@ void handleAutoDetectPlants(uint8_t clientNum, const String& params) {
                 // Send JPEG thumbnail immediately after
                 webSocket.sendBIN(clientNum, fb->buf, fb->len);
 
-                Serial.printf("[DETECT] Candidate #%d at (%.1f, %.1f) conf=%.2f\n",
+                AgriLog(TAG_SYSTEM, "Candidate #%d at (%.1f, %.1f) conf=%.2f",
                               candidateCount, tx, ty, confidence);
             }
 
@@ -678,8 +687,8 @@ void handleAutoDetectPlants(uint8_t clientNum, const String& params) {
 detect_done:
     NanoSerial.printf("G0 X0 Y0 F%d\n", GRBL_DEFAULT_FEEDRATE);
     waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
-    setOperation(OP_IDLE);
-    if (streamWasActive) setStreaming(true);
+    sysState.setOperation(OP_IDLE);
+    if (streamWasActive) sysState.setStreaming(true);
 
     // Tell Flutter how many candidates need review
     StaticJsonDocument<96> doneDoc;
@@ -689,7 +698,7 @@ detect_done:
     String doneOut; serializeJson(doneDoc, doneOut);
     webSocket.sendTXT(clientNum, doneOut);
 
-    Serial.printf("[DETECT] Done. %d frames, %d candidates.\n",
+    AgriLog(TAG_SYSTEM, "Done. %d frames, %d candidates.",
                   frameIdx, candidateCount);
 }
 
@@ -748,7 +757,7 @@ void handleRejectPlant(uint8_t clientNum, const String& params) {
         if (fabsf(candidateBuffer[i].x - x) < 10 &&
             fabsf(candidateBuffer[i].y - y) < 10) {
             candidateBuffer[i].pending = false;
-            Serial.printf("[DETECT] Rejected candidate at (%.1f, %.1f)\n", x, y);
+            AgriLog(TAG_SYSTEM, "Rejected candidate at (%.1f, %.1f)", x, y);
             break;
         }
     }
@@ -759,11 +768,58 @@ void handleRejectPlant(uint8_t clientNum, const String& params) {
     webSocket.sendTXT(clientNum, out);
 }
 
-// ============================================================================
-// INIT
-// ============================================================================
+// ── Routine Worker Task ───────────────────────────────────────────────────
+static TaskHandle_t _routineTaskHandle = NULL;
+static uint32_t     _pendingRoutine = 0; // Bitmask of routines to run
 
 void routineInit() {
-    memset(plantRegistry, 0, sizeof(plantRegistry));
     loadPlantRegistry();
+    
+    // Create the Routine Task (The Brain) on Core 1
+    xTaskCreatePinnedToCore(
+        routineWorkerTask,
+        "RoutineTask",
+        8192,
+        NULL,
+        2, // Mid priority
+        &_routineTaskHandle,
+        1 // Pinned to Core 1
+    );
+    AgriLog(TAG_ROUTINE, "Brain initialized on Core 1.");
+}
+
+void routineWorkerTask(void* pvParameters) {
+    for (;;) {
+        // Wait for a notification to start a routine
+        uint32_t routineType;
+        if (xTaskNotifyWait(0, 0xFFFFFFFF, &routineType, portMAX_DELAY) == pdTRUE) {
+            
+            // 1. Weather Gate: Check for Rain
+            if (isRaining()) {
+                AgriLog(TAG_ROUTINE, "⛈ Rain detected! Gating autonomous actions.");
+                sysState.setOperation(OP_RESTING);
+                webSocket.broadcastTXT("{\"evt\":\"WEATHER_GATE\",\"status\":\"RAINING\",\"action\":\"SLEEP\"}");
+                
+                // Wait for rain to stop or user override (simplified for now)
+                vTaskDelay(pdMS_TO_TICKS(5000));
+                continue; 
+            }
+
+            // 2. Execute Routine
+            if (routineType == 1) { // Farming Cycle
+                handleFarmingCycle();
+            } else if (routineType == 2) { // Full Grid Scan
+                // handleFullGridScan(); // To be refactored
+            }
+            
+            sysState.setOperation(OP_IDLE);
+            AgriLog(TAG_ROUTINE, "Sequence complete.");
+        }
+    }
+}
+
+void startRoutine(uint32_t type) {
+    if (_routineTaskHandle) {
+        xTaskNotify(_routineTaskHandle, type, eSetValueWithOverwrite);
+    }
 }

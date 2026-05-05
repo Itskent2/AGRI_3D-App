@@ -15,6 +15,14 @@
 
 // 2. State machine — defines sysState and all enums used by other modules
 #include "agri3d_state.h"
+#include "agri3d_commands.h"
+#include "agri3d_ai.h"
+#include "agri3d_logger.h"
+#include "../drivers/agri3d_camera.h"
+#include "../drivers/agri3d_grbl.h"
+#include "../drivers/agri3d_sd.h"
+#include "../drivers/agri3d_sensors.h"
+#include "../network/agri3d_network.h"
 
 // 3. Network — WiFi, WebSocket, UDP
 #include "agri3d_network.h"
