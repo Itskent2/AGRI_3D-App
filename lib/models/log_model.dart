@@ -30,6 +30,11 @@ class LogEntry {
       user: json['user'] as String,
     );
   }
+
+  @override
+  String toString() {
+    return "[$time] [$user] $message";
+  }
 }
 
 /// Mock activity log data

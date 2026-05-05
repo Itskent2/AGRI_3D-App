@@ -1,5 +1,6 @@
 #include "agri3d_sensors.h"
 #include "agri3d_config.h"
+#include "../core/agri3d_logger.h"
 
 // Pin definition (adjust in agri3d_config.h later)
 #ifndef PIN_RAIN_SENSOR
@@ -9,9 +10,9 @@
 void sensorsInit() {
 #if HW_RAIN_CONNECTED
     pinMode(RAIN_PIN, INPUT_PULLUP);
-    AgriLog(TAG_SENSORS, "Rain sensor initialized.");
+    AgriLog(TAG_SENSORS, LEVEL_INFO, "Rain sensor initialized.");
 #endif
-    AgriLog(TAG_SENSORS, "NPK hooks initialized.");
+    AgriLog(TAG_SENSORS, LEVEL_INFO, "NPK hooks initialized.");
 }
 
 bool isRaining() {

@@ -8,6 +8,7 @@
 #include "agri3d_state.h"
 #include "agri3d_grbl.h"
 #include "agri3d_network.h"
+#include "agri3d_logger.h"
 #include <Preferences.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -58,7 +59,7 @@ static void weatherTask(void* /*pvParameters*/) {
             // Gate if: WMO code ≥ 51 (drizzle/rain/storm) OR precip > 70%
             _weatherGated = (weatherCode >= WEATHER_RAIN_CODE_MIN || precipProb > 70);
 
-            AgriLog(TAG_ENV, "Weather: code=%d precip=%d%% gated=%s",
+            AgriLog(TAG_ENV, LEVEL_INFO, "Weather: code=%d precip=%d%% gated=%s",
                           weatherCode, precipProb, _weatherGated ? "YES" : "NO");
 
             // Broadcast weather info to Flutter
@@ -70,7 +71,7 @@ static void weatherTask(void* /*pvParameters*/) {
             String out; serializeJson(doc, out);
             webSocket.broadcastTXT(out);
         } else {
-            AgriLog(TAG_ENV, "Weather API failed: HTTP %d", code);
+            AgriLog(TAG_ENV, LEVEL_ERR, "Weather API failed: HTTP %d", code);
         }
         http.end();
 
@@ -78,10 +79,10 @@ static void weatherTask(void* /*pvParameters*/) {
         // (rain sensor state is handled by environmentLoop, but we
         //  need to update here too if weather gate changes)
         bool rainSensor = _rainPinHigh;
-        if      (rainSensor && _weatherGated) setEnvironment(ENV_RAIN_AND_WEATHER);
-        else if (rainSensor)                  setEnvironment(ENV_RAIN_SENSOR);
-        else if (_weatherGated)               setEnvironment(ENV_WEATHER_GATED);
-        else                                  setEnvironment(ENV_CLEAR);
+        if      (rainSensor && _weatherGated) sysState.setEnvironment(ENV_RAIN_AND_WEATHER);
+        else if (rainSensor)                  sysState.setEnvironment(ENV_RAIN_SENSOR);
+        else if (_weatherGated)               sysState.setEnvironment(ENV_WEATHER_GATED);
+        else                                  sysState.setEnvironment(ENV_CLEAR);
     }
 }
 
@@ -95,7 +96,7 @@ void setWeatherLocation(float lat, float lon) {
     _prefs.putFloat("lat", lat);
     _prefs.putFloat("lon", lon);
     _prefs.end();
-    AgriLog(TAG_ENV, "Location set: %.4f, %.4f", lat, lon);
+    AgriLog(TAG_ENV, LEVEL_INFO, "Location set: %.4f, %.4f", lat, lon);
 }
 
 void environmentInit() {
@@ -106,7 +107,7 @@ void environmentInit() {
     _prefs.end();
 
     pinMode(RAIN_PIN, INPUT_PULLDOWN);
-    AgriLog(TAG_ENV, "Rain pin=%d  Location=%.4f,%.4f",
+    AgriLog(TAG_ENV, LEVEL_INFO, "Rain pin=%d  Location=%.4f,%.4f",
                   RAIN_PIN, _lat, _lon);
 
     // Weather task on Core 0 so it doesn't interfere with camera on Core 1
@@ -132,20 +133,20 @@ void environmentLoop() {
     else if (_weatherGated)            newEnv = ENV_WEATHER_GATED;
     else                               newEnv = ENV_CLEAR;
 
-    if (newEnv == sysState.environment) return;
+    if (newEnv == sysState.getEnvironment()) return;
 
     if (rainNow && sysState.getEnvironment() == ENV_CLEAR) {
-        AgriLog(TAG_ENV, "Rain detected — sending feed-hold to Nano");
+        AgriLog(TAG_ENV, LEVEL_WARN, "Rain detected — sending feed-hold to Nano");
         NanoSerial.print('!'); // Real-time bypass
         sysState.setOperation(OP_RAIN_PAUSED);
     }
 
     if (!rainNow && !_weatherGated &&
         sysState.getOperation() == OP_RAIN_PAUSED) {
-        AgriLog(TAG_ENV, "Rain cleared — resuming");
+        AgriLog(TAG_ENV, LEVEL_SUCCESS, "Rain cleared — resuming");
         NanoSerial.print('~'); // Real-time bypass
         sysState.setOperation(OP_IDLE);
     }
 
-    setEnvironment(newEnv);
+    sysState.setEnvironment(newEnv);
 }

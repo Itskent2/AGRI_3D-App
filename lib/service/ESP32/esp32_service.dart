@@ -7,27 +7,36 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 
-/// Log categories for filtering in different consoles
-enum LogTag {
-  system,
-  camera,
-  movement,
-  grbl,
-  ping,
-  state,
-  sd,
-  npk,
-  scan,
-  gcode,
+enum LogLevel {
+  info,
+  warn,
   error,
-  debug,
+  success,
 }
 
-class TaggedLog {
+enum EnvironmentState {
+  clear,
+  rainSensor,
+  weatherGated,
+  rainAndWeather,
+}
+
+class LogEntry {
   final String message;
-  final Set<LogTag> tags;
+  final String tag;     // e.g. "NET", "SCAN", "FERT"
+  final LogLevel level;
   final DateTime time;
-  TaggedLog(this.message, this.tags) : time = DateTime.now();
+
+  LogEntry({
+    required this.message,
+    required this.tag,
+    this.level = LogLevel.info,
+  }) : time = DateTime.now();
+
+  @override
+  String toString() {
+    return "[${tag}] ${message}";
+  }
 }
 
 class ESP32Service extends ChangeNotifier {
@@ -36,28 +45,13 @@ class ESP32Service extends ChangeNotifier {
   bool isScanning = false;
   String? _lastKnownIP;
   String? get currentIP => _lastKnownIP;
-  List<TaggedLog> taggedLogs = [];
+  List<LogEntry> logs = [];
 
-  /// Convenience getter for the raw log strings (used by existing terminal UI)
-  List<String> get logs => taggedLogs.map((e) => e.message).toList();
+  /// Convenience getter for the raw log strings
+  List<String> get logStrings => logs.map((e) => "[${e.tag}] ${e.message}").toList();
 
-  /// Filtered logs for the Live Feed console (camera + movement + errors only)
-  List<TaggedLog> get cameraLogs => taggedLogs
-      .where(
-        (l) =>
-            l.tags.intersection({
-              LogTag.camera,
-              LogTag.movement,
-              LogTag.grbl,
-              LogTag.scan,
-              LogTag.error,
-              LogTag.system,
-            }).isNotEmpty &&
-            !l.tags.contains(LogTag.ping) &&
-            !l.tags.contains(LogTag.state),
-      )
-      .toList();
-  // ── Session tracking (prevents ghost kick-loops) ──
+  // ── Security & Session ──
+  static const String _authKey = "AGRI3D_SECURE_TOKEN_V1"; // Must match firmware
   static final String _sessionId = DateTime.now().millisecondsSinceEpoch
       .toString()
       .substring(7);
@@ -67,6 +61,7 @@ class ESP32Service extends ChangeNotifier {
   int _connectionGen = 0;
   StreamSubscription? _channelSubscription;
   bool _isConnecting = false; // Mutex: only one connection attempt at a time
+  final Map<String, DateTime> _lastAttemptTimes = {}; // Cooldown map
 
   // ── Disconnect Diagnostics ──
   String? lastDisconnectReason; // Human-readable reason for the last disconnect
@@ -90,6 +85,7 @@ class ESP32Service extends ChangeNotifier {
 
   // ── NEW: Track if the machine is Homed, Idle, or Running ──
   String machineState = "Unknown";
+  EnvironmentState environment = EnvironmentState.clear;
 
   // ── Nano (GRBL) connection status ──
   bool nanoConnected = false;
@@ -125,20 +121,27 @@ class ESP32Service extends ChangeNotifier {
       StreamController.broadcast();
   Stream<Map<String, dynamic>> get onNpkUpdate => _npkUpdateCtrl.stream;
 
-  static final ESP32Service instance = ESP32Service();
+  static final ESP32Service instance = ESP32Service._internal();
+  
+  ESP32Service._internal() {
+    // ── Global Autodiscovery Entry Point ──
+    // This is the ONLY place in the entire app that should initiate discovery.
+    autoDiscover(reason: "System Initialization");
+  }
 
   Completer<void>? _discoveryCompleter;
+  RawDatagramSocket? _udpSocket;
 
   Future<void> autoDiscover({String reason = "Unknown"}) async {
     if (isConnected) return;
+    
+    // ── Start UDP Discovery Listener ──
+    _startUdpDiscovery();
+
     // If a discovery is already running, wait for it to finish rather than starting another
     if (_discoveryCompleter != null) return _discoveryCompleter!.future;
 
-    _addLog("SYS: 🔍 Discovery triggered (Reason: $reason)", {
-      LogTag.system,
-      LogTag.debug,
-    });
-
+    addLog("🔍 mDNS Discovery (farmbot.local)", tag: "SYSTEM");
     _discoveryCompleter = Completer<void>();
     isScanning = true;
     _scheduleNotify();
@@ -146,29 +149,26 @@ class ESP32Service extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _lastKnownIP = prefs.getString('lastKnownIP');
 
-    // ── Single Discovery Pass ──
-    // We try each host once. If we connect, we stop.
-    // This allows the Future to complete so UI (RefreshIndicator) can finish.
+    // ── Build Deduplicated Host List ──
+    final Set<String> uniqueHosts = {};
+    if (_lastKnownIP != null) uniqueHosts.add(_lastKnownIP!);
+    if (!kIsWeb) uniqueHosts.add("farmbot.local");
+    uniqueHosts.add("192.168.4.1");
 
-    final Set<String> candidates = {};
-    if (kIsWeb) candidates.add("192.168.0.137");
-    if (_lastKnownIP != null) candidates.add(_lastKnownIP!);
-    candidates.add("192.168.4.1");
-    if (!kIsWeb) candidates.add("farmbot.local");
-
-    for (final host in candidates) {
+    for (final host in uniqueHosts) {
       if (isConnected) break;
-      await _connectAndVerify(host, reason: "$reason ($host)");
-    }
+      
+      String hostReason = "Discovery Cycle";
+      if (host == _lastKnownIP) hostReason = "Last Known IP";
+      else if (host == "farmbot.local") hostReason = "mDNS (farmbot.local)";
+      else if (host == "192.168.4.1") hostReason = "AP Fallback (Hotspot)";
 
-    if (!isConnected && !kIsWeb) {
-      await sweepMobileSubnets(this);
+      await _connectAndVerify(host, reason: hostReason);
     }
 
     isScanning = false;
     _scheduleNotify();
-
-    // Clean up the completer so next call can run
+    
     final c = _discoveryCompleter;
     _discoveryCompleter = null;
     c?.complete();
@@ -182,16 +182,48 @@ class ESP32Service extends ChangeNotifier {
     });
   }
 
+  void _startUdpDiscovery() async {
+    if (kIsWeb || _udpSocket != null) return;
+
+    try {
+      _udpSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 4210);
+      _udpSocket!.listen((event) {
+        if (event == RawSocketEvent.read) {
+          final datagram = _udpSocket!.receive();
+          if (datagram == null) return;
+
+          final message = utf8.decode(datagram.data);
+          if (message.startsWith("AGRI3D_DISCOVERY:")) {
+            final ip = message.substring(17).trim();
+            if (!isConnected && !_isConnecting) {
+              addLog("📡 UDP Beacon received: $ip", tag: "NET");
+              _connectAndVerify(ip, reason: "UDP Discovery");
+            }
+          }
+        }
+      });
+    } catch (e) {
+      addLog("⚠ UDP Discovery Error: $e", tag: "NET", level: LogLevel.error);
+    }
+  }
+
   Future<void> _connectAndVerify(
     String host, {
     String reason = "Unknown",
   }) async {
     if (isConnected || _isConnecting) return;
+
+    // ── IP Cooldown Check (2s) ──
+    final nowTime = DateTime.now();
+    final lastTime = _lastAttemptTimes[host];
+    if (lastTime != null && nowTime.difference(lastTime).inSeconds < 2) {
+      // addLog("⏳ Skipping $host (cooldown active)", tag: "NET");
+      return;
+    }
+    _lastAttemptTimes[host] = nowTime;
+
     final int thisGen = ++_connectionGen;
-    _addLog(
-      "SYS: 🔌 Connection attempt to $host (Gen: $thisGen, Reason: $reason)",
-      {LogTag.system, LogTag.debug},
-    );
+    addLog("🔌 Connection attempt to $host (Gen: $thisGen, Reason: $reason)", tag: "NET");
     _isConnecting = true;
     final completer = Completer<bool>();
 
@@ -200,24 +232,19 @@ class ESP32Service extends ChangeNotifier {
       _channelSubscription?.cancel();
       _channelSubscription = null;
       if (_channel != null) {
-        _addLog("SYS: ♻ Cleaning up old channel before Gen $thisGen", {
-          LogTag.system,
-          LogTag.debug,
-        });
+        addLog("♻ Cleaning up old channel before Gen $thisGen", tag: "NET");
         _channel!.sink.close();
         _channel = null;
       }
 
-      final url = "ws://$host/ws?sid=$_sessionId";
+      final url = "ws://$host/ws?sid=$_sessionId&key=$_authKey";
+      addLog("SYS: Connecting to $url");
       final channel = WebSocketChannel.connect(Uri.parse(url));
       await channel.ready.timeout(const Duration(seconds: 5));
 
       // Double-check: if something else connected while we were awaiting
       if (isConnected || thisGen != _connectionGen) {
-        _addLog(
-          "SYS: 🛡 Closing redundant connection (Gen: $thisGen vs $_connectionGen)",
-          {LogTag.system, LogTag.debug},
-        );
+          addLog("🛡 Closing redundant connection (Gen: $thisGen vs $_connectionGen)", tag: "NET");
         channel.sink.close();
         return;
       }
@@ -258,7 +285,14 @@ class ESP32Service extends ChangeNotifier {
                 textMsg.startsWith("FARMBOT_ID:")) {
               identified = true;
               isConnected = true;
-              _addLog("SYS: ✓ Online → $host (Gen: $thisGen)", {LogTag.system});
+              addLog("✓ Online → $host (Gen: $thisGen)", tag: "NET", level: LogLevel.success);
+              
+              // Persist last known IP
+              _lastKnownIP = host;
+              SharedPreferences.getInstance().then((prefs) {
+                prefs.setString('lastKnownIP', host);
+              });
+
               _startPingLoop();
               sendCommand("GET_GCODE_INFO");
 
@@ -299,17 +333,14 @@ class ESP32Service extends ChangeNotifier {
                 pingCount = (pong['ping_no'] as num).toInt();
             } catch (_) {}
 
-            _addLog("RX: PONG (Latency: ${latencyMs}ms)", {
-              LogTag.ping,
-              LogTag.debug,
-            });
+            addLog("RX: PONG (Latency: ${latencyMs}ms)", tag: "PING");
             _scheduleNotify(); // Update UI with new latency
             return;
           }
 
           // FIXED: Filter out continuous status reports from terminal logs
           //if (!textMsg.contains("<") && !textMsg.contains(">")) {
-          _addLog("RX: $textMsg", _classifyRx(textMsg));
+          addLog(textMsg);
           //}
 
           try {
@@ -357,17 +388,17 @@ class ESP32Service extends ChangeNotifier {
             }
             if (parsed['evt'] == 'SD_START') {
               jobProgress.value = 0.01;
-              _addLog("SYS: SD Stream Started (${parsed['file']})");
+              addLog("SD Stream Started (${parsed['file']})", tag: "SD");
               return;
             }
             if (parsed['evt'] == 'SD_COMPLETE') {
               jobProgress.value = 0.0;
-              _addLog("SYS: SD Stream Complete. (${parsed['lines']} lines)");
+              addLog("SD Stream Complete. (${parsed['lines']} lines)", tag: "SD", level: LogLevel.success);
               return;
             }
             if (parsed['evt'] == 'SD_STOPPED') {
               jobProgress.value = 0.0;
-              _addLog("SYS: SD Stream Stopped by User.");
+              addLog("SD Stream Stopped by User.", tag: "SD", level: LogLevel.warn);
               return;
             }
 
@@ -377,12 +408,22 @@ class ESP32Service extends ChangeNotifier {
                 final wasConnected = nanoConnected;
                 nanoConnected = parsed['nano'] == 'CONNECTED';
                 if (nanoConnected != wasConnected) {
-                  _addLog(
+                  addLog(
                     nanoConnected
                         ? "SYS: Nano (GRBL) connected."
                         : "SYS: ⚠ Nano (GRBL) not detected — check Serial1 wiring.",
+                    tag: "GRBL",
+                    level: nanoConnected ? LogLevel.success : LogLevel.error,
                   );
                 }
+              }
+
+              if (parsed['environment'] != null) {
+                final env = parsed['environment'].toString();
+                if (env == "RAIN_SENSOR") environment = EnvironmentState.rainSensor;
+                else if (env == "WEATHER_GATED") environment = EnvironmentState.weatherGated;
+                else if (env == "RAIN_AND_WEATHER") environment = EnvironmentState.rainAndWeather;
+                else environment = EnvironmentState.clear;
               }
 
               if (parsed['x'] != null) x = (parsed['x'] as num).toDouble();
@@ -428,7 +469,9 @@ class ESP32Service extends ChangeNotifier {
           }
         },
       );
-      await completer.future.timeout(const Duration(seconds: 3));
+      // Increase identification timeout from 3s to 10s to allow for 
+      // camera/sensor initialization on the ESP32 side.
+      await completer.future.timeout(const Duration(seconds: 10));
     } catch (e) {
       _isConnecting = false;
       _handleDisconnect('Connection failed: $e');
@@ -516,13 +559,20 @@ class ESP32Service extends ChangeNotifier {
     cameraFrame.value = null;
 
     // Store & log the specific reason
-    final int? code = _channel?.closeCode;
     lastDisconnectReason = reason ?? 'Unknown';
-    _addLog(
-      "SYS: ⚠ Disconnected (Code: $code) → $lastDisconnectReason (Gen: $_connectionGen)",
-      {LogTag.system, LogTag.error},
+    addLog(
+      "⚠ Disconnected → $lastDisconnectReason",
+      tag: "NET",
+      level: LogLevel.error,
     );
     _scheduleNotify();
+
+    // ── NEW: Trigger automatic discovery on disconnect (increased delay) ──
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!isConnected && !isScanning && !_isConnecting) {
+        autoDiscover(reason: "Disconnect Recovery");
+      }
+    });
   }
 
   void _startPingLoop() {
@@ -554,7 +604,7 @@ class ESP32Service extends ChangeNotifier {
   void sendCommand(String cmd) {
     if (_channel != null && isConnected) {
       _channel!.sink.add(cmd);
-      _addLog("TX: $cmd", _classifyTx(cmd));
+      addLog(cmd, tag: "TX");
     }
   }
 
@@ -604,11 +654,48 @@ class ESP32Service extends ChangeNotifier {
     _scheduleNotify();
   }
 
-  void addLog(String m) => _addLog(m, {LogTag.system});
-  void _addLog(String m, [Set<LogTag> tags = const {LogTag.system}]) {
-    taggedLogs.add(TaggedLog(m, tags));
-    if (taggedLogs.length > 200) taggedLogs.removeAt(0);
-    _scheduleNotify(); // Debounced — prevents assertion floods on rapid log bursts
+  void addLog(String m, {String tag = "SYSTEM", LogLevel level = LogLevel.info}) {
+    String cleanMsg = m;
+    String finalTag = tag;
+    LogLevel finalLevel = level;
+
+    // Handle manual prefixes like "SYS: " or "NET: "
+    final prefixRegExp = RegExp(r'^([A-Z]+):\s*(.*)$');
+    final prefixMatch = prefixRegExp.firstMatch(m);
+    if (prefixMatch != null) {
+      final possibleTag = prefixMatch.group(1);
+      if (possibleTag == "SYS") {
+        finalTag = "SYSTEM";
+      } else {
+        finalTag = possibleTag ?? tag;
+      }
+      cleanMsg = prefixMatch.group(2) ?? m;
+    }
+
+    // Standard ESP32 format: [TAG][LEVEL] Message
+    final regExp = RegExp(r'^\[([A-Z]+)\]\[([A-Z]+)\]\s*(.*)$');
+    final match = regExp.firstMatch(cleanMsg);
+
+    if (match != null) {
+      finalTag = match.group(1) ?? finalTag;
+      final levelStr = match.group(2);
+      cleanMsg = match.group(3) ?? cleanMsg;
+
+      if (levelStr == "ERR") finalLevel = LogLevel.error;
+      else if (levelStr == "OK") finalLevel = LogLevel.success;
+      else if (levelStr == "WARN") finalLevel = LogLevel.warn;
+      else finalLevel = LogLevel.info;
+    } else if (m.startsWith("TX: ")) {
+       finalTag = "TX";
+       cleanMsg = m.substring(4);
+    } else if (m.startsWith("RX: ")) {
+       finalTag = "RX";
+       cleanMsg = m.substring(4);
+    }
+
+    logs.add(LogEntry(message: cleanMsg, tag: finalTag, level: finalLevel));
+    if (logs.length > 300) logs.removeAt(0); // Increased buffer to 300
+    _scheduleNotify();
   }
 
   /// Debounced notifyListeners — coalesces rapid updates into a single frame
@@ -627,57 +714,8 @@ class ESP32Service extends ChangeNotifier {
   }
 
   void clearLogs() {
-    taggedLogs.clear();
+    logs.clear();
     _scheduleNotify();
-  }
-
-  /// Classify an outgoing TX command into log tags
-  Set<LogTag> _classifyTx(String cmd) {
-    if (cmd == 'PING') return {LogTag.ping};
-    if (cmd == 'GET_GCODE_INFO' || cmd == 'GET_STATE') return {LogTag.state};
-    if (cmd.startsWith('START_STREAM') ||
-        cmd.startsWith('STOP_STREAM') ||
-        cmd.startsWith('SET_FPM') ||
-        cmd.startsWith('SET_RES'))
-      return {LogTag.camera};
-    if (cmd.startsWith('G0') || cmd.startsWith('G1') || cmd.startsWith('G28'))
-      return {LogTag.movement};
-    if (cmd.startsWith('\$H')) return {LogTag.movement};
-    if (cmd.startsWith('SCAN_') || cmd.startsWith('AUTO_DETECT'))
-      return {LogTag.scan, LogTag.camera};
-    if (cmd.startsWith('UPLOAD_') ||
-        cmd.startsWith('START_SD') ||
-        cmd == 'STOP_SD')
-      return {LogTag.sd, LogTag.gcode};
-    if (cmd.startsWith('NPK') || cmd == 'GET_NPK') return {LogTag.npk};
-    return {LogTag.gcode};
-  }
-
-  /// Classify an incoming RX message into log tags
-  Set<LogTag> _classifyRx(String msg) {
-    if (msg.contains('"evt":"SYSTEM_STATE"')) return {LogTag.state};
-    if (msg.contains('"evt":"PONG"')) return {LogTag.ping};
-    if (msg.contains('nano_raw')) {
-      if (msg.contains('MPos:') ||
-          msg.contains('Home') ||
-          msg.contains('Run') ||
-          msg.contains('Jog'))
-        return {LogTag.grbl, LogTag.movement};
-      return {LogTag.grbl};
-    }
-    if (msg.contains('"evt":"FRAME_META"') ||
-        msg.contains('"evt":"DETECT_FRAME"') ||
-        msg.contains('PLANT_CANDIDATE') ||
-        msg.contains('DETECTION_COMPLETE'))
-      return {LogTag.camera, LogTag.scan};
-    if (msg.contains('"evt":"SD_') ||
-        msg.contains('"evt":"GCODE_INFO"') ||
-        msg.contains('"evt":"UPLOAD_ACK"'))
-      return {LogTag.sd, LogTag.gcode};
-    if (msg.contains('NPK')) return {LogTag.npk};
-    if (msg.contains('"evt":"ERROR"') || msg.contains('error'))
-      return {LogTag.error};
-    return {LogTag.system};
   }
 
   Future<void> executeGCode(List<String> lines) async {
@@ -687,19 +725,17 @@ class ESP32Service extends ChangeNotifier {
       if (line.isEmpty || line.startsWith(';')) continue;
 
       sendCommand(line);
-      // Wait a bit to not overwhelm the ESP32 / GRBL buffer
       await Future.delayed(const Duration(milliseconds: 100));
     }
   }
 
-  // ── SD Card Upload and Execution ──
   Future<void> uploadGcodeChunked(String content) async {
     if (!isConnected) return;
     isUploadingGcode = true;
     uploadProgress = 0.0;
     _scheduleNotify();
 
-    _addLog("SYS: Starting G-Code Upload...");
+    addLog("Starting G-Code Upload...", tag: "SD");
     sendCommand("UPLOAD_START");
     await Future.delayed(const Duration(milliseconds: 500));
 
@@ -709,7 +745,6 @@ class ESP32Service extends ChangeNotifier {
     while (currentLine < lines.length && isUploadingGcode) {
       if (!isConnected) break;
 
-      // Send in chunks of 50 lines to avoid WebSocket limits
       int endLine = currentLine + 50;
       if (endLine > lines.length) endLine = lines.length;
 
@@ -721,7 +756,7 @@ class ESP32Service extends ChangeNotifier {
       try {
         await _uploadAckCompleter!.future.timeout(const Duration(seconds: 3));
       } catch (e) {
-        _addLog("SYS: Upload timeout! Retrying chunk...");
+        addLog("Upload timeout! Retrying chunk...", tag: "SD", level: LogLevel.warn);
         await Future.delayed(const Duration(milliseconds: 1000));
         continue;
       }
@@ -734,7 +769,7 @@ class ESP32Service extends ChangeNotifier {
     if (isUploadingGcode) {
       sendCommand("UPLOAD_END");
       hasStoredGcode = true;
-      _addLog("SYS: Upload complete!");
+      addLog("Upload complete!", tag: "SD", level: LogLevel.success);
     }
 
     isUploadingGcode = false;
@@ -758,49 +793,3 @@ class ESP32Service extends ChangeNotifier {
   }
 }
 
-Future<void> sweepMobileSubnets(ESP32Service service) async {
-  // If we are on Web, RawDatagramSocket is not available.
-  if (kIsWeb) return;
-
-  service.addLog("SYS: Listening for UDP discovery beacons...");
-  RawDatagramSocket? socket;
-  try {
-    socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 4210);
-    socket.broadcastEnabled = true;
-
-    final completer = Completer<String?>();
-
-    socket.listen((RawSocketEvent event) {
-      if (event == RawSocketEvent.read) {
-        Datagram? datagram = socket!.receive();
-        if (datagram != null) {
-          String message = String.fromCharCodes(datagram.data);
-          if (message.startsWith("AGRI3D_DISCOVERY:")) {
-            String ip = message.substring(17).trim();
-            if (!completer.isCompleted) {
-              completer.complete(ip);
-            }
-          }
-        }
-      }
-    });
-
-    // Timeout after 3.5 seconds (beacon is sent every 3 seconds)
-    String? discoveredIp = await completer.future.timeout(
-      const Duration(milliseconds: 3500),
-      onTimeout: () => null,
-    );
-
-    socket.close();
-
-    if (discoveredIp != null && !service.isConnected) {
-      service.addLog("SYS: Discovered ESP32 at $discoveredIp");
-      await service.connectAndVerifyHost(discoveredIp);
-    } else if (discoveredIp == null) {
-      service.addLog("SYS: UDP discovery timeout.");
-    }
-  } catch (e) {
-    service.addLog("SYS: UDP Error: $e");
-    socket?.close();
-  }
-}

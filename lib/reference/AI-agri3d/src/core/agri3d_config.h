@@ -55,10 +55,16 @@
 
 // ── WebSocket Server ───────────────────────────────────────────────────────
 #define WS_PORT 80
+#define AGRI3D_SECURE_TOKEN "AGRI3D_SECURE_TOKEN_V1"
 
 // ── UDP Discovery ──────────────────────────────────────────────────────────
 #define UDP_DISCOVERY_PORT 4210
 #define UDP_BROADCAST_INTERVAL 3000 // ms between UDP beacons
+#define HEARTBEAT_INTERVAL_MS 5000  // ms between proactive state broadcasts
+#define FLUTTER_WATCHDOG_FLOOR_MS 10000 // min app-silence window before warning
+#define FLUTTER_WATCHDOG_WARN_INTERVAL_MS 10000 // min gap between warning logs
+#define FLUTTER_FORCE_DISCONNECT_ON_TIMEOUT true // auto-disconnect stale app link
+#define FLUTTER_DISCONNECT_FLOOR_MS 20000 // min silence window before disconnect
 
 // ── GRBL / Nano Serial Bridge ──────────────────────────────────────────────
 #define NANO_RX_PIN 44

@@ -15,7 +15,9 @@
 #include "agri3d_grbl.h"
 #include "agri3d_config.h"
 #include "agri3d_state.h"
-#include "agri3d_sd.h"     // For sdSignalOk()
+#include "agri3d_network.h"
+#include "../core/agri3d_logger.h"
+#include "agri3d_sd.h"     
 #include <Preferences.h>
 #include <ArduinoJson.h>
 
@@ -79,10 +81,10 @@ static void loadDimensionsFromNVS() {
     _prefs.end();
 
     if (machineDim.valid) {
-        AgriLog(TAG_GRBL, "NVS dims loaded: X=%.1f Y=%.1f Z=%.1f",
+        AgriLog(TAG_GRBL, LEVEL_INFO, "NVS dims loaded: X=%.1f Y=%.1f Z=%.1f",
                       machineDim.maxX, machineDim.maxY, machineDim.maxZ);
     } else {
-        AgriLog(TAG_GRBL, "No cached dimensions — will wait for homing.");
+        AgriLog(TAG_GRBL, LEVEL_INFO, "No cached dimensions — will wait for homing.");
     }
 }
 
@@ -93,7 +95,7 @@ void saveDimensionsToNVS() {
     _prefs.putFloat(NVS_MAX_Z,  machineDim.maxZ);
     _prefs.putBool(NVS_DIM_VALID, machineDim.valid);
     _prefs.end();
-    AgriLog(TAG_GRBL, "Dims saved to NVS: X=%.1f Y=%.1f Z=%.1f",
+    AgriLog(TAG_GRBL, LEVEL_SUCCESS, "Dims saved to NVS: X=%.1f Y=%.1f Z=%.1f",
                   machineDim.maxX, machineDim.maxY, machineDim.maxZ);
 }
 
@@ -109,7 +111,7 @@ static void loadCrashFromNVS() {
     if (stored.length() > 0) {
         lastCrash.hasRecord = true;
         stored.toCharArray(lastCrash.raw, sizeof(lastCrash.raw));
-        AgriLog(TAG_GRBL, "NVS crash record: %s", lastCrash.raw);
+        AgriLog(TAG_GRBL, LEVEL_INFO, "NVS crash record: %s", lastCrash.raw);
     }
 }
 
@@ -124,7 +126,7 @@ void clearCrashRecord() {
     _prefs.begin(NVS_NS, false);
     _prefs.remove(NVS_CRASH);
     _prefs.end();
-    AgriLog(TAG_GRBL, "Crash record cleared.");
+    AgriLog(TAG_GRBL, LEVEL_SUCCESS, "Crash record cleared.");
 }
 
 // ============================================================================
@@ -213,7 +215,7 @@ static void parsePreviousCrash(const String& msg) {
     lastCrash.tmcZ  = extractVal("Z");
 
     saveCrashToNVS();
-    AgriLog(TAG_GRBL, "PREVIOUS CRASH from Nano: %s", lastCrash.raw);
+    AgriLog(TAG_GRBL, LEVEL_INFO, "PREVIOUS CRASH from Nano: %s", lastCrash.raw);
 
     // Broadcast crash info to Flutter
     StaticJsonDocument<192> doc;
@@ -232,8 +234,7 @@ static void handleNanoLine(const String& line) {
     if (line.length() == 0) return;
 
     // Every valid reply resets the watchdog
-    _lastReplyMs = millis();
-    if (sysState.getNano() != NANO_CONNECTED) sysState.setNano(NANO_CONNECTED);
+    sysState.resetNanoWatchdog();
 
     // ── Real-time status string ──
     if (line.startsWith("<") && line.endsWith(">")) {
@@ -275,7 +276,7 @@ static void handleNanoLine(const String& line) {
         doc["desc"]  = alarmCodeDescription(code);
         String out; serializeJson(doc, out);
         webSocket.broadcastTXT(out);
-        AgriLog(TAG_GRBL, "ALARM %d: %s", code, alarmCodeDescription(code));
+        AgriLog(TAG_GRBL, LEVEL_ERR, "ALARM %d: %s", code, alarmCodeDescription(code));
         return;
     }
 
@@ -324,7 +325,7 @@ void grblInit() {
     loadDimensionsFromNVS();
     loadCrashFromNVS();
 
-    AgriLog(TAG_GRBL, "Bridge initialised.");
+    AgriLog(TAG_GRBL, LEVEL_SUCCESS, "Bridge initialised.");
 }
 
 void grblLoop() {
@@ -354,19 +355,10 @@ void grblLoop() {
         _cmdQueue.pop_front();
         _nanoReady = false; // Wait for 'ok' before sending next
         NanoSerial.println(nextCmd);
-        AgriLog(TAG_GRBL, "Sent from Queue: %s", nextCmd.c_str());
+        AgriLog(TAG_GRBL, LEVEL_INFO, "Sent from Queue: %s", nextCmd.c_str());
     }
 
-    // ── 4. Nano watchdog ──
-    // If the Nano stops responding to '?', mark it as unresponsive
-    if (sysState.getNano() == NANO_CONNECTED) {
-        // Window = max(4 * poll interval, 2000ms floor)
-        unsigned long window = max((unsigned long)(interval * 4), 2000UL);
-        if (millis() - _lastReplyMs > window) {
-            sysState.setNano(NANO_UNRESPONSIVE);
-            AgriLog(TAG_GRBL, LEVEL_ERR, "Nano heartbeat lost! (No reply for %lu ms)", window);
-        }
-    }
+    // (Watchdog check moved to sysState.refreshHeartbeats() in Core 0 task)
 }
 
 bool waitForGrblIdle(uint32_t timeoutMs) {

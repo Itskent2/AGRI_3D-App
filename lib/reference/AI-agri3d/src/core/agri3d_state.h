@@ -52,13 +52,14 @@ public:
      */
     void broadcast();
 
-    /** 
-     * @brief Safe Frame Handoff Buffer
-     * Note: In a full OOP refactor, this might move to a FrameBuffer class.
+    /**
+     * @brief Periodic health check for all links.
+     * Centralises watchdog logic for Nano and pro-active pings for Flutter.
      */
-    uint8_t* pendingFrame = nullptr;
-    size_t   pendingFrameLen = 0;
-    int8_t   pendingFrameClient = -1;
+    void refreshHeartbeats();
+    void resetNanoWatchdog();
+    void resetFlutterWatchdog();
+
 
 private:
     WifiState        _wifi;
@@ -73,6 +74,11 @@ private:
     float _grblY;
     float _grblZ;
     int   _fpm;
+    unsigned long _lastNanoHeartbeatMs;
+    unsigned long _lastFlutterHeartbeatMs;
+    unsigned long _lastFlutterActivityMs;
+    unsigned long _lastFlutterWarnLogMs;
+    unsigned long currentPollIntervalMs() const;
 
     const char* wifiStr(WifiState s);
     const char* flutterStr(FlutterState s);

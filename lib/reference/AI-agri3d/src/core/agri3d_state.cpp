@@ -20,8 +20,11 @@ SystemState::SystemState()
       _isStreaming(false),
       _grblX(0.0f),
       _grblY(0.0f),
-      _grblZ(0.0f),
-      _fpm(STREAM_FPM_DEFAULT) 
+      _fpm(STREAM_FPM_DEFAULT),
+      _lastNanoHeartbeatMs(millis()),
+      _lastFlutterHeartbeatMs(millis()),
+      _lastFlutterActivityMs(millis()),
+      _lastFlutterWarnLogMs(0)
 {}
 
 // ============================================================================
@@ -49,6 +52,75 @@ void SystemState::broadcast() {
     String out;
     serializeJson(doc, out);
     webSocket.broadcastTXT(out);
+    
+    _lastFlutterHeartbeatMs = millis(); // Reset proactive timer on any broadcast
+}
+
+// ============================================================================
+// HEARTBEATS
+// ============================================================================
+
+void SystemState::refreshHeartbeats() {
+    unsigned long now = millis();
+
+    // ── 1. Nano Watchdog ──
+    if (_nano == NANO_CONNECTED) {
+        // Window follows config: max(4 * current polling interval, floor)
+        unsigned long window = max(4UL * currentPollIntervalMs(),
+                                   (unsigned long)NANO_WATCHDOG_FLOOR_MS);
+        if (now - _lastNanoHeartbeatMs > window) {
+            setNano(NANO_UNRESPONSIVE);
+        }
+    }
+
+    // ── 2. Flutter Proactive Heartbeat & Watchdog ──
+    if (_flutter == FLUTTER_CONNECTED) {
+        // A. Proactive State Update (if silent for too long)
+        if (now - _lastFlutterHeartbeatMs > HEARTBEAT_INTERVAL_MS) {
+            broadcast();
+        }
+
+        // B. Safety Watchdog (if app stops responding/pinging)
+        unsigned long flutterWatchdogWindow =
+            max(2UL * (unsigned long)HEARTBEAT_INTERVAL_MS,
+                (unsigned long)FLUTTER_WATCHDOG_FLOOR_MS);
+        if (now - _lastFlutterActivityMs > flutterWatchdogWindow) {
+            if (_lastFlutterWarnLogMs == 0 ||
+                now - _lastFlutterWarnLogMs >=
+                    (unsigned long)FLUTTER_WATCHDOG_WARN_INTERVAL_MS) {
+                AgriLog(TAG_NET, LEVEL_WARN, "Flutter heartbeat silent past watchdog window.");
+                _lastFlutterWarnLogMs = now;
+            }
+        }
+
+        if (FLUTTER_FORCE_DISCONNECT_ON_TIMEOUT) {
+            unsigned long flutterDisconnectWindow =
+                max(3UL * (unsigned long)HEARTBEAT_INTERVAL_MS,
+                    (unsigned long)FLUTTER_DISCONNECT_FLOOR_MS);
+            if (now - _lastFlutterActivityMs > flutterDisconnectWindow) {
+                AgriLog(TAG_NET, LEVEL_WARN, "Flutter link stale; forcing disconnect.");
+                setFlutter(FLUTTER_DISCONNECTED);
+            }
+        }
+    }
+}
+
+void SystemState::resetNanoWatchdog() {
+    _lastNanoHeartbeatMs = millis();
+    if (_nano != NANO_CONNECTED) {
+        setNano(NANO_CONNECTED);
+    }
+}
+
+void SystemState::resetFlutterWatchdog() {
+    _lastFlutterActivityMs = millis();
+    _lastFlutterWarnLogMs = 0;
+    // We no longer reset _lastFlutterHeartbeatMs here, so that 
+    // proactive broadcasts happen on a fixed interval (standardized).
+    
+    if (_flutter != FLUTTER_CONNECTED) {
+        setFlutter(FLUTTER_CONNECTED);
+    }
 }
 
 // ============================================================================
@@ -108,6 +180,25 @@ void SystemState::setPosition(float x, float y, float z) {
     _grblX = x;
     _grblY = y;
     _grblZ = z;
+}
+
+unsigned long SystemState::currentPollIntervalMs() const {
+    switch (_grbl) {
+        case GRBL_RUN:
+        case GRBL_JOG:
+            return POLL_INTERVAL_RUN;
+        case GRBL_HOME:
+            return POLL_INTERVAL_HOME;
+        case GRBL_ALARM:
+        case GRBL_CHECK:
+        case GRBL_DOOR:
+            return POLL_INTERVAL_ALARM;
+        case GRBL_IDLE:
+        case GRBL_HOLD:
+        case GRBL_UNKNOWN:
+        default:
+            return POLL_INTERVAL_IDLE;
+    }
 }
 
 // ============================================================================

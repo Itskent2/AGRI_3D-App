@@ -12,6 +12,7 @@
 #include "agri3d_state.h"
 #include "agri3d_network.h"
 #include "agri3d_grbl.h"
+#include "agri3d_logger.h"
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <time.h>
@@ -94,7 +95,7 @@ static void saveToNVS(const NpkReading& r) {
  * plot_model.dart reads:      { evt:"NPK", x, y, n, p, k, ts }
  */
 static void broadcastNpkLive(const NpkReading& r) {
-    if (sysState.flutter == FLUTTER_DISCONNECTED) return;
+    if (sysState.getFlutter() == FLUTTER_DISCONNECTED) return;
 
     // ── 1. Unified NPK packet (matches NpkLevel.fromJson in plot_model.dart) ──
     {
@@ -145,7 +146,7 @@ static void broadcastNpkLive(const NpkReading& r) {
         webSocket.broadcastTXT(out);
     }
 
-    AgriLog(TAG_SENSORS, "Grid(%d,%d) N=%.1f P=%.1f K=%.1f",
+    AgriLog(TAG_SENSORS, LEVEL_INFO, "Grid(%d,%d) N=%.1f P=%.1f K=%.1f",
                   r.gridX, r.gridY, r.n, r.p, r.k);
 }
 
@@ -165,7 +166,7 @@ bool npkReadNow() {
     unsigned long t = millis();
     while (NpkSerial.available() < NPK_RESP_LEN) {
         if (millis() - t > 500) {
-            AgriLog(TAG_SENSORS, "Timeout — no response from sensor");
+            AgriLog(TAG_SENSORS, LEVEL_WARN, "Timeout — no response from sensor");
             return false;
         }
         delay(10);
@@ -177,7 +178,7 @@ bool npkReadNow() {
 
     // Basic validation: check slave addr and function code
     if (buf[0] != 0x01 || buf[1] != 0x03 || buf[2] != 0x06) {
-        AgriLog(TAG_SENSORS, "Bad frame: %02X %02X %02X", buf[0], buf[1], buf[2]);
+        AgriLog(TAG_SENSORS, LEVEL_ERR, "Bad frame: %02X %02X %02X", buf[0], buf[1], buf[2]);
         return false;
     }
 
@@ -191,10 +192,10 @@ bool npkReadNow() {
     r.n         = n;
     r.p         = p;
     r.k         = k;
-    r.x         = sysState.grblX;
-    r.y         = sysState.grblY;
-    r.gridX     = mmToGridX(sysState.grblX);
-    r.gridY     = mmToGridY(sysState.grblY);
+    r.x         = sysState.getX();
+    r.y         = sysState.getY();
+    r.gridX     = mmToGridX(sysState.getX());
+    r.gridY     = mmToGridY(sysState.getY());
     r.timestamp = time(nullptr);
     r.valid     = true;
 
@@ -276,7 +277,7 @@ void npkSendFullHistory(uint8_t clientNum) {
 
     String out; serializeJson(doc, out);
     webSocket.sendTXT(clientNum, out);
-    AgriLog(TAG_SENSORS, "Sent full history for %s (%d readings)",
+    AgriLog(TAG_SENSORS, LEVEL_INFO, "Sent full history for %s (%d readings)",
                   date.c_str(), readings.size());
 }
 
@@ -288,7 +289,7 @@ void npkInit() {
     pinMode(NPK_DERE, OUTPUT);
     digitalWrite(NPK_DERE, LOW);  // Default to receive mode
     NpkSerial.begin(NPK_BAUD, SERIAL_8N1, NPK_RX_PIN, NPK_TX_PIN);
-    AgriLog(TAG_SENSORS, "Sensor initialised (RS485 UART2)");
+    AgriLog(TAG_SENSORS, LEVEL_INFO, "Sensor initialised (RS485 UART2)");
 }
 
 void npkLoop() {
@@ -299,7 +300,7 @@ void npkLoop() {
     _lastPollMs = millis();
 
     // Don't poll during alarm recovery
-    if (sysState.operation == OP_ALARM_RECOVERY) return;
+    if (sysState.getOperation() == OP_ALARM_RECOVERY) return;
 
     npkReadNow();
 }

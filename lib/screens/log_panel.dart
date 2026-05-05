@@ -1,6 +1,7 @@
 // lib/screens/log_panel.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/theme_provider.dart'; // 👈 Pointing to your main theme provider
@@ -77,7 +78,17 @@ class LogPanel extends ConsumerWidget {
                 runSpacing: 8,
                 children: [
                   OutlinedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      if (displayLogs.isEmpty) return;
+                      final textToCopy = displayLogs.join('\n');
+                      Clipboard.setData(ClipboardData(text: textToCopy));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Copied ${displayLogs.length} logs to clipboard'),
+                          backgroundColor: accent,
+                        ),
+                      );
+                    },
                     style: OutlinedButton.styleFrom(
                       backgroundColor: cardColor,
                       side: BorderSide(color: borderColor),

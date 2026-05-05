@@ -13,6 +13,7 @@
 #include "agri3d_grbl.h"
 #include "agri3d_camera.h"
 #include "agri3d_plant_map.h"
+#include "agri3d_logger.h"
 #include "agri3d_npk.h"
 #include "agri3d_routine.h"
 #include "agri3d_environment.h"
@@ -50,6 +51,7 @@ void webSocketEvent(uint8_t num, WStype_t type,
     (void)length;
 
     if (type != WStype_TEXT) return; // Binary/ping handled by network layer
+    sysState.resetFlutterWatchdog();
 
     String cmd = String((char*)payload);
     cmd.trim();

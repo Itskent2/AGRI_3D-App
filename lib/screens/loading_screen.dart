@@ -25,7 +25,8 @@ class _AgriLoadingScreenState extends State<AgriLoadingScreen>
   late Animation<double> _pulse;
   late Animation<double> _progress;
 
-  String _status = 'BOOTING AGRI 3D CORE...';
+  final List<String> _bootLogs = [];
+  String _status = 'BOOTING...';
   bool _showNozzleGlow = false;
 
   // Colors
@@ -36,86 +37,70 @@ class _AgriLoadingScreenState extends State<AgriLoadingScreen>
   void initState() {
     super.initState();
 
-    // X-axis: slide tool head from left to center
-    _xController = AnimationController(
-      duration: const Duration(milliseconds: 1400),
-      vsync: this,
-    );
-    _xMove = Tween<double>(begin: -120.0, end: 20.0).animate(
-      CurvedAnimation(parent: _xController, curve: Curves.easeOutCubic),
-    );
+    // X-axis: slide tool head
+    _xController = AnimationController(duration: const Duration(milliseconds: 1000), vsync: this);
+    _xMove = Tween<double>(begin: -120.0, end: 20.0).animate(CurvedAnimation(parent: _xController, curve: Curves.easeOutCubic));
 
-    // Z-axis: drop nozzle with bounce
-    _zController = AnimationController(
-      duration: const Duration(milliseconds: 900),
-      vsync: this,
-    );
-    _zMove = Tween<double>(begin: 0.0, end: 18.0).animate(
-      CurvedAnimation(parent: _zController, curve: Curves.bounceOut),
-    );
+    // Z-axis: drop nozzle
+    _zController = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
+    _zMove = Tween<double>(begin: 0.0, end: 18.0).animate(CurvedAnimation(parent: _zController, curve: Curves.bounceOut));
 
-    // Nozzle tip glow pulse
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 900),
-      vsync: this,
-    )..repeat(reverse: true);
-    _pulse = Tween<double>(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
+    // Glow
+    _pulseController = AnimationController(duration: const Duration(milliseconds: 500), vsync: this)..repeat(reverse: true);
+    _pulse = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
 
-    // Progress bar
-    _progressController = AnimationController(
-      duration: const Duration(milliseconds: 3600),
-      vsync: this,
-    );
-    _progress = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.35), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 0.35, end: 0.68), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 0.68, end: 0.90), weight: 25),
-      TweenSequenceItem(tween: Tween(begin: 0.90, end: 1.0),  weight: 15),
-    ]).animate(_progressController);
+    // Progress
+    _progressController = AnimationController(duration: const Duration(milliseconds: 3000), vsync: this);
+    _progress = Tween<double>(begin: 0.0, end: 1.0).animate(_progressController);
 
-    // Dot bounce
-    _dotController = AnimationController(
-      duration: const Duration(milliseconds: 1400),
-      vsync: this,
-    )..repeat();
+    _dotController = AnimationController(duration: const Duration(milliseconds: 1000), vsync: this)..repeat();
 
-    _runSequence();
+    _runBootSequence();
   }
 
-  Future<void> _runSequence() async {
-    _progressController.forward();
-
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    setState(() => _status = 'SYNCING X-Y GANTRY...');
-    await _xController.forward();
-
-    if (!mounted) return;
-    setState(() => _status = 'CALIBRATING Z-AXIS PROBE...');
-    await _zController.forward();
-
+  void _addLog(String msg) {
     if (!mounted) return;
     setState(() {
-      _status = 'HARDWARE SECURE';
-      _showNozzleGlow = true;
+      _bootLogs.add("${DateTime.now().millisecond.toString().padLeft(3, '0')} | $msg");
+      if (_bootLogs.length > 8) _bootLogs.removeAt(0);
+      _status = msg;
     });
+  }
 
+  Future<void> _runBootSequence() async {
+    _progressController.forward();
+    
+    _addLog("INIT: AGRI-3D KERNEL v3.0.4");
+    await Future.delayed(const Duration(milliseconds: 400));
+    
+    _addLog("NET: INITIALIZING SERVICE DISCOVERY...");
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    _addLog("HW: SYNCING X-Y-Z GANTRY...");
+    _xController.forward();
+    await Future.delayed(const Duration(milliseconds: 600));
+    _zController.forward();
+    
+    _addLog("WS: ESTABLISHING BRIDGE TO ESP32...");
     await Future.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
-    setState(() => _status = 'LAUNCHING DASHBOARD...');
+    
+    _addLog("SYS: CACHING PLANT MAP DATA...");
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    _addLog("ENV: CHECKING WEATHER GATING...");
+    setState(() => _showNozzleGlow = true);
+    await Future.delayed(const Duration(milliseconds: 400));
 
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
+    _addLog("READY: LAUNCHING DASHBOARD");
+    await Future.delayed(const Duration(milliseconds: 500));
 
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
         pageBuilder: (c, a1, a2) => const FarmBotApp(),
-        transitionsBuilder: (c, anim, a2, child) =>
-            FadeTransition(opacity: anim, child: child),
-        transitionDuration: const Duration(milliseconds: 1000),
+        transitionsBuilder: (c, anim, a2, child) => FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 800),
       ),
     );
   }
@@ -144,57 +129,88 @@ class _AgriLoadingScreenState extends State<AgriLoadingScreen>
 
           // ── Main content ──
           Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // ── Gantry scene ──
-                _GantryScene(
-                  xMove: _xMove,
-                  zMove: _zMove,
-                  pulse: _pulse,
-                  showNozzleGlow: _showNozzleGlow,
-                  xController: _xController,
-                  zController: _zController,
-                ),
-
-                const SizedBox(height: 52),
-
-                // ── Title ──
-                const Text(
-                  'AGRI 3D',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 44,
-                    fontWeight: FontWeight.w200,
-                    letterSpacing: 14,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // ── Gantry scene ──
+                  _GantryScene(
+                    xMove: _xMove,
+                    zMove: _zMove,
+                    pulse: _pulse,
+                    showNozzleGlow: _showNozzleGlow,
+                    xController: _xController,
+                    zController: _zController,
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'PRECISION GANTRY SYSTEM',
-                  style: TextStyle(
-                    color: cyan.withValues(alpha: 0.4),
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 5,
+  
+                  const SizedBox(height: 40), // Reduced from 52
+  
+                  // ── Title ──
+                  const Text(
+                    'AGRI 3D',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 44,
+                      fontWeight: FontWeight.w200,
+                      letterSpacing: 14,
+                    ),
                   ),
-                ),
-
-                const SizedBox(height: 28),
-
-                // ── Status text ──
-                _StatusText(status: _status),
-
-                const SizedBox(height: 16),
-
-                // ── Progress bar ──
-                _ProgressBar(progress: _progress),
-
-                const SizedBox(height: 52),
-
-                // ── Dot spinner ──
-                _DotSpinner(controller: _dotController),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    'PRECISION GANTRY SYSTEM',
+                    style: TextStyle(
+                      color: cyan.withValues(alpha: 0.4),
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 5,
+                    ),
+                  ),
+  
+                  const SizedBox(height: 24), // Reduced from 32
+  
+                  // ── Boot Logs ──
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 120), // Reduced from 140
+                    width: 300,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    ),
+                    child: SingleChildScrollView(
+                      reverse: true, // Always show the latest log
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _bootLogs.map((log) => Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            log,
+                            style: TextStyle(
+                              color: const Color(0xFF00FFFF).withOpacity(0.6),
+                              fontSize: 9,
+                              fontFamily: 'monospace',
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        )).toList(),
+                      ),
+                    ),
+                  ),
+  
+                  const SizedBox(height: 20), // Reduced from 24
+  
+                  // ── Progress bar ──
+                  _ProgressBar(progress: _progress),
+  
+                  const SizedBox(height: 24), // Reduced from 32
+  
+                  // ── Dot spinner ──
+                  _DotSpinner(controller: _dotController),
+                ],
+              ),
             ),
           ),
 

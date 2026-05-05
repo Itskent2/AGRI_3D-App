@@ -10,6 +10,7 @@
 #include "agri3d_network.h"
 #include "agri3d_sd.h"
 #include "agri3d_state.h"
+#include "../core/agri3d_logger.h"
 #include <ArduinoJson.h>
 #include <math.h>
 #include <time.h>
@@ -78,7 +79,7 @@ bool cameraInit() {
     s->set_aec2(s, 1);          // Better AEC algorithm
   }
 
-  AgriLog(TAG_CAM, "Camera OK (UXGA JPEG)");
+  AgriLog(TAG_CAM, LEVEL_SUCCESS, "Camera OK (UXGA JPEG)");
 
   // Launch stream task on Core 0 to offload it from the main network/grbl loop on Core 1
   xTaskCreatePinnedToCore(streamTask, "streamTask", 8192, nullptr, 2, nullptr,
@@ -182,18 +183,18 @@ bool captureFrameAtPosition(uint8_t clientNum, int idx, int total,
     esp_camera_fb_return(fb);
   }
 
-  return true;
-}
-
   AgriLog(TAG_CAM, LEVEL_INFO, "Frame %d: %s %s (%.1f,%.1f) %uB%s", idx, dateStr,
                 timeStr, targetX, targetY, fb->len,
                 sdPath[0] ? " [SD]" : "");
+
+  return true;
+}
 
 
   // =========================================================================
   // TODO(Luna): AI Hook — uncomment when ready
   // After esp_camera_fb_get(), before return:
-  //   aiProcessFrame(fb->buf, fb->len, sysState.grblX, sysState.grblY);
+  //   aiProcessFrame(fb->buf, fb->len, sysState.getX(), sysState.getY());
 // =========================================================================
 
 void cameraSanityCheck() {

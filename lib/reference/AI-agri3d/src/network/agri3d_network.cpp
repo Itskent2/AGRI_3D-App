@@ -10,6 +10,7 @@
 #include <ESPmDNS.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include "../core/agri3d_logger.h"
 
 // ── WebSocket server (singleton defined here, declared extern elsewhere) ───
 WebSocketsServer webSocket(WS_PORT);
@@ -97,7 +98,7 @@ void startAPMode() {
 
   // AP_MAX_CONN = 1 enforces the singleton at the network layer too
   WiFi.softAP(AP_SSID, AP_PASS, AP_CHANNEL, 0, AP_MAX_CONN);
-  AgriLog(TAG_NET, "AP started: SSID=%s  IP=%s", AP_SSID,
+  AgriLog(TAG_NET, LEVEL_INFO, "AP started: SSID=%s  IP=%s", AP_SSID,
                 WiFi.softAPIP().toString().c_str());
 
   // UDP still works on the AP interface for local discovery
@@ -111,7 +112,7 @@ void stopAPMode() {
     return;
   _apModeActive = false;
   WiFi.softAPdisconnect(true);
-  AgriLog(TAG_NET, "AP stopped — switched to station mode");
+  AgriLog(TAG_NET, LEVEL_INFO, "AP stopped — switched to station mode");
 }
 
 bool isAPMode() { return _apModeActive; }
@@ -139,7 +140,7 @@ static void wifiRetryTask(void * /*pvParameters*/) {
     }
 
     sysState.setWifi(WIFI_CONNECTING);
-    AgriLog(TAG_NET, "Background WiFi retry...");
+    AgriLog(TAG_NET, LEVEL_INFO, "Background WiFi retry...");
 
     for (int i = 0; i < WIFI_NET_COUNT; i++) {
       if (tryConnect(knownNetworks[i].ssid, knownNetworks[i].pass)) {
@@ -151,7 +152,7 @@ static void wifiRetryTask(void * /*pvParameters*/) {
 
     // Still nothing — stay in AP mode
     sysState.setWifi(WIFI_DISCONNECTED);
-    AgriLog(TAG_NET, "Retry failed — staying in AP mode");
+    AgriLog(TAG_NET, LEVEL_WARN, "Retry failed — staying in AP mode");
   }
 }
 
@@ -167,15 +168,40 @@ static void wifiRetryTask(void * /*pvParameters*/) {
 static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
                            size_t length) {
   if (type == WStype_CONNECTED) {
+    AgriLog(TAG_NET, LEVEL_INFO, "New Connection Request (slot #%d)", num);
+  
+    // ── Security Check ──
+    bool authenticated = false;
+    String uri = String((const char*)payload, length);
+    AgriLog(TAG_NET, LEVEL_INFO, "Handshake URI: %s", uri.c_str());
+
+    int keyIdx = uri.indexOf("key=");
+    if (keyIdx != -1) {
+      String providedKey = uri.substring(keyIdx + 4);
+      int nextParam = providedKey.indexOf('&');
+      if (nextParam != -1) providedKey = providedKey.substring(0, nextParam);
+      
+      providedKey.trim(); 
+      
+      if (providedKey == AGRI3D_SECURE_TOKEN) {
+        authenticated = true;
+      }
+    }
+
+    if (!authenticated) {
+      AgriLog(TAG_NET, LEVEL_ERR, "🛡 Security Rejection: Invalid Handshake [Key: %s]", uri.c_str());
+      webSocket.disconnect(num);
+      return;
+    }
+
 #if WS_SINGLETON
     IPAddress remoteIP = webSocket.remoteIP(num);
     String currentIP = remoteIP.toString();
 
     // 1. IP TAKEOVER: If it's the same IP, always allow it and kick the old slot.
-    // This solves the "Ghost Session" problem when Flutter restarts.
     if (_lockedIP != IPAddress(0,0,0,0) && _lockedIP == remoteIP) {
         if (activeClientNum != -1 && activeClientNum != (int8_t)num) {
-            AgriLog(TAG_NET, "♻ IP Takeover: %s swapped slot #%d -> #%d", 
+            AgriLog(TAG_NET, LEVEL_INFO, "♻ IP Takeover: %s swapped slot #%d -> #%d", 
                           currentIP.c_str(), activeClientNum, num);
             webSocket.disconnect(activeClientNum);
         }
@@ -188,7 +214,7 @@ static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
         _lockedIP = remoteIP;
         _lastCommMs = millis();
         activeClientNum = (int8_t)num;
-        AgriLog(TAG_NET, "🔒 IP Locked: %s (slot #%d)", currentIP.c_str(), num);
+        AgriLog(TAG_NET, LEVEL_INFO, "🔒 IP Locked: %s (slot #%d)", currentIP.c_str(), num);
     }
     // 3. REJECTION: Someone else is using it.
     else {
@@ -210,7 +236,7 @@ static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
       sysState.setFlutter(FLUTTER_DISCONNECTED);
       if (sysState.isStreaming())
         sysState.setStreaming(false);
-      AgriLog(TAG_NET, "Locked client #%d disconnected. Lock held for %s", num, _lockedIP.toString().c_str());
+      AgriLog(TAG_NET, LEVEL_INFO, "Locked client #%d disconnected. Lock held for %s", num, _lockedIP.toString().c_str());
     }
     return;
   }
@@ -237,7 +263,7 @@ void networkInit() {
   if (connected) {
     onStationConnected();
   } else {
-    AgriLog(TAG_NET, "All networks failed — starting AP fallback");
+    AgriLog(TAG_NET, LEVEL_WARN, "All networks failed — starting AP fallback");
     WiFi.mode(WIFI_AP_STA); // AP + STA so background retry can still scan
     startAPMode();
 
@@ -301,7 +327,7 @@ void networkLoop() {
   } else if (_lockedIP != IPAddress(0,0,0,0)) {
     // If no one is connected but we have a lock, check timeout
     if (millis() - _lastCommMs > COMM_TIMEOUT_MS) {
-      AgriLog(TAG_NET, "🔓 Lock released: %s timed out.", _lockedIP.toString().c_str());
+      AgriLog(TAG_NET, LEVEL_INFO, "🔓 Lock released: %s timed out.", _lockedIP.toString().c_str());
       _lockedIP = IPAddress(0,0,0,0);
     }
   }

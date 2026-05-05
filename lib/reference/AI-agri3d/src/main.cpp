@@ -10,10 +10,11 @@ TaskHandle_t CommTaskHandle = NULL;
  * Flutter and the Motors is never interrupted by heavy logic on Core 1.
  */
 void commTask(void *pvParameters) {
-    AgriLog(TAG_SYSTEM, "Communication Task started on Core %d", xPortGetCoreID());
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "Communication Task started on Core %d", xPortGetCoreID());
     for (;;) {
         networkLoop();  // Handles WebSocket, WiFi, and Discovery
         grblLoop();     // Continuous autonomous polling of the Nano/GRBL status
+        sysState.refreshHeartbeats(); // Standardized watchdog & pro-active pings
         vTaskDelay(pdMS_TO_TICKS(1)); // Yield to allow background WiFi stack processing
     }
 }

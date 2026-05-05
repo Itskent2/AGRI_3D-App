@@ -30,7 +30,6 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   bool _isWeederOn = false;
 
   DateTime? _lastMoveTime;
-  bool _isScanning = false;
   final TextEditingController _terminalController = TextEditingController();
   final ScrollController _terminalScrollController = ScrollController();
 
@@ -39,6 +38,11 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   final List<String> _commandHistory = [];
   int _historyIndex = -1;
   final FocusNode _terminalFocusNode = FocusNode();
+  final Set<String> _activeTags = {
+    "SYSTEM", "NET", "GRBL", "CAM", "AI", 
+    "ROUTINE", "SCAN", "WEED", "ENV", "FERT", 
+    "SD", "SENSORS", "CMD", "STATE", "TX", "RX"
+  }; 
 
   double _targetX = 0;
   double _targetY = 0;
@@ -47,9 +51,6 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startScan();
-    });
     ESP32Service.instance.addListener(_scrollToBottom);
     ESP32Service.instance.addListener(_onServiceUpdate);
   }
@@ -151,13 +152,6 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     }
   }
 
-  Future<void> _startScan() async {
-    if (_isScanning) return;
-    setState(() => _isScanning = true);
-    HapticFeedback.mediumImpact();
-    await ESP32Service.instance.autoDiscover(reason: "Control Panel Refresh");
-    if (mounted) setState(() => _isScanning = false);
-  }
 
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 50), () {
@@ -466,26 +460,22 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
       listenable: ESP32Service.instance,
       builder: (context, _) {
         final service = ESP32Service.instance;
-        return RefreshIndicator(
-          onRefresh: _startScan,
-          color: accentColor,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildVisualization(service, accentColor, isDark),
-                const SizedBox(height: 16),
-                _buildCncAutomation(service, accentColor, isDark),
-                const SizedBox(
-                  height: 16,
-                ), // ── THE NEW CNC AUTOMATION FILE PICKER ──
-                _buildManualControl(service, accentColor, isDark),
-                const SizedBox(height: 16),
-                _buildGCodeTerminal(service, accentColor, isDark),
-                const SizedBox(height: 32),
-              ],
-            ),
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              _buildVisualization(service, accentColor, isDark),
+              const SizedBox(height: 16),
+              _buildCncAutomation(service, accentColor, isDark),
+              const SizedBox(
+                height: 16,
+              ), // ── THE NEW CNC AUTOMATION FILE PICKER ──
+              _buildManualControl(service, accentColor, isDark),
+              const SizedBox(height: 16),
+              _buildGCodeTerminal(service, accentColor, isDark),
+              const SizedBox(height: 32),
+            ],
           ),
         );
       },
@@ -731,6 +721,8 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
         ? Colors.white12
         : Colors.grey.shade200;
 
+    final filteredLogs = _getFilteredLogs(service);
+
     return Container(
       decoration: BoxDecoration(
         color: containerBg,
@@ -740,50 +732,8 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-            child: Row(
-              children: [
-                const Icon(Icons.terminal, color: Color(0xFFF59E0B), size: 20),
-                const SizedBox(width: 10),
-                Text(
-                  "GCODE TERMINAL",
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.w900,
-                    fontStyle: FontStyle.italic,
-                    fontSize: 14,
-                  ),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.circle,
-                  size: 10,
-                  color: service.isConnected
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFEF4444),
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    service.isConnected
-                        ? "Online"
-                        : service.lastDisconnectReason != null
-                            ? "Offline — ${service.lastDisconnectReason}"
-                            : "Offline",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: service.isConnected
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFEF4444),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildTerminalHeader(service, isDark, filteredLogs.length),
+          _buildFilterBar(service, isDark),
 
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -804,16 +754,18 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                   onPressed: !hasLogs
                       ? null
                       : () {
-                          final linesToCopy = service.logs.length > 100
-                              ? service.logs.sublist(service.logs.length - 100)
-                              : service.logs;
-                          Clipboard.setData(
-                            ClipboardData(text: linesToCopy.join('\n')),
-                          );
+                          final linesToCopy = filteredLogs.length > 100
+                              ? filteredLogs.sublist(filteredLogs.length - 100)
+                              : filteredLogs;
+                          final textToCopy = linesToCopy
+                              .map((l) =>
+                                  "${DateFormat('HH:mm:ss').format(l.time)} [${l.tag}] ${l.message}")
+                              .join('\n');
+                          Clipboard.setData(ClipboardData(text: textToCopy));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                'Last ${linesToCopy.length} logs copied!',
+                                'Last ${linesToCopy.length} filtered logs copied!',
                               ),
                               backgroundColor: accentColor,
                               duration: const Duration(seconds: 2),
@@ -838,13 +790,15 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                   onPressed: !hasLogs
                       ? null
                       : () {
-                          Clipboard.setData(
-                            ClipboardData(text: service.logs.join('\n')),
-                          );
+                          final textToCopy = filteredLogs
+                              .map((l) =>
+                                  "${DateFormat('HH:mm:ss').format(l.time)} [${l.tag}] ${l.message}")
+                              .join('\n');
+                          Clipboard.setData(ClipboardData(text: textToCopy));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                'All ${service.logs.length} logs copied!',
+                                'All ${filteredLogs.length} filtered logs copied!',
                               ),
                               backgroundColor: accentColor,
                               duration: const Duration(seconds: 2),
@@ -875,35 +829,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                   tooltip: "Clear Terminal",
                 ),
                 const SizedBox(width: 8),
-                _isScanning
-                    ? SizedBox(
-                        width: 40,
-                        height: 36,
-                        child: Center(
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: accentColor,
-                            ),
-                          ),
-                        ),
-                      )
-                    : IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 40,
-                          minHeight: 36,
-                        ),
-                        icon: Icon(
-                          Icons.refresh,
-                          size: 20,
-                          color: enabledIconColor,
-                        ),
-                        onPressed: _startScan,
-                        tooltip: "Scan for ESP32",
-                      ),
+                const SizedBox(width: 8),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: (service.isConnected && service.nanoConnected) ? _uploadGCode : null,
@@ -959,20 +885,21 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
             ),
 
           Container(
-            height: 200,
+            height: 220, // More compact to match Live Feed feel
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF030712) : const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: containerBorder),
             ),
             child: ListView.builder(
-              key: UniqueKey(), // Forces fresh state to avoid controller conflicts
               controller: _terminalScrollController,
-              itemCount: service.logs.length,
-              itemBuilder: (context, i) =>
-                  _buildLogLine(service.logs[i], isDark),
+              itemCount: filteredLogs.length,
+              itemBuilder: (context, i) {
+                final log = filteredLogs[i];
+                return _buildLogLine(log, isDark);
+              },
             ),
           ),
 
@@ -1031,26 +958,161 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     );
   }
 
-  Widget _buildLogLine(String log, bool isDark) {
-    final isTx = log.startsWith("TX:");
-    final isSys = log.startsWith("SYS");
-    final display = log.length > 3 ? log.substring(3) : log;
-    return Text(
-      "${DateFormat('HH:mm:ss').format(DateTime.now())} ${isTx
-          ? '→'
-          : isSys
-          ? '•'
-          : '←'} $display",
-      style: TextStyle(
-        color: isSys
-            ? (isDark ? Colors.white54 : Colors.grey.shade600)
-            : isTx
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFF10B981),
-        fontSize: 12,
-        fontFamily: 'monospace',
+  Widget _buildLogLine(LogEntry log, bool isDark) {
+    Color color;
+    switch (log.level) {
+      case LogLevel.error: color = const Color(0xFFEF4444); break;
+      case LogLevel.warn: color = const Color(0xFFF59E0B); break;
+      case LogLevel.success: color = const Color(0xFF10B981); break;
+      default:
+        if (log.tag == "TX") color = const Color(0xFFFBBF24);
+        else if (log.tag == "RX") color = const Color(0xFF8B5CF6);
+        else color = isDark ? Colors.white38 : Colors.grey.shade600;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text.rich(
+        TextSpan(
+          style: TextStyle(
+            color: isDark ? Colors.white38 : Colors.grey.shade600,
+            fontSize: 11,
+            fontFamily: 'monospace',
+          ),
+          children: [
+            TextSpan(text: "${DateFormat('HH:mm:ss').format(log.time)} • "),
+            TextSpan(
+              text: "[${log.tag}] ",
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            ),
+            TextSpan(
+              text: log.message,
+              style: TextStyle(color: log.level == LogLevel.info ? (isDark ? Colors.white70 : Colors.black87) : color),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  // ── New Helper Methods ──────────────────────────────────────────────────
+
+  List<LogEntry> _getFilteredLogs(ESP32Service service) {
+    return service.logs.where((l) {
+      if (l.level == LogLevel.error) return true;
+      return _activeTags.contains(l.tag);
+    }).toList();
+  }
+
+  Widget _buildFilterBar(ESP32Service service, bool isDark) {
+    final List<String> allFilters = [
+      "SYSTEM", "NET", "GRBL", "CAM", "AI", 
+      "ROUTINE", "SCAN", "WEED", "ENV", "FERT", 
+      "SD", "SENSORS", "CMD", "STATE", "TX", "RX"
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: allFilters.map((tag) {
+          final isActive = _activeTags.contains(tag);
+          
+          Color tagColor;
+          switch (tag) {
+            case "CAM": case "SCAN": tagColor = const Color(0xFF60A5FA); break;
+            case "GRBL": case "ROUTINE": tagColor = const Color(0xFF34D399); break;
+            case "AI": case "WEED": tagColor = const Color(0xFFA855F7); break;
+            case "FERT": tagColor = const Color(0xFFEC4899); break;
+            case "TX": case "CMD": tagColor = const Color(0xFFFBBF24); break;
+            case "RX": tagColor = const Color(0xFF8B5CF6); break;
+            case "ENV": tagColor = const Color(0xFF0EA5E9); break;
+            case "SD": tagColor = const Color(0xFFF97316); break;
+            default: tagColor = isDark ? Colors.white54 : Colors.grey.shade600;
+          }
+
+          final displayColor = isActive ? tagColor : (isDark ? Colors.white12 : Colors.grey.shade200);
+
+          return GestureDetector(
+            onTap: () => setState(() => isActive ? _activeTags.remove(tag) : _activeTags.add(tag)),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: displayColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                tag,
+                style: TextStyle(
+                  color: displayColor,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+  
+  Widget _buildTerminalHeader(ESP32Service service, bool isDark, int filteredCount) {
+      // Logic from lines 743-786 moved here for clarity
+      return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+            child: Row(
+              children: [
+                const Icon(Icons.terminal, color: Color(0xFFF59E0B), size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  "GCODE TERMINAL",
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.w900,
+                    fontStyle: FontStyle.italic,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  "$filteredCount entries",
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isDark ? Colors.white24 : Colors.black26,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.circle,
+                  size: 10,
+                  color: service.isConnected
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFEF4444),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    service.isConnected
+                        ? "Online"
+                        : service.lastDisconnectReason != null
+                            ? "Offline — ${service.lastDisconnectReason}"
+                            : "Offline",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: service.isConnected
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFEF4444),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          );
   }
 
   Widget _buildVisualization(

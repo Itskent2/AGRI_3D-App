@@ -12,6 +12,7 @@ import 'screens/plot_map.dart';
 import 'screens/weather_forecast.dart';
 import 'screens/settings.dart';
 import 'screens/live_screen.dart';
+import 'service/ESP32/esp32_service.dart';
 
 // Widgets
 import 'widgets/side_bar.dart';
@@ -144,17 +145,98 @@ class _TopHeader extends StatelessWidget {
         child: Row(
           children: [
             if (MediaQuery.of(context).size.width < 1024)
-              IconButton(icon: Icon(Icons.menu, color: isDark ? const Color(0xFF9CA3AF) : Colors.black54), onPressed: onMenuTap),
+              IconButton(
+                icon: Icon(
+                  Icons.menu,
+                  color: isDark ? const Color(0xFF9CA3AF) : Colors.black54,
+                ),
+                onPressed: onMenuTap,
+              ),
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('CURRENT VIEW', style: TextStyle(fontSize: 8, color: Color(0xFF6B7280), fontWeight: FontWeight.bold, letterSpacing: 2)),
-                Text(tabLabel, style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: accent, fontWeight: FontWeight.bold)),
+                const Text(
+                  'CURRENT VIEW',
+                  style: TextStyle(
+                    fontSize: 8,
+                    color: Color(0xFF6B7280),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                Text(
+                  tabLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    color: accent,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
+            ),
+            const Spacer(),
+            ListenableBuilder(
+              listenable: ESP32Service.instance,
+              builder: (context, _) => _buildEnvBadge(ESP32Service.instance),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEnvBadge(ESP32Service service) {
+    if (!service.isConnected || service.environment == EnvironmentState.clear) {
+      return const SizedBox.shrink();
+    }
+
+    String label = "UNKNOWN";
+    Color color = Colors.orange;
+    IconData icon = Icons.warning_amber_rounded;
+
+    switch (service.environment) {
+      case EnvironmentState.rainSensor:
+        label = "RAIN DETECTED";
+        color = Colors.orangeAccent;
+        icon = Icons.umbrella;
+        break;
+      case EnvironmentState.weatherGated:
+        label = "WEATHER GATED";
+        color = Colors.blueAccent;
+        icon = Icons.cloud_off;
+        break;
+      case EnvironmentState.rainAndWeather:
+        label = "CRITICAL WEATHER";
+        color = Colors.redAccent;
+        icon = Icons.bolt;
+        break;
+      default: break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
       ),
     );
   }

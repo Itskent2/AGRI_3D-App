@@ -8,6 +8,7 @@
 #include "agri3d_state.h"
 #include "agri3d_grbl.h"
 #include "agri3d_network.h"
+#include "agri3d_logger.h"
 #include "SD_MMC.h"
 #include <ArduinoJson.h>
 #include <time.h>
@@ -27,11 +28,11 @@ static uint32_t      _linesSent     = 0;
 bool sdInit() {
     SD_MMC.setPins(SD_MMC_CLK_PIN, SD_MMC_CMD_PIN, SD_MMC_D0_PIN);
     if (!SD_MMC.begin("/sdcard", true)) {  // true = 1-bit mode
-        AgriLog(TAG_SD, "No card or mount failed — SD disabled.");
+        AgriLog(TAG_SD, LEVEL_ERR, "No card or mount failed — SD disabled.");
         return false;
     }
     uint64_t cardSize = SD_MMC.cardSize() / (1024 * 1024);
-    AgriLog(TAG_SD, "Card mounted: %llu MB", cardSize);
+    AgriLog(TAG_SD, LEVEL_INFO, "Card mounted: %llu MB", cardSize);
     return true;
 }
 
@@ -49,7 +50,7 @@ void handleStartSD(uint8_t clientNum, const String& filename) {
         doc["reason"] = "File not found: " + filename;
         String out; serializeJson(doc, out);
         webSocket.sendTXT(clientNum, out);
-        AgriLog(TAG_SD, "File not found: %s", filename.c_str());
+        AgriLog(TAG_SD, LEVEL_WARN, "File not found: %s", filename.c_str());
         return;
     }
 
@@ -68,7 +69,7 @@ void handleStartSD(uint8_t clientNum, const String& filename) {
     }
     _sdFile.seek(0); // Rewind
 
-    setOperation(OP_SD_RUNNING);
+    sysState.setOperation(OP_SD_RUNNING);
 
     StaticJsonDocument<128> doc;
     doc["evt"]   = "SD_START";
@@ -76,7 +77,7 @@ void handleStartSD(uint8_t clientNum, const String& filename) {
     doc["lines"] = _linesTotal;
     String out; serializeJson(doc, out);
     webSocket.sendTXT(clientNum, out);
-    AgriLog(TAG_SD, "Streaming: %s (%lu lines)",
+    AgriLog(TAG_SD, LEVEL_INFO, "Streaming: %s (%lu lines)",
                   filename.c_str(), _linesTotal);
 }
 
@@ -85,9 +86,9 @@ void handleStopSD(uint8_t clientNum) {
     _sdActive     = false;
     _waitingForOk = false;
     if (_sdFile) _sdFile.close();
-    setOperation(OP_IDLE);
+    sysState.setOperation(OP_IDLE);
     webSocket.sendTXT(clientNum, "{\"evt\":\"SD_STOPPED\"}");
-    AgriLog(TAG_SD, "Stream stopped by user.");
+    AgriLog(TAG_SD, LEVEL_INFO, "Stream stopped by user.");
 }
 
 void sdSignalOk() {
@@ -100,8 +101,8 @@ void sdLoop() {
     if (!_sdActive) return;
 
     // Pause if rain/environment halted operations
-    if (sysState.operation == OP_RAIN_PAUSED ||
-        sysState.operation == OP_ALARM_RECOVERY) return;
+    if (sysState.getOperation() == OP_RAIN_PAUSED ||
+        sysState.getOperation() == OP_ALARM_RECOVERY) return;
 
     // Flow control: only send next line after receiving "ok"
     if (_waitingForOk) return;
@@ -110,14 +111,14 @@ void sdLoop() {
     if (!_sdFile.available()) {
         _sdActive = false;
         _sdFile.close();
-        setOperation(OP_IDLE);
+        sysState.setOperation(OP_IDLE);
 
         StaticJsonDocument<64> doc;
         doc["evt"]   = "SD_COMPLETE";
         doc["lines"] = _linesSent;
         String out; serializeJson(doc, out);
         webSocket.sendTXT(_sdClientNum, out);
-        AgriLog(TAG_SD, "Job complete. %lu lines sent.", _linesSent);
+        AgriLog(TAG_SD, LEVEL_SUCCESS, "Job complete. %lu lines sent.", _linesSent);
         return;
     }
 
@@ -183,13 +184,13 @@ bool sdSaveImage(const uint8_t* buf, size_t len,
 
     File f = SD_MMC.open(filename, FILE_WRITE);
     if (!f) {
-        AgriLog(TAG_SD, "Save failed: %s", filename);
+        AgriLog(TAG_SD, LEVEL_ERR, "Save failed: %s", filename);
         return false;
     }
     f.write(buf, len);
     f.close();
 
-    AgriLog(TAG_SD, "Saved: %s (%u B)", filename, len);
+    AgriLog(TAG_SD, LEVEL_SUCCESS, "Saved: %s (%u B)", filename, len);
     if (outPath) strncpy(outPath, filename, 96);
     return true;
 }

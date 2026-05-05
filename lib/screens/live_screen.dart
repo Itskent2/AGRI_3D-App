@@ -17,6 +17,10 @@ class _LiveScreenState extends State<LiveScreen> {
   double _currentFpm = 60.0; // Default FPM (1 FPS)
   final ScrollController _consoleScrollController = ScrollController();
 
+  final Set<String> _activeTags = {
+    "SYSTEM", "NET", "GRBL", "CAM", "AI", "ROUTINE", "SCAN", "WEED", "ENV", "FERT", "SD", "SENSORS", "CMD", "STATE"
+  };
+
   @override
   void initState() {
     super.initState();
@@ -89,12 +93,12 @@ class _LiveScreenState extends State<LiveScreen> {
                 clipBehavior: Clip.hardEdge,
                 child: Column(
                   children: [
-                    // The live feed widget
-                    SizedBox(
-                      height: 340,
-                      child: isPlaying
-                          ? const Esp32LiveFeed(isDark: true)
-                          : Container(
+                    // The live feed widget (now handles its own aspect ratio)
+                    isPlaying
+                        ? const Esp32LiveFeed(isDark: true)
+                        : AspectRatio(
+                            aspectRatio: 4 / 3,
+                            child: Container(
                               color: Colors.black,
                               child: const Center(
                                 child: Column(
@@ -289,7 +293,7 @@ class _LiveScreenState extends State<LiveScreen> {
     Color textColor,
     Color subTextColor,
   ) {
-    final filteredLogs = service.cameraLogs;
+    final filteredLogs = _getFilteredLogs(service);
 
     return Container(
       decoration: BoxDecoration(
@@ -340,27 +344,26 @@ class _LiveScreenState extends State<LiveScreen> {
             ),
           ),
 
-          // ── Tag Legend ──
+          // ── Console Section Label ──
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Row(
-              children: [
-                _tagBadge("CAM", const Color(0xFF60A5FA)),
-                const SizedBox(width: 6),
-                _tagBadge("MOVE", const Color(0xFF34D399)),
-                const SizedBox(width: 6),
-                _tagBadge("GRBL", const Color(0xFFFBBF24)),
-                const SizedBox(width: 6),
-                _tagBadge("SYS", Colors.grey),
-                const SizedBox(width: 6),
-                _tagBadge("ERR", const Color(0xFFEF4444)),
-              ],
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+            child: Text(
+              'CAMERA & MOVEMENT LOG',
+              style: TextStyle(
+                fontSize: 11,
+                letterSpacing: 2,
+                fontWeight: FontWeight.bold,
+                color: subTextColor,
+              ),
             ),
           ),
 
+          // ── Interactive Filter Bar ──
+          _buildFilterBar(isDark),
+
           // ── Console Output ──
           Container(
-            height: 160,
+            height: 200,
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -371,7 +374,7 @@ class _LiveScreenState extends State<LiveScreen> {
             child: filteredLogs.isEmpty
                 ? Center(
                     child: Text(
-                      "No camera/movement events yet...",
+                      "No filtered events to show...",
                       style: TextStyle(
                         color: subTextColor,
                         fontSize: 11,
@@ -383,13 +386,76 @@ class _LiveScreenState extends State<LiveScreen> {
                     controller: _consoleScrollController,
                     itemCount: filteredLogs.length,
                     itemBuilder: (context, i) {
-                      final entry = filteredLogs[i];
+                       final entry = filteredLogs[i];
                       return _buildFilteredLogLine(entry, isDark);
                     },
                   ),
           ),
           const SizedBox(height: 16),
         ],
+      ),
+    );
+  }
+
+  // ── Helper Methods ──────────────────────────────────────────────────
+
+  List<LogEntry> _getFilteredLogs(ESP32Service service) {
+    return service.logs.where((l) {
+      // Always show errors regardless of tag filter
+      if (l.level == LogLevel.error) return true;
+      return _activeTags.contains(l.tag);
+    }).toList();
+  }
+
+  Widget _buildFilterBar(bool isDark) {
+    // Curated list for Live Screen (less noise than Control Panel)
+    final List<String> allFilters = [
+      "SYSTEM", "NET", "GRBL", "CAM", "AI", "ROUTINE", "SCAN", "WEED", "ENV", "FERT", "SD", "SENSORS", "CMD", "STATE"
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: allFilters.map((tag) {
+          final isActive = _activeTags.contains(tag);
+          
+          Color tagColor;
+          switch (tag) {
+            case "CAM": case "SCAN": tagColor = const Color(0xFF60A5FA); break;
+            case "GRBL": case "ROUTINE": tagColor = const Color(0xFF34D399); break;
+            case "AI": case "WEED": tagColor = const Color(0xFFA855F7); break;
+            case "FERT": tagColor = const Color(0xFFEC4899); break;
+            case "TX": case "CMD": tagColor = const Color(0xFFFBBF24); break;
+            case "RX": tagColor = const Color(0xFF8B5CF6); break;
+            case "ENV": tagColor = const Color(0xFF0EA5E9); break;
+            case "SD": tagColor = const Color(0xFFF97316); break;
+            default: tagColor = isDark ? Colors.white54 : Colors.grey.shade600;
+          }
+
+          final displayColor = isActive ? tagColor : (isDark ? Colors.white12 : Colors.grey.shade200);
+
+          return GestureDetector(
+            onTap: () => setState(() => isActive ? _activeTags.remove(tag) : _activeTags.add(tag)),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: displayColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                tag,
+                style: TextStyle(
+                  color: displayColor,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -414,41 +480,30 @@ class _LiveScreenState extends State<LiveScreen> {
     );
   }
 
-  Widget _buildFilteredLogLine(TaggedLog entry, bool isDark) {
-    final isTx = entry.message.startsWith("TX:");
-    final isSys = entry.message.startsWith("SYS");
-    final isErr = entry.tags.contains(LogTag.error);
-    final isCam =
-        entry.tags.contains(LogTag.camera) || entry.tags.contains(LogTag.scan);
-    final isMove = entry.tags.contains(LogTag.movement);
-    final isGrbl = entry.tags.contains(LogTag.grbl);
-
-    Color lineColor;
-    String prefix;
-    if (isErr) {
-      lineColor = const Color(0xFFEF4444);
-      prefix = "\u2718"; // ✘
-    } else if (isCam) {
-      lineColor = const Color(0xFF60A5FA);
-      prefix = "\u25C9"; // ◉
-    } else if (isMove || isGrbl) {
-      lineColor = const Color(0xFF34D399);
-      prefix = "\u2192"; // →
-    } else if (isTx) {
-      lineColor = const Color(0xFFFBBF24);
-      prefix = "\u2192"; // →
-    } else if (isSys) {
-      lineColor = isDark ? Colors.white54 : Colors.grey.shade600;
-      prefix = "\u2022"; // •
-    } else {
-      lineColor = isDark ? Colors.white38 : Colors.grey;
-      prefix = "\u2190"; // ←
+  Widget _buildFilteredLogLine(LogEntry entry, bool isDark) {
+    Color color;
+    switch (entry.level) {
+      case LogLevel.error:
+        color = const Color(0xFFEF4444);
+        break;
+      case LogLevel.warn:
+        color = const Color(0xFFFBBF24);
+        break;
+      case LogLevel.success:
+        color = const Color(0xFF34D399);
+        break;
+      default:
+        if (entry.tag == "CAM" || entry.tag == "SCAN") color = const Color(0xFF60A5FA);
+        else if (entry.tag == "TX") color = const Color(0xFFFBBF24);
+        else color = isDark ? Colors.white54 : Colors.grey.shade600;
     }
 
     final time = DateFormat('HH:mm:ss').format(entry.time);
-    final display = entry.message.length > 3
-        ? entry.message.substring(3).trim()
-        : entry.message;
+    final display = entry.message;
+    
+    // UI Styling
+    final lineColor = color;
+    final prefix = entry.level == LogLevel.error ? "✘" : "•";
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),

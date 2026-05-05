@@ -17,6 +17,9 @@
 #include <ArduinoJson.h>
 #include <math.h>
 
+// Forward declarations
+void routineWorkerTask(void* pvParameters);
+
 // ── Plant Registry ─────────────────────────────────────────────────────────
 PlantPosition plantRegistry[MAX_PLANTS];
 int           plantCount = 0;
@@ -76,7 +79,7 @@ static void loadPlantRegistry() {
         plantRegistry[i].active  = true;
     }
     _prefs.end();
-    AgriLog(TAG_ROUTINE, "Loaded %d plants from NVS.", plantCount);
+    AgriLog(TAG_ROUTINE, LEVEL_INFO, "Loaded %d plants from NVS.", plantCount);
 }
 
 // ============================================================================
@@ -132,7 +135,7 @@ static void performFertigation(uint8_t clientNum, const PlantPosition& plant,
     // ── Water ───────────────────────────────────────────────────────────────
     if (cfg.doWatering && soil.moisture < 40.0f) {
         // TODO: Make threshold configurable per plant
-        AgriLog(TAG_FERT, "Watering: M7 (pump on)");
+        AgriLog(TAG_FERT, LEVEL_INFO, "Watering: M7 (pump on)");
         enqueueGrblCommand("M7");
         delay(3000); // TODO: Calculate duration from deficit
         enqueueGrblCommand("M9"); // Pump off
@@ -278,11 +281,11 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
         
         // 1. Weather Gate
         if (isRaining()) {
-            AgriLog(TAG_ROUTINE, "⛈ Skipping plant because it's raining.");
+            AgriLog(TAG_ROUTINE, LEVEL_WARN, "⛈ Skipping plant because it's raining.");
             return; 
         }
 
-        AgriLog(TAG_ROUTINE, "Starting cycle for plant: %s", plant.name);
+        AgriLog(TAG_ROUTINE, LEVEL_INFO, "Starting cycle for plant: %s", plant.name);
         plantsDone++;
 
         // ── Broadcast current plant ───────────────────────────────────────
@@ -342,7 +345,7 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
                 // 4. Weed Detection (AI Hook)
                 AiResult ai = aiAnalyzeFrame(sysState.pendingFrame, sysState.pendingFrameLen);
                 if (ai.foundWeed && ai.confidence > 0.8f) {
-                    AgriLog(TAG_WEED, "⚠️ Weed detected at (+%d, +%d)! Taking action...", 
+                    AgriLog(TAG_WEED, LEVEL_WARN, "⚠️ Weed detected at (+%d, +%d)! Taking action...", 
                                   ai.xOffset, ai.yOffset);
                     // TODO: Move to relative offset and activate weed tool
                 }
@@ -445,12 +448,12 @@ void handleScanFull(uint8_t clientNum, const String& params) {
     float zH      = params.substring(c4+1).toFloat();
     int   total   = cols * rows;
 
-    setStreaming(false);
-    setOperation(OP_HOMING);
+    sysState.setStreaming(false);
+    sysState.setOperation(OP_HOMING);
     enqueueGrblCommand("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
     enqueueGrblCommand("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
     requestMachineDimensions(); delay(1000);
-    setOperation(OP_SCANNING);
+    sysState.setOperation(OP_SCANNING);
 
     StaticJsonDocument<128> doc;
     doc["evt"]   = "SCAN_FULL_START";
@@ -554,7 +557,7 @@ void handleRegisterPlant(uint8_t clientNum, const String& params) {
     doc["y"]    = y;
     String out; serializeJson(doc, out);
     webSocket.sendTXT(clientNum, out);
-    AgriLog(TAG_ROUTINE, "Plant registered: %s (%.1f, %.1f)",
+    AgriLog(TAG_ROUTINE, LEVEL_SUCCESS, "Plant registered: %s (%.1f, %.1f)",
                   plantRegistry[slot].name, x, y);
 }
 
@@ -565,7 +568,7 @@ void handleClearPlants(uint8_t clientNum) {
     _prefs.clear();
     _prefs.end();
     webSocket.sendTXT(clientNum, "{\"evt\":\"PLANTS_CLEARED\"}");
-    AgriLog(TAG_ROUTINE, "Plant registry cleared.");
+    AgriLog(TAG_ROUTINE, LEVEL_SUCCESS, "Plant registry cleared.");
 }
 
 // ============================================================================
@@ -599,7 +602,7 @@ void handleAutoDetectPlants(uint8_t clientNum, const String& params) {
     enqueueGrblCommand("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
     enqueueGrblCommand("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
     requestMachineDimensions(); delay(1000);
-    setOperation(OP_SCANNING);
+    sysState.setOperation(OP_SCANNING);
 
     StaticJsonDocument<96> startDoc;
     startDoc["evt"]   = "DETECT_START";
@@ -663,7 +666,7 @@ void handleAutoDetectPlants(uint8_t clientNum, const String& params) {
                 // Send JPEG thumbnail immediately after
                 webSocket.sendBIN(clientNum, fb->buf, fb->len);
 
-                AgriLog(TAG_SYSTEM, "Candidate #%d at (%.1f, %.1f) conf=%.2f",
+                AgriLog(TAG_SYSTEM, LEVEL_INFO, "Candidate #%d at (%.1f, %.1f) conf=%.2f",
                               candidateCount, tx, ty, confidence);
             }
 
@@ -698,7 +701,7 @@ detect_done:
     String doneOut; serializeJson(doneDoc, doneOut);
     webSocket.sendTXT(clientNum, doneOut);
 
-    AgriLog(TAG_SYSTEM, "Done. %d frames, %d candidates.",
+    AgriLog(TAG_SYSTEM, LEVEL_SUCCESS, "Done. %d frames, %d candidates.",
                   frameIdx, candidateCount);
 }
 
@@ -757,7 +760,7 @@ void handleRejectPlant(uint8_t clientNum, const String& params) {
         if (fabsf(candidateBuffer[i].x - x) < 10 &&
             fabsf(candidateBuffer[i].y - y) < 10) {
             candidateBuffer[i].pending = false;
-            AgriLog(TAG_SYSTEM, "Rejected candidate at (%.1f, %.1f)", x, y);
+            AgriLog(TAG_SYSTEM, LEVEL_INFO, "Rejected candidate at (%.1f, %.1f)", x, y);
             break;
         }
     }
@@ -785,7 +788,7 @@ void routineInit() {
         &_routineTaskHandle,
         1 // Pinned to Core 1
     );
-    AgriLog(TAG_ROUTINE, "Brain initialized on Core 1.");
+    AgriLog(TAG_ROUTINE, LEVEL_SUCCESS, "Brain initialized on Core 1.");
 }
 
 void routineWorkerTask(void* pvParameters) {
@@ -796,8 +799,8 @@ void routineWorkerTask(void* pvParameters) {
             
             // 1. Weather Gate: Check for Rain
             if (isRaining()) {
-                AgriLog(TAG_ROUTINE, "⛈ Rain detected! Gating autonomous actions.");
-                sysState.setOperation(OP_RESTING);
+                AgriLog(TAG_ROUTINE, LEVEL_WARN, "⛈ Rain detected! Gating autonomous actions.");
+                sysState.setOperation(OP_RAIN_PAUSED);
                 webSocket.broadcastTXT("{\"evt\":\"WEATHER_GATE\",\"status\":\"RAINING\",\"action\":\"SLEEP\"}");
                 
                 // Wait for rain to stop or user override (simplified for now)
@@ -807,13 +810,14 @@ void routineWorkerTask(void* pvParameters) {
 
             // 2. Execute Routine
             if (routineType == 1) { // Farming Cycle
-                handleFarmingCycle();
+                RoutineConfig dummyCfg; // Need to populate this or make handleFarmingCycle more flexible
+                handleFarmingCycle(activeClientNum, dummyCfg);
             } else if (routineType == 2) { // Full Grid Scan
                 // handleFullGridScan(); // To be refactored
             }
             
             sysState.setOperation(OP_IDLE);
-            AgriLog(TAG_ROUTINE, "Sequence complete.");
+            AgriLog(TAG_ROUTINE, LEVEL_SUCCESS, "Sequence complete.");
         }
     }
 }

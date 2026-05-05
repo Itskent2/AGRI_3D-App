@@ -10,6 +10,7 @@
 #include "agri3d_grbl.h"
 #include "agri3d_camera.h"
 #include "agri3d_network.h"
+#include "../core/agri3d_logger.h"
 #include <ArduinoJson.h>
 
 // ============================================================================
@@ -118,26 +119,26 @@ void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
                   cols, rows, total, stepX, stepY, zHeight);
 
     // ── Guard: no scan while already scanning / alarmed ──────────────────
-    if (sysState.operation == OP_SCANNING ||
-        sysState.operation == OP_ALARM_RECOVERY) {
+    if (sysState.getOperation() == OP_SCANNING ||
+        sysState.getOperation() == OP_ALARM_RECOVERY) {
         broadcastScanError(clientNum, "Cannot scan: system busy or in alarm");
         return;
     }
 
     // ── Pause live stream and lock camera ─────────────────────────────────
-    bool streamWasActive = sysState.isStreaming;
-    setStreaming(false);
-    setOperation(OP_HOMING);
+    bool streamWasActive = sysState.isStreaming();
+    sysState.setStreaming(false);
+    sysState.setOperation(OP_HOMING);
 
     // ── Pre-scan homing ───────────────────────────────────────────────────
     if (!homeScanAxes()) {
         broadcastScanError(clientNum, "Homing failed — scan aborted");
-        if (streamWasActive) setStreaming(true);
-        setOperation(OP_IDLE);
+        if (streamWasActive) sysState.setStreaming(true);
+        sysState.setOperation(OP_IDLE);
         return;
     }
 
-    setOperation(OP_SCANNING);
+    sysState.setOperation(OP_SCANNING);
     broadcastScanStart(clientNum, total, cols, rows, stepX, stepY, zHeight);
 
     // ── Snake-pattern grid traversal ──────────────────────────────────────
@@ -165,8 +166,8 @@ void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
             }
 
             // Abort if client disconnected mid-scan
-            if (sysState.flutter == FLUTTER_DISCONNECTED) {
-                AgriLog(TAG_ROUTINE, "Client disconnected — aborting scan");
+            if (sysState.getFlutter() == FLUTTER_DISCONNECTED) {
+                AgriLog(TAG_ROUTINE, LEVEL_WARN, "Client disconnected — aborting scan");
                 aborted = true;
                 break;
             }
@@ -175,23 +176,23 @@ void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
             bool ok = captureFrameAtPosition(clientNum, frameIdx, total,
                                               targetX, targetY);
             if (!ok) {
-                AgriLog(TAG_ROUTINE, "Frame %d failed — continuing", frameIdx);
+                AgriLog(TAG_ROUTINE, LEVEL_WARN, "Frame %d failed — continuing", frameIdx);
                 // Non-fatal: skip this frame, keep scanning
             }
         }
     }
 
     // ── Return to origin ──────────────────────────────────────────────────
-    AgriLog(TAG_ROUTINE, "Returning to origin (0, 0)");
+    AgriLog(TAG_ROUTINE, LEVEL_INFO, "Returning to origin (0, 0)");
     enqueueGrblCommand("G0 X0 Y0 F1000");
     waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
 
     // ── Restore state ─────────────────────────────────────────────────────
-    setOperation(OP_IDLE);
-    if (streamWasActive) setStreaming(true);
+    sysState.setOperation(OP_IDLE);
+    if (streamWasActive) sysState.setStreaming(true);
     broadcastScanComplete(clientNum, frameIdx, aborted);
 
-    AgriLog(TAG_ROUTINE, "Done. %d/%d frames captured.", frameIdx, total);
+    AgriLog(TAG_ROUTINE, LEVEL_SUCCESS, "Done. %d/%d frames captured.", frameIdx, total);
 }
 
 // =============================================================================
