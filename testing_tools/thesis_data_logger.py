@@ -6,6 +6,7 @@ from datetime import datetime
 FILENAME = "thesis_plant_data.csv"
 PLANT_COUNT = 16
 HEADERS = [
+    "Day",
     "Date", 
     "Plant_ID", 
     "Height_mm", 
@@ -15,12 +16,35 @@ HEADERS = [
     "Max_Leaf_Width_mm"
 ]
 
+def get_session_info():
+    """Calculates the current experimental day based on the first entry in the CSV."""
+    day_number = 1
+    current_date = datetime.now().date()
+    date_str = current_date.strftime("%Y-%m-%d")
+    
+    if os.path.exists(FILENAME):
+        try:
+            with open(FILENAME, mode='r') as file:
+                reader = csv.DictReader(file)
+                first_row = next(reader, None)
+                if first_row and 'Date' in first_row:
+                    # Parse the first date recorded to establish 'Day 1'
+                    start_date_str = first_row['Date'].split(' ')[0] # Handle old format if exists
+                    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                    day_number = (current_date - start_date).days + 1
+        except Exception as e:
+            print(f"[Warning] Could not calculate Day number: {e}")
+            
+    return day_number, date_str
+
 def initialize_csv():
     if not os.path.exists(FILENAME):
         with open(FILENAME, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(HEADERS)
-        print(f"Initialized {FILENAME}")
+        print(f"Initialized new data file: {FILENAME}")
+    else:
+        print(f"Using existing data file: {FILENAME}")
 
 def get_input(prompt, type_func=float):
     while True:
@@ -37,13 +61,13 @@ def get_input(prompt, type_func=float):
 
 def main():
     initialize_csv()
-    date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    day_number, date_str = get_session_info()
     
     print("\n" + "="*40)
     print(f"   AGRI_3D THESIS DATA LOGGER")
-    print(f"   Session Date: {date_str}")
+    print(f"   Date: {date_str} | Experimental Day: {day_number}")
     print("="*40)
-    print("Instructions: Enter measurements for 16 plants.")
+    print(f"Recording data for {PLANT_COUNT} plants.")
     print("Type 'q' to skip a plant if needed.\n")
 
     records = []
@@ -68,6 +92,7 @@ def main():
             if leaf_wid == 'q': continue
             
             records.append([
+                day_number,
                 date_str,
                 f"Plant_{i:02d}",
                 height,
