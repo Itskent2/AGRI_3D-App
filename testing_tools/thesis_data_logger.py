@@ -1,6 +1,16 @@
 import csv
-import os
 from datetime import datetime
+import os
+
+# ANSI Colors for a premium CLI experience
+CLR_HEADER = "\033[95m"
+CLR_PLANT = "\033[94m"
+CLR_DATA = "\033[96m"
+CLR_HIST = "\033[90m" # Grey for history
+CLR_SUCCESS = "\033[92m"
+CLR_WARNING = "\033[93m"
+CLR_RESET = "\033[0m"
+CLR_BOLD = "\033[1m"
 
 # Configuration
 FILENAME = "thesis_plant_data.csv"
@@ -37,6 +47,33 @@ def get_session_info():
             
     return day_number, date_str
 
+def get_history(plant_id, count=3):
+    """Retrieves the last N entries for a specific plant from the CSV."""
+    history = []
+    if os.path.exists(FILENAME):
+        try:
+            with open(FILENAME, mode='r') as file:
+                # Read all lines to find the last N matches for this plant
+                reader = list(csv.DictReader(file))
+                # Filter for this plant and take the last 'count' items
+                plant_rows = [row for row in reader if row['Plant_ID'] == plant_id]
+                history = plant_rows[-count:]
+        except Exception as e:
+            pass # Silently fail for history display
+    return history
+
+def display_history(history):
+    """Prints a compact table of historical data."""
+    if not history:
+        return
+    
+    print(f"  {CLR_HIST}Recent History:{CLR_RESET}")
+    print(f"  {CLR_HIST}{'Day':<4} | {'Height':<8} | {'Leaves':<6} | {'Rosette':<8} | {'Max L':<6} | {'Max W':<6}{CLR_RESET}")
+    print(f"  {CLR_HIST}{'-'*50}{CLR_RESET}")
+    for row in history:
+        print(f"  {CLR_HIST}{row['Day']:<4} | {row['Height_mm']:<8} | {row['Leaf_Count']:<6} | {row['Rosette_Diameter_mm']:<8} | {row['Max_Leaf_Length_mm']:<6} | {row['Max_Leaf_Width_mm']:<6}{CLR_RESET}")
+    print()
+
 def initialize_csv():
     if not os.path.exists(FILENAME):
         with open(FILENAME, mode='w', newline='') as file:
@@ -63,53 +100,58 @@ def main():
     initialize_csv()
     day_number, date_str = get_session_info()
     
-    print("\n" + "="*40)
+    print(f"\n{CLR_BOLD}{CLR_HEADER}" + "="*45)
     print(f"   AGRI_3D THESIS DATA LOGGER")
     print(f"   Date: {date_str} | Experimental Day: {day_number}")
-    print("="*40)
-    print(f"Recording data for {PLANT_COUNT} plants.")
-    print("Type 'q' to skip a plant if needed.\n")
+    print("="*45 + f"{CLR_RESET}")
+    print(f"Recording data for {CLR_BOLD}{PLANT_COUNT}{CLR_RESET} plants.")
+    print(f"Type {CLR_WARNING}'q'{CLR_RESET} to skip a plant if needed.\n")
 
     records = []
     
     try:
         for i in range(1, PLANT_COUNT + 1):
-            print(f"\n>>> Plant {i:02d} / {PLANT_COUNT}")
+            plant_id = f"Plant_{i:02d}"
+            print(f"\n{CLR_PLANT}{CLR_BOLD}>>> {plant_id} / {PLANT_COUNT}{CLR_RESET}")
             
-            height = get_input("  Height (mm): ")
+            # Show historical data for context
+            history = get_history(plant_id)
+            display_history(history)
+            
+            height = get_input(f"  {CLR_DATA}Height (mm): {CLR_RESET}")
             if height == 'q': continue
             
-            leaf_count = get_input("  Leaf Count: ", int)
+            leaf_count = get_input(f"  {CLR_DATA}Leaf Count: {CLR_RESET}", int)
             if leaf_count == 'q': continue
             
-            rosette_dia = get_input("  Rosette Diameter (mm): ")
+            rosette_dia = get_input(f"  {CLR_DATA}Rosette Diameter (mm): {CLR_RESET}")
             if rosette_dia == 'q': continue
             
-            leaf_len = get_input("  Max Leaf Length (mm): ")
+            leaf_len = get_input(f"  {CLR_DATA}Max Leaf Length (mm): {CLR_RESET}")
             if leaf_len == 'q': continue
             
-            leaf_wid = get_input("  Max Leaf Width (mm): ")
+            leaf_wid = get_input(f"  {CLR_DATA}Max Leaf Width (mm): {CLR_RESET}")
             if leaf_wid == 'q': continue
             
             records.append([
                 day_number,
                 date_str,
-                f"Plant_{i:02d}",
+                plant_id,
                 height,
                 leaf_count,
                 rosette_dia,
                 leaf_len,
                 leaf_wid
             ])
-            print(f"  [✓] Data captured for Plant {i:02d}")
+            print(f"  {CLR_SUCCESS}[✓] Data captured for {plant_id}{CLR_RESET}")
 
         if records:
             with open(FILENAME, mode='a', newline='') as file:
                 writer = csv.writer(file)
                 writer.writerows(records)
-            print(f"\n[SUCCESS] {len(records)} plant records appended to {FILENAME}")
+            print(f"\n{CLR_SUCCESS}{CLR_BOLD}[SUCCESS] {len(records)} plant records appended to {FILENAME}{CLR_RESET}")
         else:
-            print("\n[INFO] No records were saved this session.")
+            print(f"\n{CLR_WARNING}[INFO] No records were saved this session.{CLR_RESET}")
 
     except KeyboardInterrupt:
         print("\n\n[EXIT] Session terminated by user. Data not saved.")
