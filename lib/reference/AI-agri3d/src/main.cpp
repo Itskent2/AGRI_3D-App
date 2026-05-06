@@ -39,6 +39,9 @@ void setup() {
     AgriLog(TAG_SYSTEM, LEVEL_INFO, "Initialising camera...");
     cameraInit();
 
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "Initialising AI engine (Weed Detection)...");
+    aiInit();
+
     xTaskCreatePinnedToCore(commTask, "CommTask", 8192, NULL, 3, &CommTaskHandle, 0);
 
     AgriLog(TAG_SYSTEM, LEVEL_SUCCESS, "SETUP COMPLETE. Communication Bridge active on Core 0.");
