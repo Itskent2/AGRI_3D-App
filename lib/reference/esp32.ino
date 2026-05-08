@@ -1,11 +1,10 @@
+#include "AI_AGRI3D/AI_AGRI3D.h"
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
-#include "AI_AGRI3D/AI_AGRI3D.h"
-
 
 // ── Configuration ──
 const char *ssid = "Jiji";
@@ -197,7 +196,7 @@ void setup() {
   server.addHandler(&ws);
   server.begin();
   LOGLN("✓ WebSocket Server Active.");
-  
+
   // Initialize AI_AGRI3D
   aiSystem.begin();
 }
