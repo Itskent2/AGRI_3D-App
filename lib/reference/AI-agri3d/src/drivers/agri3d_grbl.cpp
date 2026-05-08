@@ -227,6 +227,9 @@ static void parsePreviousCrash(const String& msg) {
     doc["tmcZ"]   = lastCrash.tmcZ;
     String out; serializeJson(doc, out);
     webSocket.broadcastTXT(out);
+    
+    // Auto-clear the crash alarm per user request
+    enqueueGrblCommand("$clr");
 }
 
 /** Handles a complete, trimmed line from the Nano. */
@@ -244,18 +247,24 @@ static void handleNanoLine(const String& line) {
         return;
     }
 
-    // ── Machine dimensions ──
+    // ── Machine dimensions + full $$ dump logging ──
     if (line.startsWith("$130=")) {
         machineDim.maxX  = line.substring(5).toFloat();
         machineDim.valid = (machineDim.maxX > 0 && machineDim.maxY > 0);
+        AgriLog(TAG_GRBL, LEVEL_INFO, "%s", line.c_str());
         saveDimensionsToNVS();
     } else if (line.startsWith("$131=")) {
         machineDim.maxY  = line.substring(5).toFloat();
         machineDim.valid = (machineDim.maxX > 0 && machineDim.maxY > 0);
+        AgriLog(TAG_GRBL, LEVEL_INFO, "%s", line.c_str());
         saveDimensionsToNVS();
     } else if (line.startsWith("$132=")) {
         machineDim.maxZ  = line.substring(5).toFloat();
+        AgriLog(TAG_GRBL, LEVEL_INFO, "%s", line.c_str());
         saveDimensionsToNVS();
+    } else if (line.startsWith("$") && line.indexOf('=') != -1) {
+        // Any other $N=value line from a $$ dump — log it for serial inspection
+        AgriLog(TAG_GRBL, LEVEL_INFO, "%s", line.c_str());
     }
 
     // ── Crash log replayed at Nano boot ──
@@ -277,6 +286,9 @@ static void handleNanoLine(const String& line) {
         String out; serializeJson(doc, out);
         webSocket.broadcastTXT(out);
         AgriLog(TAG_GRBL, LEVEL_ERR, "ALARM %d: %s", code, alarmCodeDescription(code));
+        
+        // Auto-clear the alarm after saving/broadcasting
+        enqueueGrblCommand("$clr");
         return;
     }
 
@@ -293,6 +305,9 @@ static void handleNanoLine(const String& line) {
     else if (line == "ok") {
         sdSignalOk(); // Release SD flow-control gate
         _nanoReady = true; // Nano is ready for the next command in the queue
+        if (sysState.getOperation() == OP_HOMING) {
+            sysState.setOperation(OP_IDLE);
+        }
     }
 
     // Forward every raw line to Flutter for the terminal view
@@ -354,6 +369,9 @@ void grblLoop() {
         String nextCmd = _cmdQueue.front();
         _cmdQueue.pop_front();
         _nanoReady = false; // Wait for 'ok' before sending next
+        if (nextCmd.startsWith("$H")) {
+            sysState.setOperation(OP_HOMING);
+        }
         NanoSerial.println(nextCmd);
         AgriLog(TAG_GRBL, LEVEL_INFO, "Sent from Queue: %s", nextCmd.c_str());
     }
@@ -388,6 +406,11 @@ void enqueueGrblCommand(const String& cmd) {
     if (cmd == "?" || cmd == "!" || cmd == "~") {
         NanoSerial.print(cmd);
         return;
+    }
+
+    // Auto-clear before any homing cycle
+    if (cmd.startsWith("$H")) {
+        _cmdQueue.push_back("$clr");
     }
 
     _cmdQueue.push_back(cmd);

@@ -1,20 +1,19 @@
 /**
  * @file agri3d_ai.h
- * @brief AI analysis hooks for plant/weed detection using Edge Impulse FOMO model.
+ * @brief AI analysis hooks for plant/weed detection.
  *
- * Model: Weed Detection (Edge Impulse Project #923987, Impulse #2)
- *   - Input:  96×96 RGB image
- *   - Output: FOMO object detection with 2 classes: "crop", "weed"
- *   - Arena:  ~290 KB (allocated in PSRAM)
+ * AI inference is currently disabled (running without the Edge Impulse SDK).
+ * All functions return safe no-op results so the rest of the firmware compiles
+ * and operates normally without the model present.
  */
 
 #pragma once
 #include <Arduino.h>
 
-// ── Edge Impulse SDK ──────────────────────────────────────────────────────
-// The model_variables.h pulls in the full impulse definition, the compiled
-// TFLite graph, and all DSP / postprocessing blocks.
-#include "edge-impulse-sdk/classifier/ei_run_classifier.h"
+// ── Stub constant (replaces EI_CLASSIFIER_OBJECT_DETECTION_COUNT) ─────────
+#ifndef AI_MAX_DETECTIONS
+#define AI_MAX_DETECTIONS 10
+#endif
 
 // ── Detection result for a single bounding box ───────────────────────────
 struct AiDetection {
@@ -38,7 +37,7 @@ struct AiResult {
     int cropCount;
     int weedCount;
     int totalDetections;
-    AiDetection detections[EI_CLASSIFIER_OBJECT_DETECTION_COUNT]; // max 10
+    AiDetection detections[AI_MAX_DETECTIONS]; // max 10
 };
 
 /**

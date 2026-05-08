@@ -32,6 +32,7 @@ void tmc_config_init_all(void) {
     uint8_t addr = addrs[i];
 
     tmc_uart_write_reg(addr, TMC2209_REG_GCONF, TMC_DEFAULT_GCONF);
+
     tmc_uart_write_reg(addr, TMC2209_REG_CHOPCONF, TMC_DEFAULT_CHOPCONF);
     tmc_uart_write_reg(addr, TMC2209_REG_IHOLD_IRUN, iholds[i]);
     
@@ -44,8 +45,8 @@ void tmc_config_init_all(void) {
     // Enable StallGuard DIAG for X/Y only. Z relies on physical limit switch.
     if (addr == TMC_ADDR_Z) {
       tmc_uart_write_reg(addr, TMC2209_REG_TCOOLTHRS, 0x00000000);
-      tmc_uart_write_reg(addr, TMC2209_REG_TPWMTHRS,
-                         0x00000000); // Z stays in Stealthchop
+      tmc_uart_write_reg(addr, TMC2209_REG_TPWMTHRS, 0x00000000); 
+
     } else {
       tmc_uart_write_reg(addr, TMC2209_REG_TCOOLTHRS, 0x00002000); // Disable StallGuard below ~68 mm/min to prevent ALARM:8 false positive at end of pull-off
 
@@ -241,8 +242,12 @@ void tmc_config_poll_state(void) {
   if (read_success) {
     if (drv_status & (1UL << 1)) {
       new_state = 3; // Over-temp Shutdown (ot)
-    } else if (drv_status & (0x3C)) {
-      new_state = 5; // Any short circuit
+    } else if ((drv_status & 0x3C) && !(drv_status & (1UL << 31))) {
+      // Short circuit (s2g/s2vs) — BUT only trust this while the motor is
+      // actively moving! TMC2209 falsely asserts s2g at standstill due to
+      // chopper current regulation, especially with high IHOLD values.
+      // Bit 31 (stst) = 1 means standstill, so we IGNORE shorts at standstill.
+      new_state = 5;
     } else if (drv_status & (0xC0)) {
       new_state = 4; // Open Load
     } else if (drv_status & (1UL << 0)) {
@@ -292,6 +297,7 @@ void tmc_config_poll_state(void) {
     printPgmString(PSTR("]\r\n"));
 
     sys_rt_exec_alarm = EXEC_ALARM_HARD_LIMIT;
+
   }
 
   // Move to the next driver for the next polling tick

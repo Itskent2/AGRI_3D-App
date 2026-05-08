@@ -39,8 +39,9 @@
 // Homing Cycle (Z first, then X/Y)
 #define HOMING_INIT_LOCK // Comment to disable
 #define HOMING_SINGLE_AXIS_COMMANDS // Allows $HX, $HY, and $HZ
-#define HOMING_CYCLE_0 (1 << Z_AXIS)
-#define HOMING_CYCLE_1 ((1 << X_AXIS) | (1 << Y_AXIS))
+#define HOMING_CYCLE_0 (1 << Z_AXIS) // Phase 0: Standard Homing (Retract Z)
+#define HOMING_CYCLE_1 ((1 << X_AXIS) | (1 << Y_AXIS) | (1 << 3)) // Phase 1: Auto-dim X/Y
+#define HOMING_CYCLE_2 ((1 << Z_AXIS) | (1 << 3)) // Phase 2: Auto-dim Z
 #define N_HOMING_LOCATE_CYCLE 1
 
 #define N_STARTUP_LINE 2

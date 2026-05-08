@@ -23,7 +23,7 @@
  *   ── Gantry ──────────────────────────────────────────────────────────
  *   HOME_X                      → $HX to Nano
  *   HOME_Y                      → $HY to Nano
- *   UNLOCK                      → $X (alarm unlock) to Nano
+ *   UNLOCK                      → $clr (alarm unlock) to Nano
  *   ESTOP                       → Ctrl-X (hard stop) to Nano
  *   GCODE:<line>                → forward raw G-code to Nano
  *   ── SD Card ─────────────────────────────────────────────────────────

@@ -410,7 +410,7 @@ class _LiveScreenState extends State<LiveScreen> {
   Widget _buildFilterBar(bool isDark) {
     // Curated list for Live Screen (less noise than Control Panel)
     final List<String> allFilters = [
-      "SYSTEM", "NET", "GRBL", "CAM", "AI", "ROUTINE", "SCAN", "WEED", "ENV", "FERT", "SD", "SENSORS", "CMD", "STATE"
+      "SYSTEM", "NET", "GRBL", "CAM", "AI", "ROUTINE", "SCAN", "WEED", "ENV", "FERT", "SD", "SENSORS", "CMD", "STATE", "PING"
     ];
 
     return Padding(
@@ -431,6 +431,7 @@ class _LiveScreenState extends State<LiveScreen> {
             case "RX": tagColor = const Color(0xFF8B5CF6); break;
             case "ENV": tagColor = const Color(0xFF0EA5E9); break;
             case "SD": tagColor = const Color(0xFFF97316); break;
+            case "PING": tagColor = const Color(0xFF14B8A6); break;
             default: tagColor = isDark ? Colors.white54 : Colors.grey.shade600;
           }
 

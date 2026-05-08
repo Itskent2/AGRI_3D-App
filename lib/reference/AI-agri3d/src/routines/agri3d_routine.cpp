@@ -30,6 +30,8 @@ int            candidateCount = 0;
 
 static Preferences _prefs;
 static const char* NVS_ROUTINE_NS = "routine";
+static float _waterFlowRate = 10.0f; // Default 10 ml/s
+static float _fertFlowRate  = 10.0f; // Default 10 ml/s
 
 // ============================================================================
 // PLANT REGISTRY — NVS PERSISTENCE
@@ -778,6 +780,11 @@ static uint32_t     _pendingRoutine = 0; // Bitmask of routines to run
 void routineInit() {
     loadPlantRegistry();
     
+    _prefs.begin(NVS_ROUTINE_NS, true);
+    _waterFlowRate = _prefs.getFloat("w_rate", 10.0f);
+    _fertFlowRate  = _prefs.getFloat("f_rate", 10.0f);
+    _prefs.end();
+    
     // Create the Routine Task (The Brain) on Core 1
     xTaskCreatePinnedToCore(
         routineWorkerTask,
@@ -826,4 +833,94 @@ void startRoutine(uint32_t type) {
     if (_routineTaskHandle) {
         xTaskNotify(_routineTaskHandle, type, eSetValueWithOverwrite);
     }
+}
+
+// ── Flow Rate Calibration ──────────────────────────────────────────────────
+
+void setWaterFlowRate(float rate) {
+    _waterFlowRate = rate;
+    _prefs.begin(NVS_ROUTINE_NS, false);
+    _prefs.putFloat("w_rate", rate);
+    _prefs.end();
+}
+
+void setFertFlowRate(float rate) {
+    _fertFlowRate = rate;
+    _prefs.begin(NVS_ROUTINE_NS, false);
+    _prefs.putFloat("f_rate", rate);
+    _prefs.end();
+}
+
+float getWaterFlowRate() { return _waterFlowRate; }
+float getFertFlowRate() { return _fertFlowRate; }
+
+// ── Custom Operations ───────────────────────────────────────────────────
+
+void handleWater(uint8_t clientNum, float x, float y, float ml, float ox, float oy) {
+    float tx = x + ox;
+    float ty = y + oy;
+    
+    char moveCmd[48];
+    snprintf(moveCmd, sizeof(moveCmd), "G0 X%.1f Y%.1f F%d", tx, ty, GRBL_DEFAULT_FEEDRATE);
+    enqueueGrblCommand(moveCmd);
+    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
+    
+    enqueueGrblCommand("M100"); // Water ON
+    unsigned long duration = (ml / _waterFlowRate) * 1000;
+    delay(duration);
+    enqueueGrblCommand("M101"); // Water OFF
+    
+    StaticJsonDocument<128> doc;
+    doc["evt"] = "WATER_COMPLETE";
+    doc["x"] = tx;
+    doc["y"] = ty;
+    doc["ml"] = ml;
+    String out; serializeJson(doc, out);
+    webSocket.sendTXT(clientNum, out);
+}
+
+void handleFertilize(uint8_t clientNum, float x, float y, float ml, float ox, float oy) {
+    float tx = x + ox;
+    float ty = y + oy;
+    
+    char moveCmd[48];
+    snprintf(moveCmd, sizeof(moveCmd), "G0 X%.1f Y%.1f F%d", tx, ty, GRBL_DEFAULT_FEEDRATE);
+    enqueueGrblCommand(moveCmd);
+    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
+    
+    enqueueGrblCommand("M102"); // Fert ON
+    unsigned long duration = (ml / _fertFlowRate) * 1000;
+    delay(duration);
+    enqueueGrblCommand("M103"); // Fert OFF
+    
+    StaticJsonDocument<128> doc;
+    doc["evt"] = "FERTILIZE_COMPLETE";
+    doc["x"] = tx;
+    doc["y"] = ty;
+    doc["ml"] = ml;
+    String out; serializeJson(doc, out);
+    webSocket.sendTXT(clientNum, out);
+}
+
+void handleCleanSensors(uint8_t clientNum) {
+    enqueueGrblCommand("G0 Z0 F500");
+    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
+    
+    char moveCmd[48];
+    snprintf(moveCmd, sizeof(moveCmd), "G0 Y%.1f F%d", machineDim.maxY - 20, GRBL_DEFAULT_FEEDRATE);
+    enqueueGrblCommand(moveCmd);
+    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
+    
+    enqueueGrblCommand("G0 X0 Y0 F1000");
+    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
+    
+    enqueueGrblCommand("G0 Z5 F500");
+    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
+    
+    enqueueGrblCommand("M104"); // Weeder ON
+    enqueueGrblCommand("G2 X0 Y0 I10 J0 F500");
+    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
+    enqueueGrblCommand("M105"); // Weeder OFF
+    
+    webSocket.sendTXT(clientNum, "{\"evt\":\"CLEAN_SENSORS_COMPLETE\"}");
 }

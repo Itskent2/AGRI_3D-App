@@ -82,6 +82,7 @@
 // Nano is flagged UNRESPONSIVE if silent for: max(4 * poll_interval, this
 // floor)
 #define NANO_WATCHDOG_FLOOR_MS 10000 // Minimum 10 s before UNRESPONSIVE
+#define NANO_WATCHDOG_HOME_MS 90000  // 90 seconds timeout during homing
 
 // ── Camera Pins (ESP32-S3 N16R8 + OV5640) ────────────────────────────────
 #define CAM_PWDN -1
