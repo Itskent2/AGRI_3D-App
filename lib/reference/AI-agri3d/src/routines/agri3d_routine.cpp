@@ -30,8 +30,8 @@ int            candidateCount = 0;
 
 static Preferences _prefs;
 static const char* NVS_ROUTINE_NS = "routine";
-static float _waterFlowRate = 10.0f; // Default 10 ml/s
-static float _fertFlowRate  = 10.0f; // Default 10 ml/s
+static float _waterFlowRate = 24.0f; // Default 24 ml/s
+static float _fertFlowRate  = 2.0f;  // Default 2 ml/s
 
 // ============================================================================
 // PLANT REGISTRY — NVS PERSISTENCE
@@ -781,8 +781,8 @@ void routineInit() {
     loadPlantRegistry();
     
     _prefs.begin(NVS_ROUTINE_NS, true);
-    _waterFlowRate = _prefs.getFloat("w_rate", 10.0f);
-    _fertFlowRate  = _prefs.getFloat("f_rate", 10.0f);
+    _waterFlowRate = _prefs.getFloat("w_rate", 24.0f);
+    _fertFlowRate  = _prefs.getFloat("f_rate", 2.0f);
     _prefs.end();
     
     // Create the Routine Task (The Brain) on Core 1
