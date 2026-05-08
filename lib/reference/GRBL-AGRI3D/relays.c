@@ -6,39 +6,43 @@
 #include "grbl-agri3d.h"
 
 void relays_init() {
-  RELAY_PORT |= RELAY_MASK; // Pre-load HIGH state
-  RELAY_DDR |= RELAY_MASK;  // Now set as output (seamlessly transitions to HIGH)
+  // Water and Fert are Active Low -> Set HIGH to turn OFF
+  // Weeder is Active High -> Set LOW to turn OFF
+  RELAY_PORT |= (1 << WATER_PUMP_BIT) | (1 << FERT_PUMP_BIT);
+  RELAY_PORT &= ~(1 << WEEDER_MOT_BIT);
+  RELAY_DDR |= RELAY_MASK;   // Now set as output
 }
 
 void relays_stop_all() {
-  // ACTIVE LOW RELAYS: Pull pins HIGH to deactivate
-  RELAY_PORT |= RELAY_MASK;
+  // Water and Fert are Active Low -> Pull HIGH to deactivate
+  // Weeder is Active High -> Pull LOW to deactivate
+  RELAY_PORT |= (1 << WATER_PUMP_BIT) | (1 << FERT_PUMP_BIT);
+  RELAY_PORT &= ~(1 << WEEDER_MOT_BIT);
 }
 
 // -------------------------------------------------------------
-// DEDICATED TOGGLES (ACTIVE LOW LOGIC)
+// DEDICATED TOGGLES (MIXED LOGIC)
 // -------------------------------------------------------------
 void relay_water(uint8_t state) {
   if (state) {
-    RELAY_PORT &= ~(1 << WATER_PUMP_BIT);
-  } // Pull LOW to turn ON
-  else {
-    RELAY_PORT |= (1 << WATER_PUMP_BIT);
-  } // Pull HIGH to turn OFF
+    RELAY_PORT &= ~(1 << WATER_PUMP_BIT); // Pull LOW to turn ON (Active Low)
+  } else {
+    RELAY_PORT |= (1 << WATER_PUMP_BIT);  // Pull HIGH to turn OFF
+  }
 }
 
 void relay_fert(uint8_t state) {
   if (state) {
-    RELAY_PORT &= ~(1 << FERT_PUMP_BIT);
+    RELAY_PORT &= ~(1 << FERT_PUMP_BIT); // Pull LOW to turn ON (Active Low)
   } else {
-    RELAY_PORT |= (1 << FERT_PUMP_BIT);
+    RELAY_PORT |= (1 << FERT_PUMP_BIT);  // Pull HIGH to turn OFF
   }
 }
 
 void relay_weeder(uint8_t state) {
   if (state) {
-    RELAY_PORT &= ~(1 << WEEDER_MOT_BIT);
-  } else {
     RELAY_PORT |= (1 << WEEDER_MOT_BIT);
+  } else {
+    RELAY_PORT &= ~(1 << WEEDER_MOT_BIT);
   }
 }

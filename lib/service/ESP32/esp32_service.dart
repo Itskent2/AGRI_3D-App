@@ -78,6 +78,9 @@ class ESP32Service extends ChangeNotifier {
 
   double x = 0, y = 0, z = 0;
   double maxX = 1000.0, maxY = 1000.0, maxZ = 1000.0;
+  Map<String, String> grblSettings = {};
+  double waterFlowRate = 10.0;
+  double fertFlowRate = 10.0;
 
   String machineState = "Unknown";
   EnvironmentState environment = EnvironmentState.clear;
@@ -375,6 +378,8 @@ class ESP32Service extends ChangeNotifier {
               if (parsed['x'] != null) x = (parsed['x'] as num).toDouble();
               if (parsed['y'] != null) y = (parsed['y'] as num).toDouble();
               if (parsed['z'] != null) z = (parsed['z'] as num).toDouble();
+              if (parsed['w_rate'] != null) waterFlowRate = (parsed['w_rate'] as num).toDouble();
+              if (parsed['f_rate'] != null) fertFlowRate = (parsed['f_rate'] as num).toDouble();
               _scheduleNotify();
               return; 
             }
@@ -382,6 +387,14 @@ class ESP32Service extends ChangeNotifier {
             if (parsed['nano_raw'] != null) {
               String raw = parsed['nano_raw'].toString();
               _parseGrblStatus(raw);
+
+              if (raw.startsWith("\$") && raw.contains("=")) {
+                final parts = raw.split("=");
+                if (parts.length == 2) {
+                  grblSettings[parts[0]] = parts[1];
+                  _scheduleNotify();
+                }
+              }
 
               if (raw.startsWith("\$130=")) { maxX = double.tryParse(raw.substring(5)) ?? maxX; _scheduleNotify(); }
               if (raw.startsWith("\$131=")) { maxY = double.tryParse(raw.substring(5)) ?? maxY; _scheduleNotify(); }
@@ -510,15 +523,19 @@ class ESP32Service extends ChangeNotifier {
       _lastPingSentAt = DateTime.now(); 
       
       // Inject the generation into the ping!
-      sendCommand('{"cmd":"PING", "gen": $_connectionGen}'); 
+      sendCommand('{"cmd":"PING", "gen": $_connectionGen}', tag: "PING"); 
     });
   }
 
-  void sendCommand(String cmd) {
+  void sendCommand(String cmd, {String tag = "TX"}) {
     if (_channel != null && isConnected) {
       _channel!.sink.add(cmd);
-      addLog(cmd, tag: "TX");
+      addLog(cmd, tag: tag);
     }
+  }
+
+  void requestGrblSettings() {
+    sendCommand("\$\$");
   }
 
   void setFPM(int fpm) {

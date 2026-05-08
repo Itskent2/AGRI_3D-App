@@ -118,6 +118,27 @@ void handleRegisterPlant(uint8_t clientNum, const String& params);
 /** Remove all plant entries from registry and NVS. */
 void handleClearPlants(uint8_t clientNum);
 
+/** Water at specific coordinates with amount. */
+void handleWater(uint8_t clientNum, float x, float y, float ml, float ox = 0, float oy = 0);
+
+/** Fertilize at specific coordinates with amount. */
+void handleFertilize(uint8_t clientNum, float x, float y, float ml, float ox = 0, float oy = 0);
+
+/** Clean NPK sensor and weeder. */
+void handleCleanSensors(uint8_t clientNum);
+
+/** Set flow rate for water (ml/s). */
+void setWaterFlowRate(float rate);
+
+/** Set flow rate for fertilizer (ml/s). */
+void setFertFlowRate(float rate);
+
+/** Get flow rate for water (ml/s). */
+float getWaterFlowRate();
+
+/** Get flow rate for fertilizer (ml/s). */
+float getFertFlowRate();
+
 /** Broadcast all registered plants as JSON to a specific client. */
 void broadcastPlantMap(uint8_t clientNum);
 

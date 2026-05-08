@@ -173,6 +173,13 @@ uint8_t system_execute_line(char *line) {
   case 'G':
   case 'C':
   case 'X':
+    if (line[1] == 'C' && line[2] == 'L' && line[3] == 'R' && line[4] == 0) {
+      // $CLR — Clear the persistent crash log from EEPROM
+      eeprom_put_char(EEPROM_ADDR_CRASH_LOG, 0);
+      eeprom_put_char(EEPROM_ADDR_CRASH_LOG2, 0);
+      printPgmString(PSTR("[CRASH LOG CLEARED]\r\n"));
+      break;
+    }
     if (line[2] != 0) {
       return (STATUS_INVALID_STATEMENT);
     }
@@ -412,24 +419,12 @@ void system_convert_array_steps_to_mpos(float *position, int32_t *steps) {
 uint8_t system_check_travel_limits(float *target) {
   uint8_t idx;
   for (idx = 0; idx < N_AXIS; idx++) {
-#ifdef HOMING_FORCE_SET_ORIGIN
-    // When homing forced set origin is enabled, soft limits checks need to
-    // account for directionality. NOTE: max_travel is stored as negative
-    if (bit_istrue(settings.homing_dir_mask, bit(idx))) {
-      if (target[idx] < 0 || target[idx] > -settings.max_travel[idx]) {
-        return (true);
-      }
-    } else {
-      if (target[idx] > 0 || target[idx] < settings.max_travel[idx]) {
-        return (true);
-      }
-    }
-#else
-    // NOTE: max_travel is stored as negative
-    if (target[idx] > 0 || target[idx] < settings.max_travel[idx]) {
+    // Agri3D: Farmbot operates entirely in positive workspace.
+    // Origin (0) is at the home switch, and travel extends up to +max_travel.
+    // NOTE: settings.max_travel[] is stored internally as a negative value!
+    if (target[idx] < 0 || target[idx] > -settings.max_travel[idx]) {
       return (true);
     }
-#endif
   }
   return (false);
 }

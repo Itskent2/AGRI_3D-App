@@ -126,7 +126,13 @@ void mc_homing_cycle(uint8_t cycle_mask) {
 
 #ifdef HOMING_SINGLE_AXIS_COMMANDS
   if (cycle_mask) {
-    limits_go_home(cycle_mask);
+    if (cycle_mask == HOMING_CYCLE_Z) {
+      limits_go_home(HOMING_CYCLE_0); // Phase 0: Standard Homing (Retract Z)
+      limits_go_home(HOMING_CYCLE_2); // Phase 2: Auto-dim Z
+    } else {
+      // For $HX or $HY, trigger the auto-dimensioning flag
+      limits_go_home(cycle_mask | (1 << 3));
+    }
   } // Perform homing cycle based on mask.
   else
 #endif

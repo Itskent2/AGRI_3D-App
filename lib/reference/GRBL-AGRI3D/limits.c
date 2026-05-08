@@ -42,10 +42,25 @@ void limits_disable() {
 // bit 2, and Y_AXIS is (1<<1) or bit 1.
 uint8_t limits_get_state() {
   uint8_t limit_state = 0;
-  uint8_t pin = (LIMIT_PIN & LIMIT_MASK);
-  if (bit_isfalse(settings.flags, BITFLAG_INVERT_LIMIT_PINS)) {
-    pin ^= LIMIT_MASK;
-  }
+  uint8_t raw_pin = (LIMIT_PIN & LIMIT_MASK);
+
+  // --- X and Y: TMC2209 StallGuard DIAG pins (Active-HIGH = stall detected) ---
+  // These pins are driven directly by the TMC2209 DIAG output.
+  // HIGH means a stall was detected. No inversion needed, ever.
+  // The $5 (invert limit pins) setting must NOT affect these.
+  uint8_t xy_mask = (1 << X_LIMIT_BIT) | (1 << Y_LIMIT_BIT);
+  uint8_t xy_triggered = raw_pin & xy_mask; // Active-HIGH, read directly
+
+  // --- Z: Physical limit switch (Normally-Open to GND, pulled HIGH) ---
+  // When the switch is triggered (pressed), the pin goes LOW.
+  // When not pressed, the internal pull-up keeps it HIGH.
+  // We MUST invert this so that LOW = triggered (1).
+  // We hardcode this inversion so it works perfectly regardless of the $5 EEPROM setting.
+  uint8_t z_mask = (1 << Z_LIMIT_BIT);
+  uint8_t z_triggered = (~raw_pin) & z_mask; // Always invert Z
+
+  uint8_t pin = xy_triggered | z_triggered;
+
   if (pin) {
     uint8_t idx;
     for (idx = 0; idx < N_AXIS; idx++) {
@@ -67,22 +82,8 @@ uint8_t limits_get_state() {
 // correct reading if the switch is bouncing.
 ISR(LIMIT_INT_vect) // DEFAULT: Limit pin change interrupt process.
 {
-  // Ignore limit switches if already in an alarm state or in-process of
-  // executing an alarm. When in the alarm state, Grbl should have been reset or
-  // will force a reset, so any pending moves in the planner and serial buffers
-  // are all cleared and newly sent blocks will be locked out until a homing
-  // cycle or a kill lock command. Allows the user to disable the hard limit
-  // setting if their limits are constantly triggering after a reset and move
-  // their axes.
-  // CRITICAL FIX: Ignore hardware interrupts during homing! StallGuard handles
-  // this in polling!
-  if (sys.state != STATE_ALARM && sys.state != STATE_HOMING) {
-    if (!(sys_rt_exec_alarm)) {
-      mc_reset(); // Initiate system kill.
-      system_set_exec_alarm(
-          EXEC_ALARM_HARD_LIMIT); // Indicate hard limit critical event
-    }
-  }
+  // Disabled per user request: The limit switches are now strictly for auto-dimming (homing).
+  // If triggered during normal operation, they will be ignored, allowing Soft Limits to govern boundaries.
 }
 
 // Homes the specified cycle axes, sets the machine position, and performs a
@@ -99,12 +100,16 @@ void limits_go_home(uint8_t cycle_mask) {
   } // Block if system reset has been issued.
 
   // Initialize plan data struct for homing motion.
-  // Ensure all Agri3D relays (Water, Fertigation, Weeder) are turned off during
-  // homing for safety.
-  RELAY_PORT &= ~RELAY_MASK;
+  // Ensure Water and Fertigation relays are turned off during homing.
+  // Active Low relays -> Set HIGH to turn OFF.
+  // Leave Weeder relay as is per user request.
+  RELAY_PORT |= (1 << WATER_PUMP_BIT) | (1 << FERT_PUMP_BIT);
 
-  uint8_t standard_mask = cycle_mask & ~(bit(X_AXIS) | bit(Y_AXIS));
-  uint8_t auto_dim_mask = cycle_mask & (bit(X_AXIS) | bit(Y_AXIS));
+  uint8_t is_auto_dim = (cycle_mask & (1 << 3));
+  uint8_t target_axes = (cycle_mask & 0x07); // Mask out flags, keep only X, Y, Z
+
+  uint8_t standard_mask = is_auto_dim ? 0 : target_axes;
+  uint8_t auto_dim_mask = is_auto_dim ? target_axes : 0;
 
   // =========================================================================
   // Standard GRBL Homing (For Z axis)
@@ -140,6 +145,11 @@ void limits_go_home(uint8_t cycle_mask) {
     // specified cycle_mask limit switches.
     bool approach = true;
     float homing_rate = settings.homing_seek_rate;
+
+    // Agri3D: Apply 1/2 speed reduction for Z-axis homing as requested by user.
+    if (standard_mask == (1 << Z_AXIS)) {
+      homing_rate /= 2.0;
+    }
 
     uint8_t limit_state, axislock, n_active_axis;
     do {
@@ -269,6 +279,11 @@ void limits_go_home(uint8_t cycle_mask) {
         homing_rate = settings.homing_seek_rate;
       }
 
+      // Agri3D: Apply 1/2 speed reduction for Z-axis homing.
+      if (standard_mask == (1 << Z_AXIS)) {
+        homing_rate /= 2.0;
+      }
+
     } while (n_cycle-- > 0);
 
     int32_t set_axis_position;
@@ -278,9 +293,10 @@ void limits_go_home(uint8_t cycle_mask) {
       // NOTE: settings.max_travel[] is stored as a negative value.
       if (standard_mask & bit(idx)) {
         if (bit_istrue(settings.homing_dir_mask, bit(idx))) {
+          // Agri3D: If homing to the negative direction (e.g. bottom for Z), set position to +pulloff
+          // so that the home position is treated as the origin (approx 0) and moving away goes positive.
           set_axis_position =
-              lround((settings.max_travel[idx] + settings.homing_pulloff) *
-                     settings.steps_per_mm[idx]);
+              lround(settings.homing_pulloff * settings.steps_per_mm[idx]);
         } else {
           set_axis_position =
               lround(-settings.homing_pulloff * settings.steps_per_mm[idx]);
@@ -304,12 +320,17 @@ void limits_go_home(uint8_t cycle_mask) {
         (PL_COND_FLAG_SYSTEM_MOTION | PL_COND_FLAG_NO_FEED_OVERRIDE);
     dim_plan_data.feed_rate = settings.homing_seek_rate;
 
+    // Agri3D: Apply 1/2 speed reduction for Z-axis during auto-dimensioning.
+    if (auto_dim_mask & (1 << Z_AXIS)) {
+      dim_plan_data.feed_rate /= 2.0;
+    }
+
     uint8_t measure_axislock = 0;
     uint8_t idx;
 
     // === Step 1: Seek to the END (opposite of homing_dir_mask) ===
     for (idx = 0; idx < N_AXIS; idx++) {
-      if ((auto_dim_mask & bit(idx)) && (idx == X_AXIS || idx == Y_AXIS)) {
+      if (auto_dim_mask & bit(idx)) {
         // Drive to the opposite end (10 meters absolute maximum safety distance
         // to guarantee StallGuard triggers)
         if (bit_istrue(settings.homing_dir_mask, bit(idx))) {
@@ -371,7 +392,7 @@ void limits_go_home(uint8_t cycle_mask) {
     system_convert_array_steps_to_mpos(target, sys_position);
     measure_axislock = 0;
     for (idx = 0; idx < N_AXIS; idx++) {
-      if ((auto_dim_mask & bit(idx)) && (idx == X_AXIS || idx == Y_AXIS)) {
+      if (auto_dim_mask & bit(idx)) {
         // Move away from the END switch
         if (bit_istrue(settings.homing_dir_mask, bit(idx))) {
           target[idx] -= settings.homing_pulloff;
@@ -414,7 +435,7 @@ void limits_go_home(uint8_t cycle_mask) {
     for (idx = 0; idx < N_AXIS; idx++) {
       start_pos[idx] =
           sys_position[idx]; // Record pulled-off END position for measuring!
-      if ((auto_dim_mask & bit(idx)) && (idx == X_AXIS || idx == Y_AXIS)) {
+      if (auto_dim_mask & bit(idx)) {
         // Drive towards home switch (10km safety max)
         if (bit_istrue(settings.homing_dir_mask, bit(idx))) {
           target[idx] -= 10000.0; // Home is in the negative direction
@@ -464,7 +485,7 @@ void limits_go_home(uint8_t cycle_mask) {
 
     // === Step 4: Calculate Dimension ===
     for (idx = 0; idx < N_AXIS; idx++) {
-      if ((auto_dim_mask & bit(idx)) && (idx == X_AXIS || idx == Y_AXIS)) {
+      if (auto_dim_mask & bit(idx)) {
 
         // Calculate absolute step count traveled from the END to BEGIN
         int32_t step_dist = sys_position[idx] - start_pos[idx];
@@ -489,7 +510,7 @@ void limits_go_home(uint8_t cycle_mask) {
     system_convert_array_steps_to_mpos(target, sys_position);
     measure_axislock = 0;
     for (idx = 0; idx < N_AXIS; idx++) {
-      if ((auto_dim_mask & bit(idx)) && (idx == X_AXIS || idx == Y_AXIS)) {
+      if (auto_dim_mask & bit(idx)) {
         // Pull off away from home, into positive workspace
         if (bit_istrue(settings.homing_dir_mask, bit(idx))) {
           target[idx] +=
@@ -527,7 +548,7 @@ void limits_go_home(uint8_t cycle_mask) {
 
     // === Step 6: Set mpos to +pulloff (home origin, positive workspace) ===
     for (idx = 0; idx < N_AXIS; idx++) {
-      if ((auto_dim_mask & bit(idx)) && (idx == X_AXIS || idx == Y_AXIS)) {
+      if (auto_dim_mask & bit(idx)) {
         sys_position[idx] =
             lround(settings.homing_pulloff * settings.steps_per_mm[idx]);
       }

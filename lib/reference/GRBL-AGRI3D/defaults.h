@@ -22,7 +22,7 @@
 
 #define DEFAULT_STEP_PULSE_MICROSECONDS 10
 #define DEFAULT_STEPPING_INVERT_MASK 0
-#define DEFAULT_DIRECTION_INVERT_MASK 0
+#define DEFAULT_DIRECTION_INVERT_MASK 4
 #define DEFAULT_STEPPER_IDLE_LOCK_TIME                                         \
   255 // 255 keeps steppers enabled (Important for heavy Z-axis)
 #define DEFAULT_STATUS_REPORT_MASK 1    // MPos enabled
@@ -36,7 +36,7 @@
   1 // TRUE — Required! StallGuard DIAG fires via limit ISR.
 #define DEFAULT_INVERT_PROBE_PIN 0     // false
 #define DEFAULT_HOMING_ENABLE 1        // True (Farmbots usually need homing)
-#define DEFAULT_HOMING_DIR_MASK 3      // Adjust based on limit switch placement
+#define DEFAULT_HOMING_DIR_MASK 7      // Adjust based on limit switch placement
 #define DEFAULT_HOMING_FEED_RATE 50.0  // mm/min
 #define DEFAULT_HOMING_SEEK_RATE 500.0 // mm/min
 #define DEFAULT_HOMING_DEBOUNCE_DELAY 250 // msec

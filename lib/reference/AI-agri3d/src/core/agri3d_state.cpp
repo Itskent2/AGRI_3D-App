@@ -5,6 +5,8 @@
 
 #include "agri3d_state.h"
 #include "agri3d_config.h"
+#include "agri3d_logger.h"
+#include "agri3d_routine.h"
 #include <ArduinoJson.h>
 
 // Global instance
@@ -48,6 +50,8 @@ void SystemState::broadcast() {
     doc["y"]           = serialized(String(_grblY, 2));
     doc["z"]           = serialized(String(_grblZ, 2));
     doc["fpm"]         = _fpm;
+    doc["w_rate"]      = getWaterFlowRate();
+    doc["f_rate"]      = getFertFlowRate();
 
     String out;
     serializeJson(doc, out);
@@ -68,6 +72,12 @@ void SystemState::refreshHeartbeats() {
         // Window follows config: max(4 * current polling interval, floor)
         unsigned long window = max(4UL * currentPollIntervalMs(),
                                    (unsigned long)NANO_WATCHDOG_FLOOR_MS);
+        
+        // Increase timeout for homing
+        if (_operation == OP_HOMING) {
+            window = max(window, (unsigned long)NANO_WATCHDOG_HOME_MS);
+        }
+        
         if (now - _lastNanoHeartbeatMs > window) {
             setNano(NANO_UNRESPONSIVE);
         }

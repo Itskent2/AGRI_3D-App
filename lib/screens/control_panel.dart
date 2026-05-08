@@ -32,8 +32,13 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   DateTime? _lastMoveTime;
   final TextEditingController _terminalController = TextEditingController();
   final ScrollController _terminalScrollController = ScrollController();
+  final TextEditingController _waterRateController = TextEditingController(text: "10.0");
+  final TextEditingController _fertRateController = TextEditingController(text: "10.0");
+  final FocusNode _waterRateFocusNode = FocusNode();
+  final FocusNode _fertRateFocusNode = FocusNode();
 
   bool _isBusy = false;
+  bool _userIsScrolling = false; // tracks if user scrolled up in console
 
   final List<String> _commandHistory = [];
   int _historyIndex = -1;
@@ -53,6 +58,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     super.initState();
     ESP32Service.instance.addListener(_scrollToBottom);
     ESP32Service.instance.addListener(_onServiceUpdate);
+    _terminalScrollController.addListener(_onTerminalScroll);
   }
 
   @override
@@ -61,6 +67,10 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     ESP32Service.instance.removeListener(_onServiceUpdate);
     _terminalController.dispose();
     _terminalScrollController.dispose();
+    _waterRateController.dispose();
+    _fertRateController.dispose();
+    _waterRateFocusNode.dispose();
+    _fertRateFocusNode.dispose();
     _fertilizeTimer?.cancel();
     _terminalFocusNode.dispose();
     super.dispose();
@@ -115,6 +125,21 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
       setState(() {
         _isBusy = false;
       });
+      service.requestGrblSettings();
+    }
+
+    // Sync flow rates if not focused
+    if (!_waterRateFocusNode.hasFocus) {
+      final serviceVal = service.waterFlowRate.toString();
+      if (_waterRateController.text != serviceVal) {
+        _waterRateController.text = serviceVal;
+      }
+    }
+    if (!_fertRateFocusNode.hasFocus) {
+      final serviceVal = service.fertFlowRate.toString();
+      if (_fertRateController.text != serviceVal) {
+        _fertRateController.text = serviceVal;
+      }
     }
   }
 
@@ -153,7 +178,38 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   }
 
 
+  /// Detects when the user scrolls away from the bottom of the console.
+  void _onTerminalScroll() {
+    if (!_terminalScrollController.hasClients) return;
+    final pos = _terminalScrollController.position;
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 30;
+    if (atBottom && _userIsScrolling) {
+      setState(() => _userIsScrolling = false);
+    } else if (!atBottom && !_userIsScrolling) {
+      setState(() => _userIsScrolling = true);
+    }
+  }
+
   void _scrollToBottom() {
+    // Don't auto-scroll if user is reading history
+    if (_userIsScrolling) return;
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (_terminalScrollController.hasClients) {
+        for (var pos in _terminalScrollController.positions) {
+          try {
+            pos.animateTo(
+              pos.maxScrollExtent,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+            );
+          } catch (_) {}
+        }
+      }
+    });
+  }
+
+  void _forceScrollToBottom() {
+    setState(() => _userIsScrolling = false);
     Future.delayed(const Duration(milliseconds: 50), () {
       if (_terminalScrollController.hasClients) {
         for (var pos in _terminalScrollController.positions) {
@@ -197,24 +253,32 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     final delta = direction * _speedMode;
     double nextVal = 0;
     double currentMax = 1000.0;
+    double minLimit = 0;
+    double maxLimit = 1000.0;
 
     switch (axis) {
       case 'x':
         nextVal = service.x + delta;
         currentMax = service.maxX;
+        minLimit = 0;
+        maxLimit = currentMax;
         break;
       case 'y':
         nextVal = service.y + delta;
         currentMax = service.maxY;
+        minLimit = 0;
+        maxLimit = currentMax;
         break;
       case 'z':
         nextVal = service.z + delta;
         currentMax = service.maxZ;
+        minLimit = 5.0;
+        maxLimit = currentMax - 5.0;
         break;
     }
 
-    if (nextVal < 0 || nextVal > currentMax) {
-      _showLimitWarning(axis, nextVal < 0 ? "Minimum" : "Maximum", currentMax);
+    if (nextVal < minLimit || nextVal > maxLimit) {
+      _showLimitWarning(axis, nextVal < minLimit ? "Minimum" : "Maximum", maxLimit);
       service.addLog("SYS: Boundary limit reached on $axis");
       HapticFeedback.heavyImpact();
       return;
@@ -222,9 +286,9 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
 
     setState(() => _isBusy = true);
 
-    final gcode =
-        "G1 ${axis.toUpperCase()}${nextVal.toStringAsFixed(1)} F${_feedrate.toInt()}";
-    service.updatePos(axis, nextVal, gcode);
+    final gcode = "\$J=G21G91${axis.toUpperCase()}${delta.toStringAsFixed(1)}F${_feedrate.toInt()}";
+    print("JOG_TX: $gcode");
+    service.sendCommand(gcode);
     HapticFeedback.lightImpact();
   }
 
@@ -301,15 +365,15 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   void _handleIrrigateToggle() {
     setState(() {
       _isIrrigating = !_isIrrigating;
-      ESP32Service.instance.sendCommand(_isIrrigating ? "M8" : "M9");
+      ESP32Service.instance.sendCommand(_isIrrigating ? "M100" : "M101");
     });
     HapticFeedback.lightImpact();
   }
 
   void _handleFertilize() {
     setState(() => _isFertilizing = true);
-    final String gcode = "M7 ml${_fertilizeAmount.toInt()}";
-    ESP32Service.instance.sendCommand(gcode);
+    final String cmd = "FERTILIZE:${_fertilizeAmount.toInt()}";
+    ESP32Service.instance.sendCommand(cmd);
     _fertilizeTimer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() => _isFertilizing = false);
@@ -319,13 +383,13 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
   void _handleStopFertilize() {
     _fertilizeTimer?.cancel();
     setState(() => _isFertilizing = false);
-    ESP32Service.instance.sendCommand("M9");
+    ESP32Service.instance.sendCommand("M103");
   }
 
   void _handleWeederToggle() {
     if (_isWeederOn) {
       setState(() => _isWeederOn = false);
-      ESP32Service.instance.sendCommand("M5");
+      ESP32Service.instance.sendCommand("M105");
       HapticFeedback.lightImpact();
     } else {
       _showWeederWarning();
@@ -400,7 +464,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
             onPressed: () {
               Navigator.pop(context);
               setState(() => _isWeederOn = true);
-              ESP32Service.instance.sendCommand("M3");
+              ESP32Service.instance.sendCommand("M104");
             },
             style: TextButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
@@ -884,23 +948,65 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
               ),
             ),
 
-          Container(
-            height: 220, // More compact to match Live Feed feel
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF030712) : const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: containerBorder),
-            ),
-            child: ListView.builder(
-              controller: _terminalScrollController,
-              itemCount: filteredLogs.length,
-              itemBuilder: (context, i) {
-                final log = filteredLogs[i];
-                return _buildLogLine(log, isDark);
-              },
-            ),
+          Stack(
+            children: [
+              Container(
+                height: 220,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF030712) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: containerBorder),
+                ),
+                child: ListView.builder(
+                  controller: _terminalScrollController,
+                  itemCount: filteredLogs.length,
+                  itemBuilder: (context, i) {
+                    final log = filteredLogs[i];
+                    return _buildLogLine(log, isDark);
+                  },
+                ),
+              ),
+              // "Scroll to bottom" FAB — shown only when user scrolled up
+              if (_userIsScrolling)
+                Positioned(
+                  right: 28,
+                  bottom: 8,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: _forceScrollToBottom,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: accentColor.withOpacity(0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.keyboard_double_arrow_down, color: Colors.white, size: 16),
+                            SizedBox(width: 4),
+                            Text(
+                              'Latest',
+                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
 
           Padding(
@@ -1008,7 +1114,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
     final List<String> allFilters = [
       "SYSTEM", "NET", "GRBL", "CAM", "AI", 
       "ROUTINE", "SCAN", "WEED", "ENV", "FERT", 
-      "SD", "SENSORS", "CMD", "STATE", "TX", "RX"
+      "SD", "SENSORS", "CMD", "STATE", "TX", "RX", "PING"
     ];
 
     return Padding(
@@ -1029,6 +1135,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
             case "RX": tagColor = const Color(0xFF8B5CF6); break;
             case "ENV": tagColor = const Color(0xFF0EA5E9); break;
             case "SD": tagColor = const Color(0xFFF97316); break;
+            case "PING": tagColor = const Color(0xFF14B8A6); break;
             default: tagColor = isDark ? Colors.white54 : Colors.grey.shade600;
           }
 
@@ -1237,13 +1344,13 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                               ),
                             ),
                             AnimatedPositioned(
-                              left:
+                              left: 182 -
                                   (service.x /
                                       (service.maxX > 0
                                           ? service.maxX
                                           : 1000)) *
                                   182,
-                              bottom:
+                              bottom: 182 -
                                   (service.y /
                                       (service.maxY > 0
                                           ? service.maxY
@@ -1391,30 +1498,75 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFFEF4444)),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.warning_amber_rounded,
-                    color: Color(0xFFEF4444),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'MACHINE NOT HOMED. Motors are locked for safety.\nPlease press "HOME ALL" to unlock the gantry.',
-                      style: TextStyle(
-                        color: isDark
-                            ? const Color(0xFFFCA5A5)
-                            : const Color(0xFFB91C1C),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: Color(0xFFEF4444),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'ALARM STATE — Motors locked. Home or Unlock to recover.',
+                          style: TextStyle(
+                            color: isDark
+                                ? const Color(0xFFFCA5A5)
+                                : const Color(0xFFB91C1C),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            ESP32Service.instance.sendCommand('\$X');
+                            ESP32Service.instance.addLog('SYS: Sent \$X (Kill Alarm Lock)', tag: 'GRBL', level: LogLevel.warn);
+                            HapticFeedback.mediumImpact();
+                          },
+                          icon: const Icon(Icons.lock_open, size: 16),
+                          label: const Text('UNLOCK (\$X)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF59E0B),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _handleHome(),
+                          icon: const Icon(Icons.home, size: 16),
+                          label: const Text('HOME ALL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: accentColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
 
           const SizedBox(height: 20),
+
+          // Homing row is ALWAYS accessible (even in Alarm state)
+          _buildHomingRow(accentColor, isDark),
+          const SizedBox(height: 12),
 
           AnimatedOpacity(
             opacity: shouldDisable ? 0.25 : 1.0,
@@ -1423,7 +1575,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
               ignoring: shouldDisable,
               child: Column(
                 children: [
-                  _buildHomingRow(effectiveAccent, isDark),
+                  _buildSystemConfigRow(service, effectiveAccent, isDark),
                   const SizedBox(height: 24),
                   if (isWide)
                     Row(
@@ -1500,6 +1652,224 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildSystemConfigRow(ESP32Service service, Color accentColor, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('SYSTEM CONFIGURATION', isDark),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _homingBtn(
+              'EEPROM SETTINGS (\$\$)',
+              () => _showEepromDialog(service, accentColor, isDark),
+              accentColor,
+              isDark,
+              isPrimary: true,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _getEepromName(String key) {
+    switch (key) {
+      case '\$0': return 'Step pulse time (Microseconds)';
+      case '\$1': return 'Step idle delay (Milliseconds)';
+      case '\$2': return 'Step port invert mask (Bitmask)';
+      case '\$3': return 'Direction port invert mask (Bitmask)';
+      case '\$4': return 'Step enable invert (Boolean)';
+      case '\$5': return 'Limit pins invert (Boolean)';
+      case '\$6': return 'Probe pin invert (Boolean)';
+      case '\$10': return 'Status report mask (Bitmask)';
+      case '\$11': return 'Junction deviation (Millimeters)';
+      case '\$12': return 'Arc tolerance (Millimeters)';
+      case '\$13': return 'Report inches (Boolean)';
+      case '\$20': return 'Soft limits enable (Boolean)';
+      case '\$21': return 'Hard limits enable (Boolean)';
+      case '\$22': return 'Homing cycle enable (Boolean)';
+      case '\$23': return 'Homing dir invert mask (Bitmask)';
+      case '\$24': return 'Homing feed rate (mm/min)';
+      case '\$25': return 'Homing seek rate (mm/min)';
+      case '\$26': return 'Homing debounce delay (Milliseconds)';
+      case '\$27': return 'Homing pull-off (Millimeters)';
+      case '\$100': return 'X steps per mm';
+      case '\$101': return 'Y steps per mm';
+      case '\$102': return 'Z steps per mm';
+      case '\$110': return 'X max rate (mm/min)';
+      case '\$111': return 'Y max rate (mm/min)';
+      case '\$112': return 'Z max rate (mm/min)';
+      case '\$120': return 'X acceleration (mm/sec²)';
+      case '\$121': return 'Y acceleration (mm/sec²)';
+      case '\$122': return 'Z acceleration (mm/sec²)';
+      case '\$130': return 'X max travel (Millimeters)';
+      case '\$131': return 'Y max travel (Millimeters)';
+      case '\$132': return 'Z max travel (Millimeters)';
+      case '\$140': return 'X StallGuard threshold (0-255)';
+      case '\$141': return 'Y StallGuard threshold (0-255)';
+      case '\$142': return 'Z StallGuard threshold (0-255)';
+      default: return 'Unknown Setting';
+    }
+  }
+
+  void _showEepromDialog(ESP32Service service, Color accentColor, bool isDark) {
+    service.requestGrblSettings();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return ListenableBuilder(
+          listenable: service,
+          builder: (context, child) {
+            final settings = service.grblSettings;
+            final sortedKeys = settings.keys.toList()
+              ..sort((a, b) {
+                final aNum = int.tryParse(a.replaceAll('\$', '')) ?? 0;
+                final bNum = int.tryParse(b.replaceAll('\$', '')) ?? 0;
+                return aNum.compareTo(bNum);
+              });
+
+            return Dialog(
+              backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                width: 500,
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border(bottom: BorderSide(color: isDark ? const Color(0xFF374151) : Colors.grey.shade300)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.settings_applications, color: accentColor),
+                              const SizedBox(width: 8),
+                              Text(
+                                "GRBL EEPROM Settings",
+                                style: TextStyle(
+                                  color: isDark ? Colors.white : Colors.black87,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: () {
+                              service.requestGrblSettings();
+                              HapticFeedback.lightImpact();
+                            },
+                            tooltip: "Refresh Settings",
+                            color: accentColor,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: settings.isEmpty
+                          ? Center(
+                              child: Text(
+                                "Waiting for EEPROM data...\n(Make sure the Nano is connected)",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: isDark ? Colors.white54 : Colors.grey.shade600),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: sortedKeys.length,
+                              separatorBuilder: (context, index) => Divider(
+                                color: isDark ? const Color(0xFF374151) : Colors.grey.shade200,
+                                height: 1,
+                              ),
+                              itemBuilder: (context, index) {
+                                final key = sortedKeys[index];
+                                final val = settings[key]!;
+                                final desc = _getEepromName(key);
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 50,
+                                        padding: const EdgeInsets.symmetric(vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: accentColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          key,
+                                          style: TextStyle(
+                                            color: accentColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              desc,
+                                              style: TextStyle(
+                                                color: isDark ? Colors.white70 : Colors.black87,
+                                                fontWeight: FontWeight.w500,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              val,
+                                              style: TextStyle(
+                                                color: isDark ? Colors.white : Colors.black,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            backgroundColor: isDark ? const Color(0xFF374151) : Colors.grey.shade200,
+                            foregroundColor: isDark ? Colors.white : Colors.black87,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text("Close", style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1580,7 +1950,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                 children: [
                   _ControlBtn(
                     icon: Icons.keyboard_arrow_left,
-                    onTap: () => _move('x', -1),
+                    onTap: () => _move('x', 1),
                     accentColor: accentColor,
                     isDark: isDark,
                   ),
@@ -1607,7 +1977,7 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
                   const SizedBox(width: 8),
                   _ControlBtn(
                     icon: Icons.keyboard_arrow_right,
-                    onTap: () => _move('x', 1),
+                    onTap: () => _move('x', -1),
                     accentColor: accentColor,
                     isDark: isDark,
                   ),
@@ -1866,6 +2236,80 @@ class _ControlPanelState extends ConsumerState<ControlPanel> {
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 20),
+        _label('FLOW RATES (mL/s)', isDark),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Water', style: TextStyle(color: textColor, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  TextFormField(
+                    controller: _waterRateController,
+                    focusNode: _waterRateFocusNode,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: textColor, fontSize: 13),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF374151) : Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: isDark ? const Color(0xFF4B5563) : Colors.grey.shade300),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    onFieldSubmitted: (val) {
+                      final rate = double.tryParse(val);
+                      if (rate != null) {
+                        ESP32Service.instance.sendCommand("SET_WATER_RATE:$rate");
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Water rate set to $rate mL/s"), backgroundColor: Colors.green),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Fertilizer', style: TextStyle(color: textColor, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  TextFormField(
+                    controller: _fertRateController,
+                    focusNode: _fertRateFocusNode,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: textColor, fontSize: 13),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF374151) : Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: isDark ? const Color(0xFF4B5563) : Colors.grey.shade300),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    onFieldSubmitted: (val) {
+                      final rate = double.tryParse(val);
+                      if (rate != null) {
+                        ESP32Service.instance.sendCommand("SET_FERT_RATE:$rate");
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Fertilizer rate set to $rate mL/s"), backgroundColor: Colors.green),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );

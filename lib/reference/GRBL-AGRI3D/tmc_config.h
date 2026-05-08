@@ -38,8 +38,8 @@
 #define TMC_DEFAULT_CHOPCONF 0x14020053
 
 // GCONF config: Global configuration flags
-// What this hex means: (0x80 + 0x40 + 0x04 = 0xC4)
-// Bit 2 (en_spreadCycle) = 1 (Locked to SpreadCycle for max CNC torque!)
+// What this hex means: (0x40 + 0x80 = 0xC0)
+// Bit 2 (en_spreadCycle) = 0 (StealthChop2 mode — REQUIRED for StallGuard!)
 // Bit 6 (pdn_disable) = 1 (ENABLE UART communication, disable legacy mode)
 // Bit 7 (mstep_reg_select) = 1 (Microsteps set by UART MRES, ignore physical MS1/MS2 pins!)
 #define TMC_DEFAULT_GCONF 0x000000C0

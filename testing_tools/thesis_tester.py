@@ -7,10 +7,11 @@ import time
 import os
 import socket
 import math
+import uuid
 
 class FarmbotTester:
     def __init__(self, uri):
-        self.uri = uri
+        self.base_uri = uri
         self.ws = None
         self.max_x = 1000.0
         self.max_y = 1000.0
@@ -23,28 +24,53 @@ class FarmbotTester:
         self.machine_state = "Unknown"
         self.identified = False
 
+        # Machine Settings (Steps/mm)
+        self.steps_x = 100.0
+        self.steps_y = 100.0
+        self.steps_z = 100.0
+
+        # Singleton/Security Handshake
+        self.sid = str(uuid.uuid4())[:8]
+        self.gen = 1
+        self.token = "AGRI3D_SECURE_TOKEN_V1"
+
+    def get_auth_uri(self):
+        connector = "&" if "?" in self.base_uri else "?"
+        return f"{self.base_uri}{connector}key={self.token}&sid={self.sid}&gen={self.gen}"
+
     async def connect(self):
-        print(f"Connecting to {self.uri}...")
-        self.ws = await websockets.connect(self.uri)
+        auth_uri = self.get_auth_uri()
+        print(f"Connecting to {auth_uri}...")
+        self.ws = await websockets.connect(auth_uri)
         self.is_connected = True
-        print("Connected! Listening for machine dimensions...")
-        asyncio.create_task(self.listen())
+        print("Connected! Requesting machine dimensions ($$)...")
         
-        # Wait until we get dimension info
-        await asyncio.sleep(2)
+        # Start background tasks
+        asyncio.create_task(self.listen())
+        asyncio.create_task(self.heartbeat())
+        
+        # Send $$ to get the settings dump
+        await self.send_gcode("$$")
+        
+        # Wait until we get dimension info (or timeout)
+        print("Waiting for settings response...")
+        await asyncio.sleep(3) 
+        
         print(f"Machine Dimensions Loaded:")
-        print(f"  X: 0 - {self.max_x} mm")
-        print(f"  Y: 0 - {self.max_y} mm")
-        print(f"  Z: 0 - {self.max_z} mm")
+        print(f"  X: 20 - {self.max_x - 20} mm (Safe Zone)")
+        print(f"  Y: 20 - {self.max_y - 20} mm (Safe Zone)")
+        print(f"  Z: 20 - {self.max_z - 20} mm (Safe Zone)")
         print("-" * 40)
 
     async def listen(self):
         while True:
             try:
                 if not self.ws or self.ws.closed:
-                    print(f"\n[\u26A0] Connection lost! Attempting to reconnect to {self.uri}...")
+                    self.gen += 1
+                    auth_uri = self.get_auth_uri()
+                    print(f"\n[\u26A0] Connection lost! Attempting to reconnect (Gen {self.gen}) to {auth_uri}...")
                     try:
-                        self.ws = await websockets.connect(self.uri)
+                        self.ws = await websockets.connect(auth_uri)
                         self.is_connected = True
                         self.identified = False
                         print("[\u2713] Reconnected successfully! Resuming test...")
@@ -75,6 +101,16 @@ class FarmbotTester:
                 self.is_connected = False
                 await asyncio.sleep(1)
 
+    async def heartbeat(self):
+        """Sends periodic PING to keep the connection alive (Singleton Watchdog)."""
+        while True:
+            try:
+                if self.is_connected and self.ws and not self.ws.closed:
+                    await self.ws.send("PING")
+            except Exception:
+                pass
+            await asyncio.sleep(5) # Send every 5 seconds (watchdog is 10s)
+
     def parse_grbl(self, raw):
         if raw.startswith("<"):
             parts = raw[1:].split("|")
@@ -94,12 +130,18 @@ class FarmbotTester:
         if raw.startswith("$130="): self.max_x = float(raw[5:])
         if raw.startswith("$131="): self.max_y = float(raw[5:])
         if raw.startswith("$132="): self.max_z = float(raw[5:])
+        
+        # Parse Steps per mm
+        if raw.startswith("$100="): self.steps_x = float(raw[5:])
+        if raw.startswith("$101="): self.steps_y = float(raw[5:])
+        if raw.startswith("$102="): self.steps_z = float(raw[5:])
 
     async def send_gcode(self, cmd):
         while not self.is_connected or not self.ws or self.ws.closed:
             print("\n[\u29D7] Waiting for connection before sending command...")
             await asyncio.sleep(2)
         try:
+            print(f"  \033[90m-> TX: {cmd}\033[0m")
             await self.ws.send(cmd)
             await asyncio.sleep(0.1)
         except Exception:
@@ -164,7 +206,7 @@ async def run_test(tester, test_type, num_trials=100, seed_val=None, dry_run=Fal
             print(f"    Updated Dimensions -> X: {tester.max_x}mm | Y: {tester.max_y}mm | Z: {tester.max_z}mm")
 
             print("[!] Enforcing Rule: Retracting Z axis before XY movement...")
-            await tester.send_gcode("G0 Z0")
+            await tester.send_gcode("G0 Z20 F500")
             await tester.wait_for_idle()
 
         for trial in range(1, num_trials + 1):
@@ -173,35 +215,35 @@ async def run_test(tester, test_type, num_trials=100, seed_val=None, dry_run=Fal
             target_z = tester.current_z
             
             if test_type == "X":
-                target_x = random.randint(0, int(tester.max_x))
+                target_x = random.randint(20, int(tester.max_x - 20))
             elif test_type == "Y":
-                target_y = random.randint(0, int(tester.max_y))
+                target_y = random.randint(20, int(tester.max_y - 20))
             elif test_type == "XY":
-                target_x = random.randint(0, int(tester.max_x))
-                target_y = random.randint(0, int(tester.max_y))
+                target_x = random.randint(20, int(tester.max_x - 20))
+                target_y = random.randint(20, int(tester.max_y - 20))
             elif test_type == "Z":
-                target_z = random.randint(0, int(tester.max_z))
+                target_z = random.randint(20, int(tester.max_z - 20))
 
-            # --- RETURN TO ORIGIN (0) BEFORE EACH TRIAL ---
+            # --- RETURN TO SAFE ORIGIN (20) BEFORE EACH TRIAL ---
             if not dry_run:
-                print(f"Trial {trial}/{num_trials}: Returning to origin (0) before testing...")
+                print(f"Trial {trial}/{num_trials}: Returning to safe origin (20) before testing...")
                 if test_type == "Z":
-                    await tester.send_gcode("G0 Z0 F1000")
+                    await tester.send_gcode("G0 Z20 F500")
                 else:
-                    await tester.send_gcode("G0 Z0") # Retract Z first
+                    await tester.send_gcode("G0 Z20 F500") # Retract Z first
                     await tester.wait_for_idle()
                     
                     if test_type == "X":
-                        await tester.send_gcode("G0 X0 F1000")
+                        await tester.send_gcode("G0 X20 F1000")
                     elif test_type == "Y":
-                        await tester.send_gcode("G0 Y0 F1000")
+                        await tester.send_gcode("G0 Y20 F1000")
                     elif test_type == "XY":
-                        await tester.send_gcode("G0 X0 Y0 F1000")
+                        await tester.send_gcode("G0 X20 Y20 F1000")
                 await tester.wait_for_idle()
 
             # --- MOVE TO TARGET ---
             if test_type == "Z":
-                cmd = f"G0 Z{target_z} F1000"
+                cmd = f"G0 Z{target_z} F500"
                 if not dry_run: print(f"Trial {trial}/{num_trials}: Moving Z to target {target_z} mm")
             else:
                 cmd = f"G0 X{target_x} Y{target_y} F1000"
@@ -235,8 +277,31 @@ async def run_test(tester, test_type, num_trials=100, seed_val=None, dry_run=Fal
                 writer.writerow([trial, target_x, target_y, target_diag, actual_diag])
             else:
                 target_val = target_x if test_type == "X" else target_y if test_type == "Y" else target_z
-                actual_val = input(f"  > Measure physical {test_type} (Target was {target_val}): ")
-                writer.writerow([trial, target_val, actual_val])
+                actual_input = input(f"  > Measure physical {test_type} (Target was {target_val}): ")
+                try:
+                    actual_val = float(actual_input)
+                    writer.writerow([trial, target_val, actual_val])
+
+                    # Calculate Correction
+                    if target_val > 0 and actual_val > 0 and abs(target_val - actual_val) > 0.01:
+                        current_steps = tester.steps_x if test_type == "X" else tester.steps_y if test_type == "Y" else tester.steps_z
+                        # New Steps = (Current Steps * Target Distance) / Actual Distance
+                        new_steps = round((current_steps * target_val) / actual_val, 3)
+                        
+                        print(f"  \033[93m[!] Accuracy Error detected! Error: {round(actual_val - target_val, 3)}mm\033[0m")
+                        print(f"  \033[93m[!] Suggested {test_type} steps/mm: {new_steps} (was {current_steps})\033[0m")
+                        
+                        do_fix = input(f"  > Apply correction to Nano? (y/N): ")
+                        if do_fix.lower() == 'y':
+                            param_num = 100 if test_type == "X" else 101 if test_type == "Y" else 102
+                            await tester.send_gcode(f"${param_num}={new_steps}")
+                            # Update local value so next calculation is accurate
+                            if test_type == "X": tester.steps_x = new_steps
+                            elif test_type == "Y": tester.steps_y = new_steps
+                            elif test_type == "Z": tester.steps_z = new_steps
+                except ValueError:
+                    print("  \033[31m[!] Invalid measurement entered. Skipping correction.\033[0m")
+                    writer.writerow([trial, target_val, actual_input])
             
             # Save immediately to prevent data loss
             file.flush()

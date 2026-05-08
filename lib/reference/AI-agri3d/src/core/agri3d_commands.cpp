@@ -135,7 +135,7 @@ void webSocketEvent(uint8_t num, WStype_t type,
         return;
     }
     if (cmd == "UNLOCK") {
-        enqueueGrblCommand("$X");
+        enqueueGrblCommand("$clr");
         sysState.setOperation(OP_IDLE);
         return;
     }
@@ -251,6 +251,92 @@ void webSocketEvent(uint8_t num, WStype_t type,
         } else {
             sendError(num, "Bad format. Expected SET_LOCATION:lat,lon");
         }
+        return;
+    }
+
+    // ── Custom Operations ───────────────────────────────────────────────────
+    if (startsWith(cmd, "WATER:")) {
+        String a = args(cmd);
+        int colons = 0;
+        int idx = -1;
+        while ((idx = a.indexOf(':', idx + 1)) >= 0) colons++;
+        
+        if (colons == 0) {
+            float ml = a.toFloat();
+            handleWater(num, sysState.getX(), sysState.getY(), ml);
+        } else if (colons == 2) {
+            int c1 = a.indexOf(':');
+            int c2 = a.indexOf(':', c1 + 1);
+            float x = a.substring(0, c1).toFloat();
+            float y = a.substring(c1 + 1, c2).toFloat();
+            float ml = a.substring(c2 + 1).toFloat();
+            handleWater(num, x, y, ml);
+        } else if (colons == 4) {
+            int c1 = a.indexOf(':');
+            int c2 = a.indexOf(':', c1 + 1);
+            int c3 = a.indexOf(':', c2 + 1);
+            int c4 = a.indexOf(':', c3 + 1);
+            float x = a.substring(0, c1).toFloat();
+            float y = a.substring(c1 + 1, c2).toFloat();
+            float ml = a.substring(c2 + 1, c3).toFloat();
+            float ox = a.substring(c3 + 1, c4).toFloat();
+            float oy = a.substring(c4 + 1).toFloat();
+            handleWater(num, x, y, ml, ox, oy);
+        } else {
+            sendError(num, "Bad format. Expected WATER:amount or WATER:x:y:amount or WATER:x:y:amount:ox:oy");
+        }
+        return;
+    }
+
+    if (startsWith(cmd, "FERTILIZE:")) {
+        String a = args(cmd);
+        int colons = 0;
+        int idx = -1;
+        while ((idx = a.indexOf(':', idx + 1)) >= 0) colons++;
+        
+        if (colons == 0) {
+            float ml = a.toFloat();
+            handleFertilize(num, sysState.getX(), sysState.getY(), ml);
+        } else if (colons == 2) {
+            int c1 = a.indexOf(':');
+            int c2 = a.indexOf(':', c1 + 1);
+            float x = a.substring(0, c1).toFloat();
+            float y = a.substring(c1 + 1, c2).toFloat();
+            float ml = a.substring(c2 + 1).toFloat();
+            handleFertilize(num, x, y, ml);
+        } else if (colons == 4) {
+            int c1 = a.indexOf(':');
+            int c2 = a.indexOf(':', c1 + 1);
+            int c3 = a.indexOf(':', c2 + 1);
+            int c4 = a.indexOf(':', c3 + 1);
+            float x = a.substring(0, c1).toFloat();
+            float y = a.substring(c1 + 1, c2).toFloat();
+            float ml = a.substring(c2 + 1, c3).toFloat();
+            float ox = a.substring(c3 + 1, c4).toFloat();
+            float oy = a.substring(c4 + 1).toFloat();
+            handleFertilize(num, x, y, ml, ox, oy);
+        } else {
+            sendError(num, "Bad format. Expected FERTILIZE:amount or FERTILIZE:x:y:amount or FERTILIZE:x:y:amount:ox:oy");
+        }
+        return;
+    }
+
+    if (cmd == "CLEAN_SENSORS") {
+        handleCleanSensors(num);
+        return;
+    }
+
+    if (startsWith(cmd, "SET_WATER_RATE:")) {
+        float rate = args(cmd).toFloat();
+        setWaterFlowRate(rate);
+        webSocket.sendTXT(num, "{\"evt\":\"RATE_SET\",\"type\":\"water\",\"rate\":" + String(rate) + "}");
+        return;
+    }
+
+    if (startsWith(cmd, "SET_FERT_RATE:")) {
+        float rate = args(cmd).toFloat();
+        setFertFlowRate(rate);
+        webSocket.sendTXT(num, "{\"evt\":\"RATE_SET\",\"type\":\"fert\",\"rate\":" + String(rate) + "}");
         return;
     }
 

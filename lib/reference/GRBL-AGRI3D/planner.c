@@ -398,8 +398,16 @@ uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data) {
     unit_vec[idx] = delta_mm; // Store unit vector numerator
 
     // Set direction bits. Bit enabled always means direction is negative.
-    if (delta_mm < 0.0) {
-      block->direction_bits |= get_direction_pin_mask(idx);
+    // Agri3D: Hard-invert Z-axis logic so Z+ always moves DOWN (Negative physical)
+    // while keeping $3=0 and $23=3 working as expected for the user.
+    if (idx == Z_AXIS) {
+      if (delta_mm > 0.0) {
+        block->direction_bits |= get_direction_pin_mask(idx);
+      }
+    } else {
+      if (delta_mm < 0.0) {
+        block->direction_bits |= get_direction_pin_mask(idx);
+      }
     }
   }
 
