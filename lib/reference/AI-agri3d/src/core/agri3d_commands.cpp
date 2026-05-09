@@ -87,8 +87,21 @@ void webSocketEvent(uint8_t num, WStype_t type,
         int res = args(cmd).toInt();
         sensor_t *s = esp_camera_sensor_get();
         if (s) {
+            bool wasStreaming = sysState.isStreaming();
+            if (wasStreaming) {
+                sysState.setStreaming(false);
+                // Wait for stream task to finish current frame and pause
+                while (sysState.isStreamTaskBusy()) {
+                    delay(10);
+                }
+            }
             s->set_framesize(s, (framesize_t)res);
+            sysState.setResolution((framesize_t)res);
+            delay(500); // Wait for sensor to stabilize after reallocation
             AgriLog(TAG_CAM, LEVEL_INFO, "Resolution set to %d", res);
+            if (wasStreaming) {
+                sysState.setStreaming(true);
+            }
         }
         return;
     }
@@ -101,7 +114,7 @@ void webSocketEvent(uint8_t num, WStype_t type,
         npkSendFullHistory(num);
         return;
     }
-    if (cmd == "PING") {
+    if (cmd == "PING" || cmd.startsWith("{\"cmd\":\"PING\"")) {
         webSocket.sendTXT(num, "{\"evt\":\"PONG\",\"ms\":" +
                                String(millis()) + "}");
         return;

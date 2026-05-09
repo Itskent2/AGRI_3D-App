@@ -6,23 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:web_socket_channel/io.dart';
 
-enum LogLevel {
-  info,
-  warn,
-  error,
-  success,
-}
+enum LogLevel { info, warn, error, success }
 
-enum EnvironmentState {
-  clear,
-  rainSensor,
-  weatherGated,
-  rainAndWeather,
-}
+enum EnvironmentState { clear, rainSensor, weatherGated, rainAndWeather }
 
 class LogEntry {
   final String message;
-  final String tag;     // e.g. "NET", "SCAN", "FERT"
+  final String tag; // e.g. "NET", "SCAN", "FERT"
   final LogLevel level;
   final DateTime time;
 
@@ -46,10 +36,11 @@ class ESP32Service extends ChangeNotifier {
   String? get currentIP => _lastKnownIP;
   List<LogEntry> logs = [];
 
-  List<String> get logStrings => logs.map((e) => "[${e.tag}] ${e.message}").toList();
+  List<String> get logStrings =>
+      logs.map((e) => "[${e.tag}] ${e.message}").toList();
 
   // ── Security & Session ──
-  static const String _authKey = "AGRI3D_SECURE_TOKEN_V1"; 
+  static const String _authKey = "AGRI3D_SECURE_TOKEN_V1";
   static final String _sessionId = DateTime.now().millisecondsSinceEpoch
       .toString()
       .substring(7);
@@ -58,10 +49,10 @@ class ESP32Service extends ChangeNotifier {
   // ── Connection generation counter (prevents stale disconnect storms) ──
   int _connectionGen = 0;
   StreamSubscription? _channelSubscription;
-  bool _isConnecting = false; 
-  final Map<String, DateTime> _lastAttemptTimes = {}; 
+  bool _isConnecting = false;
+  final Map<String, DateTime> _lastAttemptTimes = {};
 
-  String? lastDisconnectReason; 
+  String? lastDisconnectReason;
 
   Timer? _notifyDebounce;
   bool _notifyScheduled = false;
@@ -69,18 +60,22 @@ class ESP32Service extends ChangeNotifier {
   // ── PING-PONG VARIABLES ──
   Timer? _pingTimer;
   int _missedPings = 0;
-  int latencyMs = 0; 
-  int pingCount = 0; 
-  DateTime? _lastPingSentAt; 
+  int latencyMs = 0;
+  int pingCount = 0;
+  DateTime? _lastPingSentAt;
 
   final ValueNotifier<Uint8List?> cameraFrame = ValueNotifier(null);
-  DateTime _lastFrameUpdate = DateTime(0); 
+  final ValueNotifier<List<Map<String, dynamic>>> aiDetections = ValueNotifier(
+    [],
+  );
+  DateTime _lastFrameUpdate = DateTime(0);
 
   double x = 0, y = 0, z = 0;
   double maxX = 1000.0, maxY = 1000.0, maxZ = 1000.0;
   Map<String, String> grblSettings = {};
   double waterFlowRate = 10.0;
   double fertFlowRate = 10.0;
+  int resolution = 1; // Default QQVGA
 
   String machineState = "Unknown";
   EnvironmentState environment = EnvironmentState.clear;
@@ -96,16 +91,21 @@ class ESP32Service extends ChangeNotifier {
 
   Map<String, dynamic>? _pendingFrameMeta;
 
-  final StreamController<Map<String, dynamic>> _plantCandidateCtrl = StreamController.broadcast();
-  Stream<Map<String, dynamic>> get onPlantCandidate => _plantCandidateCtrl.stream;
+  final StreamController<Map<String, dynamic>> _plantCandidateCtrl =
+      StreamController.broadcast();
+  Stream<Map<String, dynamic>> get onPlantCandidate =>
+      _plantCandidateCtrl.stream;
 
-  final StreamController<Map<String, dynamic>> _scanCompleteCtrl = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> _scanCompleteCtrl =
+      StreamController.broadcast();
   Stream<Map<String, dynamic>> get onScanComplete => _scanCompleteCtrl.stream;
 
-  final StreamController<Map<String, dynamic>> _frameCapturedCtrl = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> _frameCapturedCtrl =
+      StreamController.broadcast();
   Stream<Map<String, dynamic>> get onFrameCaptured => _frameCapturedCtrl.stream;
 
-  final StreamController<Map<String, dynamic>> _npkUpdateCtrl = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> _npkUpdateCtrl =
+      StreamController.broadcast();
   Stream<Map<String, dynamic>> get onNpkUpdate => _npkUpdateCtrl.stream;
 
   static final ESP32Service instance = ESP32Service._internal();
@@ -136,14 +136,18 @@ class ESP32Service extends ChangeNotifier {
     if (_lastKnownIP != null) uniqueHosts.add(_lastKnownIP!);
     if (!kIsWeb) uniqueHosts.add("farmbot.local");
     uniqueHosts.add("192.168.4.1");
+    uniqueHosts.add("192.168.0.115"); // Hardcoded ESP32 IP for Flutter Web
 
     for (final host in uniqueHosts) {
       if (isConnected) break;
 
       String hostReason = "Discovery Cycle";
-      if (host == _lastKnownIP) hostReason = "Last Known IP";
-      else if (host == "farmbot.local") hostReason = "mDNS (farmbot.local)";
-      else if (host == "192.168.4.1") hostReason = "AP Fallback (Hotspot)";
+      if (host == _lastKnownIP)
+        hostReason = "Last Known IP";
+      else if (host == "farmbot.local")
+        hostReason = "mDNS (farmbot.local)";
+      else if (host == "192.168.4.1")
+        hostReason = "AP Fallback (Hotspot)";
 
       await _connectAndVerify(host, reason: hostReason);
     }
@@ -188,7 +192,10 @@ class ESP32Service extends ChangeNotifier {
     }
   }
 
-  Future<void> _connectAndVerify(String host, {String reason = "Unknown"}) async {
+  Future<void> _connectAndVerify(
+    String host, {
+    String reason = "Unknown",
+  }) async {
     if (isConnected || _isConnecting) return;
 
     final nowTime = DateTime.now();
@@ -199,7 +206,10 @@ class ESP32Service extends ChangeNotifier {
     _lastAttemptTimes[host] = nowTime;
 
     final int thisGen = ++_connectionGen;
-    addLog("🔌 Connection attempt to $host (Gen: $thisGen, Reason: $reason)", tag: "NET");
+    addLog(
+      "🔌 Connection attempt to $host (Gen: $thisGen, Reason: $reason)",
+      tag: "NET",
+    );
     _isConnecting = true;
     final completer = Completer<bool>();
 
@@ -227,7 +237,10 @@ class ESP32Service extends ChangeNotifier {
       }
 
       if (isConnected || thisGen != _connectionGen) {
-        addLog("🛡 Closing redundant connection (Gen: $thisGen vs $_connectionGen)", tag: "NET");
+        addLog(
+          "🛡 Closing redundant connection (Gen: $thisGen vs $_connectionGen)",
+          tag: "NET",
+        );
         _channel?.sink.close(1000, "Redundant connection abort");
         return;
       }
@@ -249,7 +262,7 @@ class ESP32Service extends ChangeNotifier {
             }
 
             if (_pendingFrameMeta != null) {
-              _pendingFrameMeta!['image'] = bytes; 
+              _pendingFrameMeta!['image'] = bytes;
               _frameCapturedCtrl.add(_pendingFrameMeta!);
               _pendingFrameMeta = null;
             }
@@ -264,7 +277,11 @@ class ESP32Service extends ChangeNotifier {
                 textMsg.startsWith("FARMBOT_ID:")) {
               identified = true;
               isConnected = true;
-              addLog("✓ Online → $host (Gen: $thisGen)", tag: "NET", level: LogLevel.success);
+              addLog(
+                "✓ Online → $host (Gen: $thisGen)",
+                tag: "NET",
+                level: LogLevel.success,
+              );
 
               _lastKnownIP = host;
               SharedPreferences.getInstance().then((prefs) {
@@ -279,8 +296,10 @@ class ESP32Service extends ChangeNotifier {
                 if (parsed['x'] != null) x = (parsed['x'] as num).toDouble();
                 if (parsed['y'] != null) y = (parsed['y'] as num).toDouble();
                 if (parsed['z'] != null) z = (parsed['z'] as num).toDouble();
-                if (parsed['maxX'] != null) maxX = (parsed['maxX'] as num).toDouble();
-                if (parsed['maxY'] != null) maxY = (parsed['maxY'] as num).toDouble();
+                if (parsed['maxX'] != null)
+                  maxX = (parsed['maxX'] as num).toDouble();
+                if (parsed['maxY'] != null)
+                  maxY = (parsed['maxY'] as num).toDouble();
                 _scheduleNotify();
               } catch (_) {}
               if (!completer.isCompleted) completer.complete(true);
@@ -288,40 +307,55 @@ class ESP32Service extends ChangeNotifier {
             return;
           }
 
-          if (textMsg.contains('"evt":"PONG"') || textMsg.contains('"status":"PONG"')) {
+          if (textMsg.contains('"evt":"PONG"') ||
+              textMsg.contains('"status":"PONG"')) {
             if (_lastPingSentAt != null) {
-              latencyMs = DateTime.now().difference(_lastPingSentAt!).inMilliseconds;
+              latencyMs = DateTime.now()
+                  .difference(_lastPingSentAt!)
+                  .inMilliseconds;
               _lastPingSentAt = null;
             }
             try {
               final pong = jsonDecode(textMsg);
-              if (pong['ping_no'] != null) pingCount = (pong['ping_no'] as num).toInt();
+              if (pong['ping_no'] != null)
+                pingCount = (pong['ping_no'] as num).toInt();
             } catch (_) {}
 
             addLog("RX: PONG (Latency: ${latencyMs}ms)", tag: "PING");
-            _scheduleNotify(); 
+            _scheduleNotify();
             return;
           }
-
-          addLog(textMsg);
 
           try {
             final parsed = jsonDecode(textMsg);
 
-            if (parsed['evt'] == 'FRAME_META' || parsed['evt'] == 'DETECT_FRAME') {
+            if (parsed['evt'] == 'AI_DETECTIONS') {
+              aiDetections.value = List<Map<String, dynamic>>.from(
+                parsed['detections'],
+              );
+              return;
+            }
+
+            if (parsed['evt'] == 'FRAME_META' ||
+                parsed['evt'] == 'DETECT_FRAME') {
               _pendingFrameMeta = parsed;
               return;
             }
             if (parsed['evt'] == 'PLANT_CANDIDATE') {
               _plantCandidateCtrl.add(parsed);
-              _pendingFrameMeta = parsed; 
+              _pendingFrameMeta = parsed;
               return;
             }
             if (parsed['evt'] == 'DETECTION_COMPLETE') {
               _scanCompleteCtrl.add(parsed);
               return;
             }
-            if (parsed['evt'] == 'NPK_N' || parsed['evt'] == 'NPK_P' || parsed['evt'] == 'NPK_K' || parsed['evt'] == 'NPK' || parsed['evt'] == 'NPK_LOG_CHUNK' || parsed['evt'] == 'NPK_LOG_END') {
+            if (parsed['evt'] == 'NPK_N' ||
+                parsed['evt'] == 'NPK_P' ||
+                parsed['evt'] == 'NPK_K' ||
+                parsed['evt'] == 'NPK' ||
+                parsed['evt'] == 'NPK_LOG_CHUNK' ||
+                parsed['evt'] == 'NPK_LOG_END') {
               _npkUpdateCtrl.add(parsed);
               return;
             }
@@ -347,12 +381,20 @@ class ESP32Service extends ChangeNotifier {
             }
             if (parsed['evt'] == 'SD_COMPLETE') {
               jobProgress.value = 0.0;
-              addLog("SD Stream Complete. (${parsed['lines']} lines)", tag: "SD", level: LogLevel.success);
+              addLog(
+                "SD Stream Complete. (${parsed['lines']} lines)",
+                tag: "SD",
+                level: LogLevel.success,
+              );
               return;
             }
             if (parsed['evt'] == 'SD_STOPPED') {
               jobProgress.value = 0.0;
-              addLog("SD Stream Stopped by User.", tag: "SD", level: LogLevel.warn);
+              addLog(
+                "SD Stream Stopped by User.",
+                tag: "SD",
+                level: LogLevel.warn,
+              );
               return;
             }
 
@@ -362,7 +404,9 @@ class ESP32Service extends ChangeNotifier {
                 nanoConnected = parsed['nano'] == 'CONNECTED';
                 if (nanoConnected != wasConnected) {
                   addLog(
-                    nanoConnected ? "SYS: Nano (GRBL) connected." : "SYS: ⚠ Nano (GRBL) not detected — check Serial1 wiring.",
+                    nanoConnected
+                        ? "SYS: Nano (GRBL) connected."
+                        : "SYS: ⚠ Nano (GRBL) not detected — check Serial1 wiring.",
                     tag: "GRBL",
                     level: nanoConnected ? LogLevel.success : LogLevel.error,
                   );
@@ -370,18 +414,26 @@ class ESP32Service extends ChangeNotifier {
               }
               if (parsed['environment'] != null) {
                 final env = parsed['environment'].toString();
-                if (env == "RAIN_SENSOR") environment = EnvironmentState.rainSensor;
-                else if (env == "WEATHER_GATED") environment = EnvironmentState.weatherGated;
-                else if (env == "RAIN_AND_WEATHER") environment = EnvironmentState.rainAndWeather;
-                else environment = EnvironmentState.clear;
+                if (env == "RAIN_SENSOR")
+                  environment = EnvironmentState.rainSensor;
+                else if (env == "WEATHER_GATED")
+                  environment = EnvironmentState.weatherGated;
+                else if (env == "RAIN_AND_WEATHER")
+                  environment = EnvironmentState.rainAndWeather;
+                else
+                  environment = EnvironmentState.clear;
               }
               if (parsed['x'] != null) x = (parsed['x'] as num).toDouble();
               if (parsed['y'] != null) y = (parsed['y'] as num).toDouble();
               if (parsed['z'] != null) z = (parsed['z'] as num).toDouble();
-              if (parsed['w_rate'] != null) waterFlowRate = (parsed['w_rate'] as num).toDouble();
-              if (parsed['f_rate'] != null) fertFlowRate = (parsed['f_rate'] as num).toDouble();
+              if (parsed['w_rate'] != null)
+                waterFlowRate = (parsed['w_rate'] as num).toDouble();
+              if (parsed['f_rate'] != null)
+                fertFlowRate = (parsed['f_rate'] as num).toDouble();
+              if (parsed['res'] != null)
+                resolution = (parsed['res'] as num).toInt();
               _scheduleNotify();
-              return; 
+              return;
             }
 
             if (parsed['nano_raw'] != null) {
@@ -396,11 +448,22 @@ class ESP32Service extends ChangeNotifier {
                 }
               }
 
-              if (raw.startsWith("\$130=")) { maxX = double.tryParse(raw.substring(5)) ?? maxX; _scheduleNotify(); }
-              if (raw.startsWith("\$131=")) { maxY = double.tryParse(raw.substring(5)) ?? maxY; _scheduleNotify(); }
-              if (raw.startsWith("\$132=")) { maxZ = double.tryParse(raw.substring(5)) ?? maxZ; _scheduleNotify(); }
+              if (raw.startsWith("\$130=")) {
+                maxX = double.tryParse(raw.substring(5)) ?? maxX;
+                _scheduleNotify();
+              }
+              if (raw.startsWith("\$131=")) {
+                maxY = double.tryParse(raw.substring(5)) ?? maxY;
+                _scheduleNotify();
+              }
+              if (raw.startsWith("\$132=")) {
+                maxZ = double.tryParse(raw.substring(5)) ?? maxZ;
+                _scheduleNotify();
+              }
             }
-          } catch (_) {}
+          } catch (_) {
+            addLog(textMsg);
+          }
         },
         onDone: () {
           if (!completer.isCompleted) completer.complete(false);
@@ -417,7 +480,7 @@ class ESP32Service extends ChangeNotifier {
           }
         },
       );
-      
+
       await completer.future.timeout(const Duration(seconds: 10));
     } catch (e) {
       _isConnecting = false;
@@ -462,12 +525,23 @@ class ESP32Service extends ChangeNotifier {
     final parts = <String>[];
     if (code != null) {
       switch (code) {
-        case 1000: parts.add('Normal closure'); break;
-        case 1001: parts.add('Server going away'); break;
-        case 1006: parts.add('Abnormal closure (no close frame received)'); break;
-        case 1008: parts.add('Policy violation'); break;
-        case 1011: parts.add('Server internal error'); break;
-        default: parts.add('Close code $code');
+        case 1000:
+          parts.add('Normal closure');
+          break;
+        case 1001:
+          parts.add('Server going away');
+          break;
+        case 1006:
+          parts.add('Abnormal closure (no close frame received)');
+          break;
+        case 1008:
+          parts.add('Policy violation');
+          break;
+        case 1011:
+          parts.add('Server internal error');
+          break;
+        default:
+          parts.add('Close code $code');
       }
     } else {
       parts.add('Connection lost (no close code)');
@@ -477,11 +551,11 @@ class ESP32Service extends ChangeNotifier {
   }
 
   void _handleDisconnect([String? reason]) {
-    if (!isConnected && _channel == null) return; 
-    
+    if (!isConnected && _channel == null) return;
+
     isConnected = false;
-    nanoConnected = false; 
-    _pingTimer?.cancel(); 
+    nanoConnected = false;
+    _pingTimer?.cancel();
     _channelSubscription?.cancel();
     _channelSubscription = null;
     _channel = null;
@@ -519,11 +593,11 @@ class ESP32Service extends ChangeNotifier {
         return;
       }
 
-      _missedPings++; 
-      _lastPingSentAt = DateTime.now(); 
-      
+      _missedPings++;
+      _lastPingSentAt = DateTime.now();
+
       // Inject the generation into the ping!
-      sendCommand('{"cmd":"PING", "gen": $_connectionGen}', tag: "PING"); 
+      sendCommand('{"cmd":"PING", "gen": $_connectionGen}', tag: "PING");
     });
   }
 
@@ -542,16 +616,38 @@ class ESP32Service extends ChangeNotifier {
     sendCommand("SET_FPM:$fpm");
   }
 
-  void startPhotoScan(int cols, int rows, double stepX, double stepY, double zHeight) {
-    sendCommand("SCAN_PHOTO:$cols:$rows:${stepX.toStringAsFixed(1)}:${stepY.toStringAsFixed(1)}:${zHeight.toStringAsFixed(1)}");
+  void setResolution(int res) {
+    sendCommand("SET_RES:$res");
   }
 
-  void startAutoDetect(int cols, int rows, double stepX, double stepY, double zHeight) {
-    sendCommand("AUTO_DETECT_PLANTS:$cols:$rows:${stepX.toStringAsFixed(1)}:${stepY.toStringAsFixed(1)}:${zHeight.toStringAsFixed(1)}");
+  void startPhotoScan(
+    int cols,
+    int rows,
+    double stepX,
+    double stepY,
+    double zHeight,
+  ) {
+    sendCommand(
+      "SCAN_PLANT:$cols:$rows:${stepX.toStringAsFixed(1)}:${stepY.toStringAsFixed(1)}:${zHeight.toStringAsFixed(1)}",
+    );
+  }
+
+  void startAutoDetect(
+    int cols,
+    int rows,
+    double stepX,
+    double stepY,
+    double zHeight,
+  ) {
+    sendCommand(
+      "AUTO_DETECT_PLANTS:$cols:$rows:${stepX.toStringAsFixed(1)}:${stepY.toStringAsFixed(1)}:${zHeight.toStringAsFixed(1)}",
+    );
   }
 
   void confirmPlant(double x, double y, String name) {
-    sendCommand("CONFIRM_PLANT:${x.toStringAsFixed(1)}:${y.toStringAsFixed(1)}:$name");
+    sendCommand(
+      "CONFIRM_PLANT:${x.toStringAsFixed(1)}:${y.toStringAsFixed(1)}:$name",
+    );
   }
 
   void rejectPlant(double x, double y) {
@@ -566,10 +662,18 @@ class ESP32Service extends ChangeNotifier {
     _scheduleNotify();
   }
 
-  void addLog(String m, {String tag = "SYSTEM", LogLevel level = LogLevel.info}) {
+  void addLog(
+    String m, {
+    String tag = "SYSTEM",
+    LogLevel level = LogLevel.info,
+  }) {
     String cleanMsg = m;
     String finalTag = tag;
     LogLevel finalLevel = level;
+
+    if (m.contains('"evt":"AI_DETECTIONS"')) {
+      finalTag = "AI";
+    }
 
     final prefixRegExp = RegExp(r'^([A-Z]+):\s*(.*)$');
     final prefixMatch = prefixRegExp.firstMatch(m);
@@ -591,20 +695,24 @@ class ESP32Service extends ChangeNotifier {
       final levelStr = match.group(2);
       cleanMsg = match.group(3) ?? cleanMsg;
 
-      if (levelStr == "ERR") finalLevel = LogLevel.error;
-      else if (levelStr == "OK") finalLevel = LogLevel.success;
-      else if (levelStr == "WARN") finalLevel = LogLevel.warn;
-      else finalLevel = LogLevel.info;
+      if (levelStr == "ERR")
+        finalLevel = LogLevel.error;
+      else if (levelStr == "OK")
+        finalLevel = LogLevel.success;
+      else if (levelStr == "WARN")
+        finalLevel = LogLevel.warn;
+      else
+        finalLevel = LogLevel.info;
     } else if (m.startsWith("TX: ")) {
-       finalTag = "TX";
-       cleanMsg = m.substring(4);
+      finalTag = "TX";
+      cleanMsg = m.substring(4);
     } else if (m.startsWith("RX: ")) {
-       finalTag = "RX";
-       cleanMsg = m.substring(4);
+      finalTag = "RX";
+      cleanMsg = m.substring(4);
     }
 
     logs.add(LogEntry(message: cleanMsg, tag: finalTag, level: finalLevel));
-    if (logs.length > 300) logs.removeAt(0); 
+    if (logs.length > 300) logs.removeAt(0);
     _scheduleNotify();
   }
 
@@ -662,7 +770,11 @@ class ESP32Service extends ChangeNotifier {
       try {
         await _uploadAckCompleter!.future.timeout(const Duration(seconds: 3));
       } catch (e) {
-        addLog("Upload timeout! Retrying chunk...", tag: "SD", level: LogLevel.warn);
+        addLog(
+          "Upload timeout! Retrying chunk...",
+          tag: "SD",
+          level: LogLevel.warn,
+        );
         await Future.delayed(const Duration(milliseconds: 1000));
         continue;
       }

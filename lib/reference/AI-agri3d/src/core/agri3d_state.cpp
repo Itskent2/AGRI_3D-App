@@ -20,9 +20,11 @@ SystemState::SystemState()
       _operation(OP_IDLE),
       _environment(ENV_CLEAR),
       _isStreaming(false),
+      _streamTaskBusy(false),
       _grblX(0.0f),
       _grblY(0.0f),
       _fpm(STREAM_FPM_DEFAULT),
+      _resolution(FRAMESIZE_QQVGA),
       _lastNanoHeartbeatMs(millis()),
       _lastFlutterHeartbeatMs(millis()),
       _lastFlutterActivityMs(millis()),
@@ -50,6 +52,7 @@ void SystemState::broadcast() {
     doc["y"]           = serialized(String(_grblY, 2));
     doc["z"]           = serialized(String(_grblZ, 2));
     doc["fpm"]         = _fpm;
+    doc["res"]         = (int)_resolution;
     doc["w_rate"]      = getWaterFlowRate();
     doc["f_rate"]      = getFertFlowRate();
 
@@ -179,10 +182,20 @@ void SystemState::setStreaming(bool active) {
     broadcast();
 }
 
+void SystemState::setStreamTaskBusy(bool b) {
+    _streamTaskBusy = b;
+}
+
 void SystemState::setFpm(int fpm) {
     fpm = constrain(fpm, STREAM_FPM_MIN, STREAM_FPM_MAX);
     if (_fpm == fpm) return;
     _fpm = fpm;
+    broadcast();
+}
+
+void SystemState::setResolution(framesize_t res) {
+    if (_resolution == res) return;
+    _resolution = res;
     broadcast();
 }
 

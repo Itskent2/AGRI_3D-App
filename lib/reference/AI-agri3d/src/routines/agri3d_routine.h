@@ -80,6 +80,17 @@ struct RoutineConfig {
     bool  doWeedScan     = true;
 };
 
+// ── Shared Scan Parameters ──────────────────────────────────────────────────
+struct ScanParams {
+    uint8_t clientNum;
+    int cols;
+    int rows;
+    float stepX;
+    float stepY;
+    float zHeight;
+};
+extern ScanParams globalScanParams;
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /** Initialise plant registry from NVS. Call from setup(). */
@@ -147,3 +158,9 @@ void savePlantRegistry();
 
 /** Returns true if (x, y) is within toleranceMm of any registered plant. */
 bool isKnownPlantPosition(float x, float y, float toleranceMm = 50.0f);
+
+/** Send a routine task to Core 1 */
+void startRoutine(uint32_t type);
+
+/** Executed on Core 1 by routineWorkerTask */
+void executeScanPlant(const ScanParams& cfg);

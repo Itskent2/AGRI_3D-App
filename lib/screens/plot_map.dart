@@ -43,11 +43,26 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
   final _pCtrl = TextEditingController();
   final _kCtrl = TextEditingController();
 
+  final ScrollController _consoleScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     ESP32Service.instance.onFrameCaptured.listen(_handleFrameCaptured);
     ESP32Service.instance.onPlantCandidate.listen(_handlePlantCandidate);
+    ESP32Service.instance.addListener(_scrollToBottom);
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (_consoleScrollController.hasClients) {
+        _consoleScrollController.animateTo(
+          _consoleScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _handlePlantCandidate(Map<String, dynamic> data) {
@@ -124,6 +139,8 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
 
   @override
   void dispose() {
+    ESP32Service.instance.removeListener(_scrollToBottom);
+    _consoleScrollController.dispose();
     _nCtrl.dispose(); _pCtrl.dispose(); _kCtrl.dispose();
     super.dispose();
   }
@@ -154,6 +171,108 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
     });
   }
 
+  void _showScanConfigDialog(BuildContext context, Color accentColor, bool isDark) {
+    final colsCtrl = TextEditingController(text: "3");
+    final rowsCtrl = TextEditingController(text: "3");
+    final stepXCtrl = TextEditingController(text: "200");
+    final stepYCtrl = TextEditingController(text: "200");
+    final zHeightCtrl = TextEditingController(text: "200");
+
+    final textColor = isDark ? Colors.white : Colors.black;
+    final inputDecoration = InputDecoration(
+      filled: true,
+      fillColor: isDark ? const Color(0xFF374151) : Colors.grey.shade100,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.camera_alt, color: accentColor),
+              const SizedBox(width: 8),
+              Text("Configure Scan", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: _buildConfigField("Columns", colsCtrl, inputDecoration, textColor)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildConfigField("Rows", rowsCtrl, inputDecoration, textColor)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: _buildConfigField("Step X (mm)", stepXCtrl, inputDecoration, textColor)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildConfigField("Step Y (mm)", stepYCtrl, inputDecoration, textColor)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildConfigField("Camera Z-Height (mm)", zHeightCtrl, inputDecoration, textColor),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text("Cancel", style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final cols = int.tryParse(colsCtrl.text) ?? 3;
+                final rows = int.tryParse(rowsCtrl.text) ?? 3;
+                final stepX = double.tryParse(stepXCtrl.text) ?? 200.0;
+                final stepY = double.tryParse(stepYCtrl.text) ?? 200.0;
+                final zHeight = double.tryParse(zHeightCtrl.text) ?? 200.0;
+                
+                // Clear previous stitched images before starting a new scan
+                setState(() {
+                  _stitchedImages.clear();
+                });
+
+                ESP32Service.instance.startPhotoScan(cols, rows, stepX, stepY, zHeight);
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accentColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text("Start Scan", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildConfigField(String label, TextEditingController ctrl, InputDecoration decoration, Color textColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: textColor, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          style: TextStyle(color: textColor, fontSize: 14),
+          decoration: decoration,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeProvider);
@@ -172,8 +291,11 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 16,
+            runSpacing: 12,
             children: [
               RichText(
                 text: TextSpan(
@@ -184,7 +306,9 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                   ],
                 ),
               ),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   ElevatedButton.icon(
                     onPressed: () {
@@ -199,11 +323,8 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   ElevatedButton.icon(
-                    onPressed: () {
-                      ESP32Service.instance.startPhotoScan(3, 3, 200.0, 200.0, 200.0);
-                    },
+                    onPressed: () => _showScanConfigDialog(context, accent, isDark),
                     icon: const Icon(Icons.camera_alt, size: 16),
                     label: const Text('Scan Bed'),
                     style: ElevatedButton.styleFrom(
@@ -215,13 +336,15 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                   ),
                 ],
               ),
-
             ],
           ),
           const SizedBox(height: 16),
           _buildGrid(accent, isDark, gridBg, borderColor),
           const SizedBox(height: 16),
           _buildDetail(accent, isDark, cardColor, borderColor, textColor, subTextColor),
+          const SizedBox(height: 16),
+          _buildConsole(isDark, cardColor, borderColor, textColor, subTextColor),
+          const SizedBox(height: 32),
         ],
       ),
     );
@@ -436,6 +559,103 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
         ],
       ),
     );
+  }
+
+  // ── Console ──────────────────────────────────────────────
+
+  Widget _buildConsole(bool isDark, Color cardColor, Color borderColor, Color textColor, Color subTextColor) {
+    final service = ESP32Service.instance;
+    final logs = service.logs; // In a full app we might filter by specific tags
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.terminal, color: Color(0xFF60A5FA), size: 18),
+              const SizedBox(width: 8),
+              Text(
+                "SYSTEM LOG",
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w900,
+                  fontStyle: FontStyle.italic,
+                  fontSize: 12,
+                  letterSpacing: 1,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "${logs.length} entries",
+                  style: TextStyle(color: subTextColor, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 200,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF030712) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
+            ),
+            child: logs.isEmpty
+                ? Center(
+                    child: Text(
+                      "Waiting for logs...",
+                      style: TextStyle(color: subTextColor, fontSize: 11, fontStyle: FontStyle.italic),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _consoleScrollController,
+                    itemCount: logs.length,
+                    itemBuilder: (context, i) {
+                      final log = logs[i];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          log.message,
+                          style: TextStyle(
+                            color: _getLogColor(log.level, isDark),
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getLogColor(LogLevel level, bool isDark) {
+    switch (level) {
+      case LogLevel.error:
+        return const Color(0xFFEF4444);
+      case LogLevel.warn:
+        return const Color(0xFFF59E0B);
+      case LogLevel.success:
+        return const Color(0xFF10B981);
+      default:
+        return isDark ? const Color(0xFF9CA3AF) : const Color(0xFF4B5563);
+    }
   }
 }
 

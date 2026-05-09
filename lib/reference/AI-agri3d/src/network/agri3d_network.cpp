@@ -10,6 +10,10 @@
 // ── WebSocket server ───────────────────────────────────────────────────────
 WebSocketsServer webSocket(WS_PORT);
 
+void broadcastLog(const char* log) {
+    webSocket.broadcastTXT(log);
+}
+
 // ── Singleton client tracking ──────────────────────────────────────────────
 int8_t activeClientNum = -1; // -1 = no client connected
 
@@ -202,6 +206,7 @@ static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
                 "♻ Connection replaced. Swapped slot #%d -> #%d (Gen %d)",
                 activeClientNum, num, incomingGen);
         webSocket.disconnect(activeClientNum);
+        sysState.setStreaming(false); // Stop stream on replace, wait for new client to start it
       }
     } else if (activeClientNum == -1) {
       AgriLog(TAG_NET, LEVEL_INFO, "🔒 IP Locked: %s (slot #%d, Gen %d)",
@@ -222,6 +227,7 @@ static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
 #endif
 
     sysState.setFlutter(FLUTTER_CONNECTED);
+    sysState.resetFlutterWatchdog();
     sysState.broadcast();
 
     // Auto-identify standard system state immediately on accept
@@ -243,9 +249,10 @@ static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
   }
 
   // ── THE DEADMAN'S SWITCH RESET ──
-  else if (type == WStype_TEXT || type == WStype_BIN) {
+  else if (type == WStype_TEXT || type == WStype_BIN || type == WStype_PING) {
     if ((int8_t)num == activeClientNum) {
       _lastCommMs = millis();
+      sysState.resetFlutterWatchdog();
     }
   }
 
@@ -312,6 +319,13 @@ void networkLoop() {
     if (sysState.pendingFrameClient >= 0) {
       webSocket.sendBIN((uint8_t)sysState.pendingFrameClient,
                         sysState.pendingFrame, sysState.pendingFrameLen);
+      
+      // Send AI results for this frame if available
+      if (sysState.pendingAiResult != nullptr) {
+        webSocket.sendTXT((uint8_t)sysState.pendingFrameClient, *sysState.pendingAiResult);
+        delete sysState.pendingAiResult;
+        sysState.pendingAiResult = nullptr;
+      }
     }
     esp_camera_fb_return(sysState.pendingFrameFB);
     sysState.pendingFrameFB = nullptr;

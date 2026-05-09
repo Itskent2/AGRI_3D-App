@@ -146,7 +146,11 @@ const ei_impulse_t impulse_923987_2 = {
     .project_name = "Weed Detection",
     .impulse_id = 2,
     .impulse_name = "Impulse #2",
+<<<<<<< HEAD
     .deploy_version = 19,
+=======
+    .deploy_version = 20,
+>>>>>>> 68f3c7b (Merge 240x240 Edge Impulse FOMO update and Core 1 fixes)
 
     .nn_input_frame_size = 172800,
     .raw_sample_count = 57600,

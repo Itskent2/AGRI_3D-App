@@ -35,6 +35,7 @@
 
 #pragma once
 #include <Arduino.h>
+#include "agri3d_routine.h"
 
 /**
  * @brief Parse and execute a SCAN_PLANT command.

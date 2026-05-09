@@ -28,7 +28,11 @@
  * either express or implied. See the License for the specific language governing
  * permissions, disclaimers and limitations under the License.
  */
+<<<<<<< HEAD
 // Generated on: 09.05.2026 09:12:01
+=======
+// Generated on: 09.05.2026 09:51:05
+>>>>>>> 68f3c7b (Merge 240x240 Edge Impulse FOMO update and Core 1 fixes)
 
 #include <stdio.h>
 #include <stdlib.h>

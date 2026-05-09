@@ -87,7 +87,11 @@
 #define EI_CLASSIFIER_PROJECT_ID                 923987
 #define EI_CLASSIFIER_PROJECT_OWNER              "HSUS"
 #define EI_CLASSIFIER_PROJECT_NAME               "Weed Detection"
+<<<<<<< HEAD
 #define EI_CLASSIFIER_PROJECT_DEPLOY_VERSION     19
+=======
+#define EI_CLASSIFIER_PROJECT_DEPLOY_VERSION     20
+>>>>>>> 68f3c7b (Merge 240x240 Edge Impulse FOMO update and Core 1 fixes)
 #define EI_CLASSIFIER_NN_INPUT_FRAME_SIZE        172800
 #define EI_CLASSIFIER_RAW_SAMPLE_COUNT           57600
 #define EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME      1
