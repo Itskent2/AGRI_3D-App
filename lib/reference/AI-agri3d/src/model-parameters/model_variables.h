@@ -67,7 +67,7 @@ const uint8_t ei_dsp_blocks_923987_2_size = 1;
 ei_model_dsp_t ei_dsp_blocks_923987_2[ei_dsp_blocks_923987_2_size] = {
     { // DSP block 2
         2,
-        27648, // output size
+        172800, // output size
         &extract_image_features, // DSP function pointer
         (void*)&ei_dsp_config_923987_2, // pointer to config struct
         ei_dsp_config_923987_2_axes, // array of offsets into the input stream, one for each axis
@@ -115,8 +115,8 @@ const ei_learning_block_t ei_learning_blocks_923987_2[ei_learning_blocks_923987_
 
 ei_fill_result_fomo_i8_config_t ei_fill_result_fomo_i8_config_923987_3 = {
     .threshold = 0.5,
-    .out_width = 12,
-    .out_height = 12,
+    .out_width = 30,
+    .out_height = 30,
     .object_detection_count = 10,
     .zero_point = -128,
     .scale = 0.00390625
@@ -146,14 +146,14 @@ const ei_impulse_t impulse_923987_2 = {
     .project_name = "Weed Detection",
     .impulse_id = 2,
     .impulse_name = "Impulse #2",
-    .deploy_version = 16,
+    .deploy_version = 19,
 
-    .nn_input_frame_size = 27648,
-    .raw_sample_count = 9216,
+    .nn_input_frame_size = 172800,
+    .raw_sample_count = 57600,
     .raw_samples_per_frame = 1,
-    .dsp_input_frame_size = 9216 * 1,
-    .input_width = 96,
-    .input_height = 96,
+    .dsp_input_frame_size = 57600 * 1,
+    .input_width = 240,
+    .input_height = 240,
     .input_frames = 1,
     .interval_ms = 1,
     .frequency = 0,
@@ -173,7 +173,7 @@ const ei_impulse_t impulse_923987_2 = {
 
     .sensor = EI_CLASSIFIER_SENSOR_CAMERA,
     .fusion_string = "image",
-    .slice_size = (9216/4),
+    .slice_size = (57600/4),
     .slices_per_model_window = 4,
 
     .has_anomaly = EI_ANOMALY_TYPE_UNKNOWN,

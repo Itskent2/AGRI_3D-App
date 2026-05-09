@@ -13,6 +13,7 @@
 
 #include "agri3d_routine.h"
 #include "../core/AI_Agri3D.h"
+#include "xgboost_model.h"
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <math.h>
@@ -157,8 +158,20 @@ static void performFertigation(uint8_t clientNum, const PlantPosition& plant,
             if (needsNpk) fertMl = 50.0f; // Default 50mL when user-set targets
         }
 
-        // TODO(Luna): XGBoost model override
-        // fertMl = xgboostFertilizerAmount(soil, plant);
+        // XGBoost model override (Using the 14MB C model)
+        // Expected features: N, P, K, temperature, humidity, pH
+        double xgb_features[6] = {
+            (double)soil.n, (double)soil.p, (double)soil.k, 
+            25.0, // Default Temperature
+            60.0, // Default Humidity
+            6.5   // Default pH
+        };
+        double xgb_prediction = score(xgb_features);
+        
+        // If the XGBoost model outputs a valid prediction, override the default
+        if (xgb_prediction > 0) {
+            fertMl = (float)xgb_prediction;
+        }
 
         if (fertMl > 0) {
             String fertCmd = "M7 ml" + String((int)fertMl);
