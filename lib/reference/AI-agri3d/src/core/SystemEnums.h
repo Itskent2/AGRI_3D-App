@@ -45,7 +45,8 @@ enum OperationState : uint8_t {
     OP_HOMING,
     OP_SD_RUNNING,
     OP_FERTILIZING,
-    OP_SCANNING,
+    OP_SCANNING,      ///< Phase 1: gantry moving + saving frames to SD (no binary WS traffic)
+    OP_UPLOADING,     ///< Phase 2: reading frames from SD and sending to Flutter
     OP_AI_WEEDING,
     OP_RAIN_PAUSED,
     OP_ALARM_RECOVERY

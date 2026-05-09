@@ -89,6 +89,18 @@ class ESP32Service extends ChangeNotifier {
   double uploadProgress = 0.0;
   Completer<void>? _uploadAckCompleter;
 
+  // ── Plant Map Scan State ──
+  /// true = SD scan complete, UPLOAD_SCAN available
+  bool isScanReady = false;
+  /// true = upload phase in progress (OP_UPLOADING on ESP32)
+  bool isUploadingScan = false;
+  /// 0.0–1.0 progress of Phase 1 (SD capture)
+  double scanProgress = 0.0;
+  int scanFrameIdx = 0;
+  int scanFrameTotal = 0;
+  /// 0.0–1.0 progress of Phase 2 (upload to Flutter)
+  double uploadScanProgress = 0.0;
+
   Map<String, dynamic>? _pendingFrameMeta;
 
   final StreamController<Map<String, dynamic>> _plantCandidateCtrl =
@@ -339,6 +351,12 @@ class ESP32Service extends ChangeNotifier {
             if (parsed['evt'] == 'FRAME_META' ||
                 parsed['evt'] == 'DETECT_FRAME') {
               _pendingFrameMeta = parsed;
+              // Track upload progress during Phase 2
+              if (isUploadingScan && scanFrameTotal > 0) {
+                final idx = (parsed['idx'] as num?)?.toInt() ?? 0;
+                uploadScanProgress = idx / scanFrameTotal;
+                _scheduleNotify();
+              }
               return;
             }
             if (parsed['evt'] == 'PLANT_CANDIDATE') {
@@ -348,6 +366,68 @@ class ESP32Service extends ChangeNotifier {
             }
             if (parsed['evt'] == 'DETECTION_COMPLETE') {
               _scanCompleteCtrl.add(parsed);
+              return;
+            }
+            // ── Scan Phase 1: SD capture progress ──
+            if (parsed['evt'] == 'SCAN_START') {
+              isScanReady = false;
+              isUploadingScan = false;
+              scanProgress = 0.0;
+              scanFrameIdx = 0;
+              scanFrameTotal = (parsed['total'] as num?)?.toInt() ?? 0;
+              if (parsed['maxX'] != null) maxX = (parsed['maxX'] as num).toDouble();
+              if (parsed['maxY'] != null) maxY = (parsed['maxY'] as num).toDouble();
+              addLog('Scan started: ${scanFrameTotal} frames', tag: 'SCAN');
+              _scheduleNotify();
+              return;
+            }
+            if (parsed['evt'] == 'SCAN_PROGRESS') {
+              scanFrameIdx = (parsed['idx'] as num?)?.toInt() ?? scanFrameIdx;
+              scanFrameTotal = (parsed['total'] as num?)?.toInt() ?? scanFrameTotal;
+              scanProgress = scanFrameTotal > 0
+                  ? scanFrameIdx / scanFrameTotal
+                  : 0.0;
+              _scheduleNotify();
+              return;
+            }
+            if (parsed['evt'] == 'SCAN_COMPLETE') {
+              isScanReady = parsed['ready'] == true && parsed['aborted'] != true;
+              scanProgress = 1.0;
+              addLog(
+                isScanReady
+                    ? 'Scan complete — ${parsed["total"]} frames on SD. Tap “Upload Plant Map”.'
+                    : 'Scan aborted (${parsed["total"]} frames)',
+                tag: 'SCAN',
+                level: isScanReady ? LogLevel.success : LogLevel.warn,
+              );
+              _scheduleNotify();
+              return;
+            }
+            // ── Scan Phase 2: upload progress ──
+            if (parsed['evt'] == 'UPLOAD_SCAN_START') {
+              isUploadingScan = true;
+              uploadScanProgress = 0.0;
+              scanFrameTotal = (parsed['total'] as num?)?.toInt() ?? 0;
+              addLog('Uploading plant map: $scanFrameTotal frames…', tag: 'SCAN');
+              _scheduleNotify();
+              return;
+            }
+            if (parsed['evt'] == 'UPLOAD_SCAN_COMPLETE') {
+              isUploadingScan = false;
+              isScanReady = false; // reset — user can scan again
+              uploadScanProgress = 1.0;
+              addLog(
+                'Plant map upload complete (${parsed["sent"]}/${parsed["total"]} frames)',
+                tag: 'SCAN',
+                level: LogLevel.success,
+              );
+              _scheduleNotify();
+              return;
+            }
+            if (parsed['evt'] == 'UPLOAD_SCAN_ERROR') {
+              isUploadingScan = false;
+              addLog('Upload error: ${parsed["reason"]}', tag: 'SCAN', level: LogLevel.error);
+              _scheduleNotify();
               return;
             }
             if (parsed['evt'] == 'NPK_N' ||
@@ -405,20 +485,20 @@ class ESP32Service extends ChangeNotifier {
                 if (nanoConnected != wasConnected) {
                   addLog(
                     nanoConnected
-                        ? "SYS: Nano (GRBL) connected."
-                        : "SYS: ⚠ Nano (GRBL) not detected — check Serial1 wiring.",
-                    tag: "GRBL",
+                        ? 'SYS: Nano (GRBL) connected.'
+                        : 'SYS: ⚠ Nano (GRBL) not detected — check Serial1 wiring.',
+                    tag: 'GRBL',
                     level: nanoConnected ? LogLevel.success : LogLevel.error,
                   );
                 }
               }
               if (parsed['environment'] != null) {
                 final env = parsed['environment'].toString();
-                if (env == "RAIN_SENSOR")
+                if (env == 'RAIN_SENSOR')
                   environment = EnvironmentState.rainSensor;
-                else if (env == "WEATHER_GATED")
+                else if (env == 'WEATHER_GATED')
                   environment = EnvironmentState.weatherGated;
-                else if (env == "RAIN_AND_WEATHER")
+                else if (env == 'RAIN_AND_WEATHER')
                   environment = EnvironmentState.rainAndWeather;
                 else
                   environment = EnvironmentState.clear;
@@ -432,6 +512,15 @@ class ESP32Service extends ChangeNotifier {
                 fertFlowRate = (parsed['f_rate'] as num).toDouble();
               if (parsed['res'] != null)
                 resolution = (parsed['res'] as num).toInt();
+              // Sync uploading state from operation string
+              final op = parsed['operation']?.toString() ?? '';
+              if (op == 'UPLOADING' && !isUploadingScan) {
+                isUploadingScan = true;
+              } else if (op != 'UPLOADING' && isUploadingScan) {
+                // ESP32 finished uploading but we missed the UPLOAD_SCAN_COMPLETE
+                isUploadingScan = false;
+                uploadScanProgress = 1.0;
+              }
               _scheduleNotify();
               return;
             }
@@ -640,8 +729,17 @@ class ESP32Service extends ChangeNotifier {
     double zHeight,
   ) {
     sendCommand(
-      "AUTO_DETECT_PLANTS:$cols:$rows:${stepX.toStringAsFixed(1)}:${stepY.toStringAsFixed(1)}:${zHeight.toStringAsFixed(1)}",
+      'AUTO_DETECT_PLANTS:$cols:$rows:${stepX.toStringAsFixed(1)}:${stepY.toStringAsFixed(1)}:${zHeight.toStringAsFixed(1)}',
     );
+  }
+
+  /// Trigger Phase 2: read SD frames and stream them to Flutter.
+  void startScanUpload() {
+    if (!isConnected || !isScanReady) return;
+    isUploadingScan = true;
+    uploadScanProgress = 0.0;
+    _scheduleNotify();
+    sendCommand('UPLOAD_SCAN');
   }
 
   void confirmPlant(double x, double y, String name) {

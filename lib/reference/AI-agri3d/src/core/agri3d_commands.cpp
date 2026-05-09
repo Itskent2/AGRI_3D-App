@@ -105,6 +105,17 @@ void webSocketEvent(uint8_t num, WStype_t type,
         }
         return;
     }
+    if (startsWith(cmd, "SET_CAM_PROFILE:")) {
+        String p = args(cmd);
+        p.toLowerCase();
+        CameraProfile profile;
+        if      (p == "night") profile = CAM_PROFILE_NIGHT;
+        else if (p == "day")   profile = CAM_PROFILE_DAY;
+        else                   profile = CAM_PROFILE_AUTO;
+        cameraSetProfile(profile);
+        webSocket.sendTXT(num, "{\"evt\":\"CAM_PROFILE_SET\",\"profile\":\"" + p + "\"}");
+        return;
+    }
 
     // ── State queries ────────────────────────────────────────────────────────
     if (cmd == "GET_STATE") {
@@ -193,6 +204,10 @@ void webSocketEvent(uint8_t num, WStype_t type,
     }
     if (startsWith(cmd, "AUTO_DETECT_PLANTS:")) {
         handleAutoDetectPlants(num, args(cmd));
+        return;
+    }
+    if (cmd == "UPLOAD_SCAN") {
+        handleScanUpload(num);
         return;
     }
 

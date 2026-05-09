@@ -230,6 +230,7 @@ unsigned long SystemState::currentPollIntervalMs() const {
 
 bool isCameraAvailable() {
     return sysState.getOperation() != OP_SCANNING &&
+           sysState.getOperation() != OP_UPLOADING &&
            sysState.getOperation() != OP_AI_WEEDING;
 }
 
@@ -285,6 +286,7 @@ const char* SystemState::opStr(OperationState s) {
         case OP_SD_RUNNING:     return "SD_RUNNING";
         case OP_FERTILIZING:    return "FERTILIZING";
         case OP_SCANNING:       return "SCANNING";
+        case OP_UPLOADING:      return "UPLOADING";
         case OP_AI_WEEDING:     return "AI_WEEDING";
         case OP_RAIN_PAUSED:    return "RAIN_PAUSED";
         case OP_ALARM_RECOVERY: return "ALARM_RECOVERY";

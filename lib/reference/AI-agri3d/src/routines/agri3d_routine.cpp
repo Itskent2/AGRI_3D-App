@@ -871,10 +871,12 @@ void routineWorkerTask(void* pvParameters) {
                 handleFarmingCycle(activeClientNum, dummyCfg);
             } else if (routineType == 2) { // Full Grid Scan
                 // handleFullGridScan(); // To be refactored
-            } else if (routineType == 3) { // Scan Plant Bed
+            } else if (routineType == 3) { // Scan Plant Bed — Phase 1: SD save
                 executeScanPlant(globalScanParams);
             } else if (routineType == 4) { // Auto Detect Plants
                 executeAutoDetectPlants(globalScanParams);
+            } else if (routineType == 5) { // Scan Upload — Phase 2: SD → Flutter
+                executeScanUpload(globalScanParams.clientNum);
             }
             
             sysState.setOperation(OP_IDLE);

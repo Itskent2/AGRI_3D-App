@@ -50,7 +50,12 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
     super.initState();
     ESP32Service.instance.onFrameCaptured.listen(_handleFrameCaptured);
     ESP32Service.instance.onPlantCandidate.listen(_handlePlantCandidate);
-    ESP32Service.instance.addListener(_scrollToBottom);
+    ESP32Service.instance.addListener(_onServiceChange);
+  }
+
+  void _onServiceChange() {
+    _scrollToBottom();
+    if (mounted) setState(() {});
   }
 
   void _scrollToBottom() {
@@ -139,7 +144,7 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
 
   @override
   void dispose() {
-    ESP32Service.instance.removeListener(_scrollToBottom);
+    ESP32Service.instance.removeListener(_onServiceChange);
     _consoleScrollController.dispose();
     _nCtrl.dispose(); _pCtrl.dispose(); _kCtrl.dispose();
     super.dispose();
@@ -278,6 +283,7 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
     final themeState = ref.watch(themeProvider);
     final accent = themeState.currentAccentColor;
     final isDark = themeState.isDark(context);
+    final service = ESP32Service.instance;
 
     // Adaptive Theme Variables
     final textColor = isDark ? Colors.white : const Color(0xFF111827);
@@ -311,7 +317,7 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                 runSpacing: 8,
                 children: [
                   ElevatedButton.icon(
-                    onPressed: () {
+                    onPressed: service.isScanning || service.isUploadingScan ? null : () {
                       ESP32Service.instance.startAutoDetect(3, 3, 200.0, 200.0, 200.0);
                     },
                     icon: const Icon(Icons.search, size: 16),
@@ -319,17 +325,20 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange,
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.orange.withOpacity(0.35),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                   ),
                   ElevatedButton.icon(
-                    onPressed: () => _showScanConfigDialog(context, accent, isDark),
+                    onPressed: service.isScanning || service.isUploadingScan ? null
+                        : () => _showScanConfigDialog(context, accent, isDark),
                     icon: const Icon(Icons.camera_alt, size: 16),
                     label: const Text('Scan Bed'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accent,
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: accent.withOpacity(0.35),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
@@ -338,13 +347,150 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          // ── 3-phase scan status bar ──
+          _buildScanStatus(service, accent, isDark, cardColor, borderColor, textColor, subTextColor),
+          const SizedBox(height: 12),
           _buildGrid(accent, isDark, gridBg, borderColor),
           const SizedBox(height: 16),
           _buildDetail(accent, isDark, cardColor, borderColor, textColor, subTextColor),
           const SizedBox(height: 16),
           _buildConsole(isDark, cardColor, borderColor, textColor, subTextColor),
           const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  // ── 3-Phase Scan Status Bar ──────────────────────────────────────────────
+
+  Widget _buildScanStatus(ESP32Service service, Color accent, bool isDark,
+      Color cardColor, Color borderColor, Color textColor, Color subTextColor) {
+
+    // Phase 1: actively scanning (saving to SD)
+    if (service.scanProgress > 0 && service.scanProgress < 1.0 && !service.isScanReady) {
+      return _buildProgressCard(
+        icon: Icons.camera_alt,
+        iconColor: accent,
+        title: 'SCANNING BED…',
+        subtitle: 'Frame ${service.scanFrameIdx} of ${service.scanFrameTotal} — saving to SD card',
+        progress: service.scanProgress,
+        progressColor: accent,
+        isDark: isDark, cardColor: cardColor, borderColor: borderColor,
+        textColor: textColor, subTextColor: subTextColor,
+      );
+    }
+
+    // Phase 2a: scan complete, waiting for user to tap Upload
+    if (service.isScanReady && !service.isUploadingScan) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF14532D).withOpacity(isDark ? 0.4 : 0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.5)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('SCAN COMPLETE',
+                    style: TextStyle(color: Color(0xFF22C55E),
+                        fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  Text('${service.scanFrameTotal} frames saved on SD card',
+                    style: TextStyle(color: subTextColor, fontSize: 12)),
+                ],
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() => _stitchedImages.clear());
+                ESP32Service.instance.startScanUpload();
+              },
+              icon: const Icon(Icons.upload, size: 14),
+              label: const Text('Upload Plant Map', style: TextStyle(fontSize: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF22C55E),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Phase 2b: uploading frames to Flutter
+    if (service.isUploadingScan) {
+      return _buildProgressCard(
+        icon: Icons.upload,
+        iconColor: const Color(0xFF60A5FA),
+        title: 'UPLOADING PLANT MAP…',
+        subtitle: 'Receiving frames from SD card…',
+        progress: service.uploadScanProgress,
+        progressColor: const Color(0xFF60A5FA),
+        isDark: isDark, cardColor: cardColor, borderColor: borderColor,
+        textColor: textColor, subTextColor: subTextColor,
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildProgressCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required double progress,
+    required Color progressColor,
+    required bool isDark,
+    required Color cardColor,
+    required Color borderColor,
+    required Color textColor,
+    required Color subTextColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 16),
+              const SizedBox(width: 8),
+              Text(title,
+                style: TextStyle(color: textColor, fontSize: 11,
+                    fontWeight: FontWeight.w900, letterSpacing: 1)),
+              const Spacer(),
+              Text('${(progress * 100).toStringAsFixed(0)}%',
+                style: TextStyle(color: iconColor, fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: isDark ? const Color(0xFF374151) : Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(subtitle, style: TextStyle(color: subTextColor, fontSize: 11)),
         ],
       ),
     );
