@@ -486,9 +486,9 @@ class _HeatmapCardState extends State<_HeatmapCard> {
             child: MouseRegion(
               onHover: (e) => setState(() => _hover = e.localPosition),
               onExit: (_) => setState(() => _hover = null),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Stack(fit: StackFit.expand, children: [
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Stack(fit: StackFit.expand, children: [
                 CustomPaint(
                   painter: _HeatmapPainter(data: widget.grid, colorFor: widget.colorFor),
                 ),
@@ -519,6 +519,7 @@ class _HeatmapCardState extends State<_HeatmapCard> {
             ),
           ),
         ),
+      ),
 
         // Gradient legend
         const SizedBox(height: 6),
@@ -536,7 +537,13 @@ class _HeatmapCardState extends State<_HeatmapCard> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: widget.stops.map((s) {
             final text = s.label.isNotEmpty ? '${s.label}\n${s.value}' : s.value;
-            return Text(text, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 7, fontFamily: 'monospace', fontWeight: FontWeight.bold, height: 1.1));
+            return Expanded(
+              child: Text(
+                text, 
+                textAlign: TextAlign.center, 
+                style: const TextStyle(color: Colors.white54, fontSize: 7, fontFamily: 'monospace', fontWeight: FontWeight.bold, height: 1.1)
+              ),
+            );
           }).toList(),
         ),
       ]),
