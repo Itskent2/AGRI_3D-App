@@ -1,0 +1,424 @@
+131 | P a g e  
+ 
+creates a more resilient gard en that can handle sudden weather shifts without needing 
+constant human intervention. 
+ 
+Figure 3.-3.40 Crop Management or Mapping 
+The Plot Map page provides a spatial representation of the cultivation area, allowing users 
+to visualize plant positions and access location -specific crop information. This interface 
+functions as a digital map that links physical plant locations to sensor data and nutrient 
+settings, enabling precise monitoring and  management of individual plant units. By 
+integrating coordinate-based positioning with environmental data, the plot map supports 
+targeted interventions such as localized irrigation, fertigation, and monitoring. The page 
+also allows users to view current plant conditions and manually configure nutrient targets 
+based on crop requirements. The main elements of the Plot Map interface are described 
+as follows: 
+
+132 | P a g e  
+ 
+• 23 – Plant Identifier / Plot Marker: Represents a specific plant location within the 
+grid map (e.g., tomato), allowing users to select and view detailed information for 
+that plant. 
+• 24 – Edit Function:  Opens the editing option for modifying plant -related 
+parameters or settings. 
+• 25 – Set NPK Level: Input fields used to define target nutrient values (Nitrogen, 
+Phosphorus, and Potassium) for the selected plant. 
+• 26 – Save NPK: Button used to confirm and store the updated nutrient settings for 
+the selected plot. 
+ 
+.  
+Figure 3.-3.41 Event History 
+
+133 | P a g e  
+ 
+The Event History maintains a clear, time -stamped log of every action, whether it was 
+handled automatically or manually. This record is essential for oversight, allowing to 
+confirm the daily monitoring like watering and fertilizing were finished as intended. Beyond 
+routine tracking, it provides immediate visibility into system Warnings or Errors, such as 
+physical obstructions or weed detection.  
+ 
+Figure 3.42 Settings 
+The Settings page provides user interface customization options that allow operators to 
+adjust the visual appearance of the AGRI –3D application according to personal 
+preference and viewing conditions. This page foc uses solely on interface styling rather 
+than operational parameters, ensuring that system functionality remains consistent while 
+improving usability and visual comfort. Users can select display themes optimized for 
+different environments and choose accent colors to personalize the interface layout. 
+These customization options enhance readability and user experience without affecting 
+
+134 | P a g e  
+ 
+the underlying control logic or automation processes. The main components of the 
+Settings interface are described as follows: 
+• 27 – Display Theme Selection: Allows users to choose between interface display 
+modes such as Dark Mode, Light Mode, or System Default to match environmental 
+lighting conditions and user preference. 
+• 28 – Accent Color Selection: Enables users to modify the interface accent color 
+for visual personalization and improved interface clarity. 
+3.2.5.2 Local Device Storage 
+The system implements a tiered storage architecture to ensure data integrity and 
+operational continuity during network fluctuations. This is divided into hardware-level 
+storage on the microcontroller and application-level storage on the user's device. 
+The ESP32 is equipped with an integrated MicroSD card module communicating via the 
+SPI (Serial Peripheral Interface) protocol. This serves as the primary loca l repository for 
+high-frequency data and system backups. In the event of a Wi-Fi or Internet outage, the 
+ESP32 continues to log sensor data (Moisture, pH, EC) and system actions (Fertigation 
+events, Gantry movements) to a .CSV or .JSON file on the SD card.  Captured images 
+from the computer vision pipeline can be temporarily buffered here before being 
+processed or transmitted. The current state of the gantry (X, Y, Z coordinates) and the 
+"Occupied" status of the Plot Map are mirrored on the SD card. This allows the system to 
+perform a Hot Start and resume operations accurately after a power failure or unexpected 
+reboot.  
+135 | P a g e  
+ 
+When the system is connected via WebSockets, data is synchronized with the user’s 
+mobile dashboard. To enhance the user experience and reduce redundant API calls, the 
+application utilizes the host device's internal storage. The Event History and Weather 
+Forecast data are cached on the user’s device. This allows the user to review historical 
+trends instantly without waiting for a fresh download from the hardware. 
+3.2.5.3 API Integration Points 
+The system’s intelligence is augmented by the integration of external data streams and a 
+hybrid communication architecture. This allows the ESP32 to synchronize local sensor 
+data with global meteorological forecas ts, creating a robust decision -making framework 
+for the autonomous gantry. 
+To implement the Predictive Resource Management described in the forecasting module, 
+the system utilizes the OpenWeather RESTful API. The ESP32 performs periodic 
+asynchronous HTTP G ET requests to retrieve a JSON -encoded payload containing 
+localized atmospheric variables. 
+The following API data points are mapped directly to the system's operational logic: 
+• Precipitation Probability (pop) & Rain ( rain.1h): These values serve as a pre-
+emptive "gate" for the irrigation cycle. If the probability or volume exceeds the 
+agronomic threshold, the ESP32 bypasses the scheduled watering to prevent root-
+zone waterlogging and conserve water. 
+• Cloud Fraction (clouds.all): This percentage is used to calculate solar attenuation. 
+High cloud cover triggers a downward adjustment in the FLC’s predicted 
+136 | P a g e  
+ 
+evaporation constant, while low cloud cover (high sunrise intensity) increases the 
+baseline irrigation volume. 
+• Ambient Temperature ( main.temp): Used as a  secondary input for the machine 
+learning layer to refine nutrient concentration requirements based on transpiration 
+rates. 
+To balance the need for low-latency control with power-efficient data retrieval, the system 
+employs a dual-protocol communication strategy: 
+• Communication with the OpenWeather API is handled via REST (Representational 
+State Transfer)  over HTTPS. Since weather data changes on a minute -to-hour 
+scale, the stateless nature of REST is ideal for periodic "pull" updates without 
+maintaining a constant connection. 
+• Stateful WebSockets (Internal):  Communication between the Mobile Dashboard 
+and the ESP32 is handled via the WebSocket protocol (RFC 6455) . Once a 
+handshake is established, a persistent TCP connection allows the ESP32 to push 
+Event Logs and coordinate updates to the Plot Map instantly, while receiving X, Y, 
+Z step commands from the user with sub-100ms latency. 
+3.2.6 Data Processing and Control Logic 
+The operational intelligence of the system is governed by a structured multi -modal data 
+processing framework that transforms heterogeneous environmental inputs into 
+deterministic robotic actions. The methodology follows a hierarchical control architecture 
+composed of signal conditioning, AI-based inference, supervisory decision logic, and low-
+level actuation control. High -level computational modules, including weather prediction 
+137 | P a g e  
+ 
+and computer vision inference, inform supervisory decision layers, which in turn regulate 
+the mechanical and hydraulic subsystems of the XYZ Cartesian gantry. 
+This layered des ign ensures that all robotic actions , including irrigation, fertigation, and 
+mechanical weeding , are triggered by validated environmental conditions rather than 
+static timer-based scheduling. The system therefore operates as a closed -loop adaptive 
+control platform with feedforward disturbance compensation and nonlinear decision 
+modeling. 
+Formally, the actuator control vector 𝑈(𝑡)is expressed as: 
+𝑈(𝑡)= 𝑓(𝑆𝑚(𝑡), 𝑆𝑛(𝑡), 𝑆𝑤(𝑡), 𝐼𝑣(𝑡)) 
+Where: 
+• 𝑆𝑚(𝑡) - Represents soil moisture measurements, 
+• 𝑆𝑛(𝑡) - Represents soil nutrient and electrical conductivity measurements, 
+• 𝑆𝑤(𝑡) - Represents weather forecast data, 
+• 𝐼𝑣(𝑡) - Represents computer vision inference outputs, and 
+• 𝑈(𝑡) - Represents the actuation commands issued to pumps, valves, and stepper 
+motors. 
+3.2.6.1 Weather-Adaptive Decision Algorithm 
+The evolution of automated irrigation has transitioned from rigid scheduling to reactive 
+sensing, with the current frontier being predictive weather adaptation. Traditional studies 
+[8] adapted only "dumb timers" to trigger irrigation at fixed intervals, a method that lacks 
+138 | P a g e  
+ 
+the flexibility to adapt to atmospheric shifts. While reactive systems [83] water only when 
+soil moisture falls below a threshold , the y remain vulnerable to over -saturation if 
+precipitation occurs immediately after a cycle. 
+Building upon these developments, the proposed Weather -Adaptive Decision Algorithm 
+represents the next progression in irrigation intelligence. It functions as a prima ry 
+supervisory gating mechanism for irrigation actuation, prioritizing atmospheric forecast 
+data over instantaneous soil-triggered activation. Rather than responding solely to current 
+soil conditions, the algorithm adopts a predictive -control strategy that  evaluates the 
+probability of imminent precipitation before permitting irrigation. By allowing forecasted 
+weather conditions to influence actuation decisions, the system reduces unnecessary 
+water application, minimizes nutrient leaching, and preserves soil  structure. In this way, 
+irrigation control evolves from simple automation to anticipatory, context-aware decision-
+making aligned with precision agriculture principles. 
+1) Sensor Input Acquisition and Moisture Normalization 
+The raw sensor reading 𝑆𝑀𝑚𝑒𝑠(ADC output) will be converted into a normalized soil 
+moisture percentage 𝑆𝑀using calibration constants 𝑆𝑀𝑑𝑟𝑦and 𝑆𝑀𝑤𝑒𝑡: 
+𝑆𝑀 = 𝑆𝑀𝑑𝑟𝑦 − 𝑆𝑀𝑚𝑒𝑠
+𝑆𝑀𝑑𝑟𝑦 − 𝑆𝑀𝑤𝑒𝑡
+× 100 
+where 𝑆𝑀𝑑𝑟𝑦and 𝑆𝑀𝑤𝑒𝑡represent dry and saturated reference readings measured during 
+calibration. This mapping ensures that higher 𝑆𝑀corresponds to wetter soil. 
+Experimental Acquisition of Calibration Constants 
+139 | P a g e  
+ 
+Dry and wet references are experimentally acquired using controlled soil states. The dry 
+reference is obtained from fully dried soil: 
+𝑆𝑀𝑑𝑟𝑦 = 1
+𝑁𝑑
+∑𝑆
+𝑁𝑑
+𝑖=1
+𝑀𝑑𝑟𝑦,𝑖 
+Where: 
+• 𝑆𝑀𝑑𝑟𝑦,𝑖 are the individual dry readings 
+• 𝑁𝑑 is number of dry measurements 
+The saturated reference is obtained after full water saturation: 
+𝑆𝑀𝑤𝑒𝑡 = 1
+𝑁𝑤
+∑𝑆
+𝑁𝑤
+𝑖=1
+𝑀𝑤𝑒𝑡,𝑖 
+Where: 
+• 𝑆𝑀𝑤𝑒𝑡,𝑖 are the individual wet readings 
+• 𝑁𝑤 is the number of wet measurements 
+Multiple measurements are averaged to reduce sensor noise and ensure repeatability. 
+2) Predictive Gating Using Forecast Features 
+When 𝑆𝑀 < 𝑆𝑀dry, the system will consult forecast indicators retrieved from the cloud 
+API, specifically cloud cover 𝐶(%) and relative humidity 𝐻(%) and Probability of Precision. 
+A forecast-based gating variable 𝐺𝑓 will be defined as: 
+𝐺𝑓 = {0, if 𝑃𝑝𝑜𝑝 ≥ 𝜏𝑝𝑜𝑝 ∨ (𝐶𝑐 ≥  𝜏𝑐 ∧ 𝑅ℎ ≥ 𝜏ℎ)  
+1, otherwise   
+140 | P a g e  
+ 
+Where 𝑃𝑝𝑜𝑝 represents hourly probability of precipitation, 𝐶𝑐 represents the real time cloud 
+cover percentage, and 𝑅ℎ represents the real time relative humidity percentage. 
+The threshold variables ( 𝜏𝑝𝑜𝑝, 𝜏𝑐, 𝜏ℎ) act as tunable system parameters within the 
+microcontroller's EEPROM. While initialized with default heuristic values (e.g., 𝜏𝑝𝑜𝑝= 0.70, 
+𝜏𝑐= 85%,𝜏ℎ = 80%), these constraints are designed to be calibrated by the user via the 
+system interface to accommodate localized micro-climates and specific crop sensitivities 
+Here, 𝐺𝑓 = 0 will activate a Resource Conservation Mode, temporarily blocking irrigation 
+to avoid redundant watering when precipitation is likely. 
+3) Irrigation Actuation Logic 
+The preliminary motor command prior to rain validation will be: 
+𝑀𝑆𝑝𝑟𝑒(𝑡) = {1, if (𝑆𝑀 < 𝑆𝑀dry)∧ (𝐺𝑓 = 1)
+0, otherwise  
+Thus, the pump will activate only when soil moisture is below the minimum threshold, and 
+no rain-indicative forecast is present. If 𝐺𝑓 = 0, irrigation is held at 𝑀𝑆𝑝𝑟𝑒 = 0 pending 
+physical rainfall validation (Rain Gauge Validation). 
+API Integration and Forecast Polling 
+Predictive intelligence will be  facilitated through an ESP32  gateway that polls the 
+OpenWeather API via HTTP GET requests at a defined interval 𝑇𝑎𝑝𝑖. The API will return 
+JSON-formatted weather fields, from which the system extracts cloud cover 
+𝑐𝑢𝑟𝑟𝑒𝑛𝑡. 𝑐𝑙𝑜𝑢𝑑𝑠 and relative humidity current. humidity  and probability of precision 
+ℎ𝑜𝑢𝑟𝑙𝑦. 𝑝𝑜𝑝 as primary precipitation indicators. Polling will be performed using coordinate-
+141 | P a g e  
+ 
+based queries (latitude  - longitude), ensuring that forecasts correspond to the local 
+cultivation site. 
+The API-derived features will serve as a supervisory layer that enables the system to 
+enter a Resource Conservation Mode by forcing 𝐺𝑓 = 0 under rain -likely atmospheric 
+conditions. This prevents unnecessary pump activation, reducing both water usage and 
+electrical load while preserving soil porosity for incoming precipitation. 
+Physical Rain Validation Using Raindrop Sensor Module 
+To mitigate uncertainties in cloud -based forecasts and to account for localized 
+microclimate variability, the system will implement reactive rainfall validation using a low-
+cost raindrop sensor module.  The raindrop module will provide real -time detection of 
+rainfall presence. The raindrop sensor will generate a binary rainfall flag 𝑅𝑝ℎ𝑦𝑠(𝑡), defined 
+as: 
+𝑅𝑝ℎ𝑦𝑠(𝑡) ∈ {0,1} 
+Where: 
+• 𝑅𝑝ℎ𝑦𝑠(𝑡) = 1 indicates rain detected on the sensor surface. 
+• 𝑅𝑝ℎ𝑦𝑠(𝑡) = 0 indicates no rainfall detected. 
+A validation window 𝑇𝑣will be defined after forecast -based gating activates ( 𝐺𝑓 = 0). 
+During this interval, the system will monitor the rainfall presence flag to confirm whether 
+precipitation occurs. 
+The validated motor command will be expressed as: 
+142 | P a g e  
+ 
+𝑀𝑆(𝑡) = {
+0, if (𝐺𝑓 = 0)∧ (𝑅𝑝ℎ𝑦𝑠(𝑡) = 1)
+1, if (𝐺𝑓 = 0)∧ (𝑅𝑝ℎ𝑦𝑠(𝑡) = 0)∧ (𝑆𝑀 < 𝑆𝑀∣)
+𝑀𝑆𝑝𝑟𝑒(𝑡), otherwise
+ 
+If rainfall is detected within the validation window, irrigation will remain disabled and the 
+system will log a successful conservation event. If rainfall is not detected and soil moisture 
+remains below the maintenance threshold, the system will initiate Delayed Actuation 
+Mode to restore soil moisture toward 𝑆𝑀∣, thereby preventing crop stress while 
+maintaining adaptive responsiveness. 
+3.2.6.2 Fuzzy Logic Driven Precision Fertigation Framework 
+The proposed fertigation methodology employs a dual-layered computational framework 
+integrating machine learning -based nutrient gap analysis with a Fuzzy Logic Controller 
+(FLC) for real-time regulation. While industrial systems often utilize multi-tank injection to 
+balance specific Nitrogen (N), Phosphorus (P), and Potassium (K) ratios, this study 
+adopts a calibrated dispensing strategy using a standardized NPK nutrient solution. This 
+approach addresses the economic impracticality of full chemical blending on small-scale 
+robotic platforms while ensuring that nutrient delivery remains responsive to the 
+aggregate fertility state of the soil.  
+Multi-Modal Soil Data Acquisition and Normalization 
+The system will utilize a 7 -in-1 soil fertility sensor capable of measuring multiple 
+physicochemical parameters simultaneously. The sensing unit will acquire a 
+heterogeneous environmental state vector composed of soil moisture 𝑆𝑚, soil 
+temperature 𝑇𝑠, soil humidity 𝐻𝑠, pH, electrical conductivity 𝐸𝐶, and macronutrient 
+concentrations 𝑁, 𝑃, 𝐾. 
+143 | P a g e  
+ 
+Communication between the sensor and controller will be conducted via RS485 using the 
+Modbus RTU protocol. Because in -situ electronic nutrient sensors measure ionically 
+active or “trapped” nutrients within the soil solution rather than total laboratory-measured 
+nutrient content, the system will apply a normalization coefficient to align electronic 
+measurements with agronomic standards. The estimated total nutrient concentration will 
+be modeled as: 
+𝑁𝑡𝑜𝑡 = (𝑘 ⋅ 𝑁𝑡𝑟𝑎𝑝𝑝𝑒𝑑)+ 𝑁𝑎𝑣𝑎𝑖𝑙𝑎𝑏𝑙𝑒 
+Where: 
+• 𝑁𝑡𝑜𝑡 represents the estimated agronomic nutrient concentration. 
+• 𝑁𝑡𝑟𝑎𝑝𝑝𝑒𝑑 represents sensor-measured ionic concentration. 
+• 𝑁𝑎𝑣𝑎𝑖𝑙𝑎𝑏𝑙𝑒 represents baseline soil nutrient availability derived from calibration. 
+• 𝑘 represents a constant calibration obtained through comparative analysis against 
+standard colorimetric soil test kits (e.g., STK) to establish a ground-truth baseline. 
+This normalization process will reduce discrepancies between field sensor readings and 
+standardized soil test values. 
+Experimental Acquisition of Normalization Parameters 
+The calibration coefficient 𝑘 is obtained experimentally using paired measurem ents 
+between electronic sensor readings and standard soil test kit results: 
+𝑘 = 1
+𝑛∑ 𝑁𝑆𝑇𝐾,𝑖 − 𝑁𝑎𝑣𝑎𝑖𝑙𝑎𝑏𝑙𝑒,𝑖
+𝑁𝑡𝑟𝑎𝑝𝑝𝑒𝑑,𝑖
+𝑛
+𝑖=1
+ 
+144 | P a g e  
+ 
+where 𝑛 represents the number of comparative soil samples collected. Soil samples are 
+measured simultaneously using the electronic sensor and colorimetric test kits to 
+establish correlation and baseline alignment. This normalization process reduces 
+discrepancies between field sensor readings and standardized soil test values. 
+XGBoost-Based Nutrient Requirement Inference 
+To overcome the limitations of static threshold-based fertilization strategies, the proposed 
+system will implement an Extreme Gradient Boosting (XGBoost) regression model to 
+predict optimal nutrient dosage. XGBoost is selected due to its capability to model 
+nonlinear interactions among soil chemical variables and its robustness when handling 
+structured agricultural datasets [19]. 
+The model will be trained using curated agricultural datasets obtained from Kaggle, 
+specifically fertilizer recommendation and soil fertility datasets containing labeled soil 
+nutrient profiles and corresponding fertilizer guidance. These datasets provide a multi -
+dimensional training baseline across diverse soil types and environmental conditions, 
+enabling the development of a generalized nutrient inference model. 
+The predictive model will analyze the soil nutrient vector (𝑁, 𝑃, 𝐾), soil pH, EC, and 
+relevant environmental history to generate a site-specific fertilizer recommendation. 
+Let the input feature vector be expressed as: 
+X = [𝑁, 𝑃, 𝐾, 𝑝𝐻, 𝐸𝐶, 𝑆𝑚, 𝑇𝑠]𝑇 
+The trained XGBoost model will estimate the optimal nutrient requirement 𝑌̂ as: 
+𝑌̂ = 𝑓(X) 
+145 | P a g e  
+ 
+Where: 
+• 𝑌̂ represents the predicted fertilizer dosage. 
+• 𝑓(𝑋) represents the ensemble gradient-boosted decision model. 
+Model performance during validation will be evaluated using Root Mean Square Error 
+(RMSE), defined as: 
+𝑅𝑀𝑆𝐸 = √1
+𝑛 ∑(
+𝑛
+𝑖=1
+𝑦𝑖 − 𝑦̂𝑖)2 
+Where: 
+• 𝑦𝑖 represents the actual nutrient requirement. 
+• 𝑦̂𝑖 represents the predicted nutrient requirement. 
+• 𝑛 represents the number of validation samples. 
+The machine learning layer will function as a predictive advisory system, generating 
+dosage recommendations that will subsequently be regulated through fuzzy logic–based 
+actuation. 
+Mamdani Fuzzy Logic Controller for Real-Time Regulation 
+The adaptive control stage utilizes a Mamdani-type Fuzzy Inference System responsible 
+for converting predictive recommendations and real -time soil conditions into actuator 
+control signals. The proposed controller a dopts a dual -output architecture to 
+independently regulate irrigation and fertilizer injections. 
+146 | P a g e  
+ 
+The fuzzy system generates: 
+• Irrigation Volume 𝑉𝑤: The precise amount of fresh water in milliliters (mL). 
+• Fertigation Volume 𝑉𝑓: The precise amount of Fertilizer solution in milliliters (mL). 
+This structure allows the ESP32 (Master) to function as the agronomic decision -maker, 
+while the Slave Controller handles the electromechanical timing based on calibrated flow 
+rates. 
+Fuzzy Input Variables, Fuzzy Sets and Membership Functions 
+The fuzzy controller processes normalized environmental and nutrient inputs consisting 
+of: 
+• Predicted nutrient dosage 𝐷𝑛obtained from XGBoost 
+• Soil moisture 𝑆𝑛 
+• Electrical conductivity 𝐸𝐶𝑛 
+• Soil pH 𝑝𝐻𝑛 
+• Nutrient concentrations 𝑁𝑛, 𝑃𝑛, 𝐾𝑛 
+These variables collectively represent nutrient demand, chemical safety, and 
+environmental conditions. 
+Each input variable is mapped into linguistic fuzzy sets to enable qualitative reasoning 
+within the Mamdani inference framework. The linguistic categories are defined as follows: 
+• Nutrient and Dosage Variables: Low, Medium, High 
+147 | P a g e  
+ 
+• Soil Moisture: Dry, Optimal, Wet 
+• Electrical Conductivity (EC): Safe, Caution, High 
+• Soil pH: Acidic, Neutral, Alkaline 
+Fuzzification is performed using triangular and trapezoidal membership functions: 
+𝜇𝑡𝑟𝑖(𝑥; 𝑎, 𝑏, 𝑐) = max (min (𝑥 − 𝑎
+𝑏 − 𝑎
+, 𝑐 − 𝑥
+𝑐 − 𝑏), 0) 
+𝜇𝑡𝑟𝑎𝑝(𝑥; 𝑎, 𝑏, 𝑐, 𝑑) = max (min (𝑥 − 𝑎
+𝑏 − 𝑎
+, 1, 𝑑 − 𝑥
+𝑑 − 𝑐), 0) 
+The following figures present the initial membership function design used in the proposed 
+Mamdani fuzzy co ntroller. The boundaries of the linguistic sets are defined using 
+normalized ranges for conceptual validation and will be refined during system calibration 
+using experimental sensor data. 
+ 
+ 
+Figure 3.-3.43 Fuzzy Membership Functions for Normalized Nutrient and Dosage Variables (Low, Medium, High) 
+
+148 | P a g e  
+ 
+ 
+Figure 3.19 Fuzzy Membership Functions for Normalized Soil Moisture 𝑆𝑛(Dry, Optimal, Wet). 
+ 
+Figure 3.20 Fuzzy Membership Functions for Normalized Electrical Conductivity 𝐸𝐶𝑛(Safe, Caution, High). 
+
+149 | P a g e  
+ 
+ 
+Figure 3.21 Fuzzy membership functions for normalized soil pH (Acidic, Neutral, Alkaline). 
+These fuzzy sets allow the controller to represent gradual transitions between 
+environmental states, preventing abrupt switching behavior and enabling smoother 
+control decisions. Overlapping membership regions ensure that a single sensor 
+measurement may partially belong to multiple linguistic categories, thereby improving 
+robustness under sensor noise and natural soil variability. 
+Rule Base Design, Output Definition, and Defuzzification 
+The Mamdani Fuzzy Inference System employs rule -based reasoning to translate 
+linguistic input conditions into actuator control decisions. The rule base encodes 
+agronomic knowledge together with operational safety constraints, enabling the controller 
+to emu late expert decision -making under uncertain environmental conditions. During 
+operation, each rule evaluates the degree of membership of the input variables, and the 
+resulting activation strengths determine the contribution of each rule to the output space. 
+
+150 | P a g e  
+ 
+Activated rule outputs are aggregated and subsequently defuzzied to generate final pump 
+volume commands for both irrigation and fertigation processes. 
+The rule base governs two actuation outputs within the same Mamdani framework: 
+irrigation control through water volume 𝑉𝑤, and nutrient injection control through fertilizer 
+volume 𝑉𝑓. Although both outputs are generated by the same inference engine, their rules 
+are designed to reflect different agronomic priorities. 
+Irrigation Rules (Irrigation Volume 𝑽𝑾) 
+The irrigation rules prioritize soil moisture as the primary governing variable, while 
+electrical conductivity serves as a secondary moderating factor to prevent excessive 
+irrigation under saline conditions. 
+The irrigation rules are defined as follows: 
+• IF soil moisture is Wet → Irrigation Volume = Zero 
+• IF soil moisture is Optimal → Irrigation Volume = Low 
+• IF soil moisture is Dry → Irrigation Volume =High 
+• IF EC is High → Irrigation Volume n = Medium 
+• IF soil moisture is Wet AND EC is High → Irrigation Volume = Zero 

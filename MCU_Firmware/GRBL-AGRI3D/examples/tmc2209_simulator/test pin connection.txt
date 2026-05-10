@@ -1,0 +1,56 @@
+=========================================
+GRBL-AGRI3D TMC2209 SIMULATOR TEST WIRING
+=========================================
+
+To test the GRBL-AGRI3D master firmware against the TMC2209 Simulator, 
+you need two Arduino Nanos.
+
+[ NANO 1: THE MASTER (GRBL-AGRI3D) ]
+This Nano runs the main `testgrbl` or `grblUpload` firmware.
+It generates the Step/Dir pulses and sends TMC UART commands.
+
+[ NANO 2: THE SIMULATOR (tmc2209_simulator) ]
+This Nano runs the simulator sketch. It reads the pulses and simulates 
+the TMC2209 driver's diagnostics and phase states.
+
+
+--- WIRING CONNECTIONS ---
+
+1. GROUND (CRITICAL)
+   Master GND  <----->  Simulator GND
+
+2. STEP & DIR
+   Connect the specific axis you want to test from the Master.
+   For example, testing the X-Axis on the Master:
+   Master D2 (X-Step)  <----->  Simulator D2 (STEP)
+   Master D5 (X-Dir)   <----->  Simulator D3 (DIR)
+
+3. UART SERIAL
+   Connect the Master's hardware/software UART pins to the Simulator.
+   If the Master is using standard serial for TMC communication:
+   Master D12 (TX)  <----->  Simulator D10 (RX)
+   Master D8  (RX)  <----->  Simulator D11 (TX)
+   
+   *Note: If GRBL-AGRI3D uses a specific single-wire PDN_UART configuration 
+   on a single pin, connect that single pin to BOTH D10 and D11 on the Simulator 
+   with a 1k resistor on the TX line (or directly if just testing logic).*
+
+4. EDGE CASE SELECTOR (ON SIMULATOR NANO ONLY)
+   Use jumper wires connected to the Simulator's Ground (GND) to 
+   pull these pins LOW and trigger errors:
+   - D4 (Bit 1)
+   - D5 (Bit 0)
+   
+   States:
+   [D4 OPEN, D5 OPEN] -> Normal Operation
+   [D4 OPEN, D5 GND ] -> Overtemperature Error (OT)
+   [D4 GND,  D5 OPEN] -> Overtemperature Warning (OTPW)
+   [D4 GND,  D5 GND ] -> Short to Ground (S2G)
+
+
+--- HOW TO TEST ---
+1. Power up both Nanos via USB.
+2. Open two instances of the Arduino IDE or a serial terminal program.
+3. Connect one terminal to the Master (baud rate 115200) to send G-code (e.g., $X, G1 X10 F500).
+4. Connect the second terminal to the Simulator (baud rate 115200) to view the phase outputs and see the simulated UART responses to GRBL.
+5. Trigger edge cases by physically connecting Simulator D4/D5 to GND and watch the Master trigger alarms/feedholds in its terminal.

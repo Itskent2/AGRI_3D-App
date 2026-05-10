@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io';
 import 'package:web_socket_channel/io.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'esp32_sensors.dart';
 
 enum LogLevel { info, warn, error, success }
 
@@ -318,6 +320,18 @@ class ESP32Service extends ChangeNotifier {
             }
             return;
           }
+          // Try to decode as JSON (Telemetry/Events)
+          Map<String, dynamic>? parsed;
+          try {
+            final decoded = jsonDecode(textMsg);
+            if (decoded is Map<String, dynamic>) {
+              parsed = decoded;
+              // Update global sensor state
+              ESP32Sensors.instance.updateSensorsFromJson(parsed);
+            }
+          } catch (e) {
+            // Not JSON
+          }
 
           if (textMsg.contains('"evt":"PONG"') ||
               textMsg.contains('"status":"PONG"')) {
@@ -328,9 +342,8 @@ class ESP32Service extends ChangeNotifier {
               _lastPingSentAt = null;
             }
             try {
-              final pong = jsonDecode(textMsg);
-              if (pong['ping_no'] != null)
-                pingCount = (pong['ping_no'] as num).toInt();
+              final pong = parsed ?? jsonDecode(textMsg);
+              if (pong['ping_no'] != null) pingCount = (pong['ping_no'] as num).toInt();
             } catch (_) {}
 
             addLog("RX: PONG (Latency: ${latencyMs}ms)", tag: "PING");
@@ -338,9 +351,12 @@ class ESP32Service extends ChangeNotifier {
             return;
           }
 
-          try {
-            final parsed = jsonDecode(textMsg);
+          // Avoid logging frequent telemetry to console
+          if (parsed == null || parsed['type'] != 'telemetry') {
+            addLog(textMsg);
+          }
 
+          if (parsed != null) {
             if (parsed['evt'] == 'AI_DETECTIONS') {
               aiDetections.value = List<Map<String, dynamic>>.from(
                 parsed['detections'],
@@ -348,8 +364,7 @@ class ESP32Service extends ChangeNotifier {
               return;
             }
 
-            if (parsed['evt'] == 'FRAME_META' ||
-                parsed['evt'] == 'DETECT_FRAME') {
+            if (parsed['evt'] == 'FRAME_META' || parsed['evt'] == 'DETECT_FRAME') {
               _pendingFrameMeta = parsed;
               // Track upload progress during Phase 2
               if (isUploadingScan && scanFrameTotal > 0) {
@@ -550,8 +565,7 @@ class ESP32Service extends ChangeNotifier {
                 _scheduleNotify();
               }
             }
-          } catch (_) {
-            addLog(textMsg);
+          }
           }
         },
         onDone: () {
