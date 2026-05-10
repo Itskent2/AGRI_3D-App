@@ -20,8 +20,6 @@ CLR_INFO = "\033[96m"
 CLR_BOLD = "\033[1m"
 CLR_VARIABLE = "\033[94m"
 
-RESULTS_FILE = "irrigation_test_results.csv"
-
 # Configuration from your ESP32-AGRI3D code
 LAT = 10.3157
 LON = 123.8854
@@ -81,17 +79,17 @@ class IrrigationSimulator:
         self.sid = str(uuid.uuid4())[:8]
         self.real_rain_state = "DRY"
         self.live_weather = {"ppop": 0, "temp": 0.0, "humidity": 0}
+        self.results_file = f"irrigation_results_{int(time.time())}.csv"
         
         # Initialize CSV with extra environmental columns
-        if not os.path.exists(RESULTS_FILE):
-            with open(RESULTS_FILE, mode='w', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    "Timestamp", "Trial", "Scenario", 
-                    "Soil_Moisture_Pct", "API_Ppop_Pct", 
-                    "Temp_C", "Humidity_Pct", 
-                    "API_Source", "Rain_Sensor_FINAL", "System_Action"
-                ])
+        with open(self.results_file, mode='w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "Timestamp", "Trial", "Scenario", 
+                "Soil_Moisture_Pct", "API_Ppop_Pct", 
+                "Temp_C", "Humidity_Pct", 
+                "API_Source", "Rain_Sensor_FINAL", "System_Action"
+            ])
 
     async def connect(self):
         auth_uri = f"{self.uri}?key={self.token}&sid={self.sid}&gen=1"
@@ -118,7 +116,7 @@ class IrrigationSimulator:
 
     def log_to_csv(self, trial, scenario, soil, ppop, temp, hum, api_source, rain, action):
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        with open(RESULTS_FILE, mode='a', newline='') as f:
+        with open(self.results_file, mode='a', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([timestamp, trial, scenario, soil, ppop, temp, hum, api_source, rain, action])
 
@@ -127,7 +125,7 @@ class IrrigationSimulator:
         print(f"{CLR_BOLD}TRIAL #{trial_num:03d} | {CLR_HEADER}{scenario}{CLR_RESET}")
         print("="*80)
         print(f"  {CLR_VARIABLE}INPUTS:{CLR_RESET}")
-        print(f"    - Simulated Soil: {soil}% (Dry)")
+        print(f"    - Simulated Soil: {soil}% (Dry Threshold)")
         print(f"    - API Weather ({source}):")
         print(f"      > Rain Chance (Ppop): {ppop}%")
         print(f"      > Temperature: {temp}°C")
@@ -147,21 +145,23 @@ class IrrigationSimulator:
                 last_state = self.real_rain_state
                 rain_color = CLR_SUCCESS if last_state == "DRY" else CLR_WARNING
                 
-                # Logic Evaluation
-                if ppop > 80:
-                    action = "Watering Suppressed (High Ppop)"
+                # Logic Evaluation (Matching ESP32 Routine logic)
+                if ppop > 70.0:
+                    action = "ABORT: High Rain Probability (>70%)"
                 elif last_state == "WET":
-                    action = "Watering Suppressed (Rain Detected)"
+                    action = "ABORT: Rain Sensor Triggered"
+                elif ppop >= 40.0:
+                    action = "SCALED: Weather Gating Active (50% Water)"
                 else:
-                    action = "Irrigation Initiated"
+                    action = "NORMAL: Irrigation Initiated"
                 
-                action_color = CLR_SUCCESS if "Initiated" in action else CLR_WARNING
-                sys.stdout.write(f"\r    - LIVE SENSOR: {rain_color}{last_state:<6}{CLR_RESET} | {CLR_BOLD}ACTION: {action_color}{action:<40}{CLR_RESET} | {CLR_INFO}[TESTING...]{CLR_RESET}   ")
+                action_color = CLR_SUCCESS if "Initiated" in action else (CLR_INFO if "SCALED" in action else CLR_WARNING)
+                sys.stdout.write(f"\r    - LIVE SENSOR: {rain_color}{last_state:<6}{CLR_RESET} | {CLR_BOLD}ACTION: {action_color}{action:<42}{CLR_RESET} | {CLR_INFO}[TESTING...]{CLR_RESET}   ")
                 sys.stdout.flush()
             
             await asyncio.sleep(0.05)
         
-        print(f"\n\n  {CLR_SUCCESS}{CLR_BOLD}[LOGGING FINAL STATE...] -> {last_state} Captured.{CLR_RESET}")
+        print(f"\n\n  {CLR_SUCCESS}{CLR_BOLD}[LOGGED] -> {last_state} State Captured.{CLR_RESET}")
         return last_state, action
 
     async def run_simulation(self):
@@ -170,25 +170,42 @@ class IrrigationSimulator:
         if live_weather:
             self.live_weather = live_weather
         
+        # Display Menu like Pump Tester
+        print(f"\n{CLR_BOLD}Select Simulation Mode:{CLR_RESET}")
+        print(f"  1. Comprehensive 100-Trial Suite (All Scenarios)")
+        print(f"  2. Scenario A: Predictive Override (High Ppop)")
+        print(f"  3. Scenario B: Baseline Irrigation (Low Ppop)")
+        print(f"  4. Scenario C: Live Environment (Open-Meteo)")
+        
+        choice = await asyncio.get_event_loop().run_in_executor(None, input, "Choice (1-4): ")
+        
         all_scenarios = [
-            (range(1, 35), "Predictive Override Test", True),
-            (range(35, 68), "Baseline Irrigation Test", True),
-            (range(68, 101), "Live Environment Test", False)
+            (range(1, 35), "Predictive Override Test", "HIGH_PPOP"),
+            (range(35, 68), "Baseline Irrigation Test", "LOW_PPOP"),
+            (range(68, 101), "Live Environment Test", "LIVE")
         ]
+        
+        active_scenarios = []
+        if choice == "1": active_scenarios = all_scenarios
+        elif choice == "2": active_scenarios = [all_scenarios[0]]
+        elif choice == "3": active_scenarios = [all_scenarios[1]]
+        elif choice == "4": active_scenarios = [all_scenarios[2]]
+        else: active_scenarios = all_scenarios
 
-        for trials, scenario_name, is_sim_api in all_scenarios:
+        for trials, scenario_name, mode in active_scenarios:
             print(f"\n{CLR_BOLD}{CLR_INFO}*** STARTING SCENARIO: {scenario_name.upper()} ({len(trials)} Trials) ***{CLR_RESET}")
             
             for i in trials:
                 soil = random.randint(10, 29)
-                
-                # Extract values for this trial
                 temp = self.live_weather['temp']
                 hum = self.live_weather['humidity']
                 
-                if is_sim_api:
-                    ppop = random.randint(81, 100) if "Predictive" in scenario_name else random.randint(0, 69)
-                    source = "Simulated Range"
+                if mode == "HIGH_PPOP":
+                    ppop = random.randint(71, 100)
+                    source = "Simulated (High Ppop)"
+                elif mode == "LOW_PPOP":
+                    ppop = random.randint(0, 39)
+                    source = "Simulated (Low Ppop)"
                 else:
                     ppop = self.live_weather['ppop']
                     source = "LIVE Open-Meteo Hourly"
@@ -200,13 +217,13 @@ class IrrigationSimulator:
                 await asyncio.sleep(0.5)
 
         print(f"\n{CLR_SUCCESS}{CLR_BOLD}{'='*80}")
-        print(f"   [SUCCESS] ALL 100 TRIALS LOGGED TO {RESULTS_FILE}")
+        print(f"   [SUCCESS] SIMULATION COMPLETE. RESULTS LOGGED TO: {self.results_file}")
         print(f"   (Includes Hourly Temperature, Humidity, and Rain Probability)")
         print(f"{'='*80}{CLR_RESET}")
 
 async def main():
     print(f"\n{CLR_HEADER}{'='*80}")
-    print(f"   AGRI-3D IRRIGATION COMPREHENSIVE TESTER (Hourly API + Sensor)")
+    print(f"   AGRI-3D IRRIGATION LOGIC TESTER (Hourly API + Sensor)")
     print(f"   Location: Cebu City (10.31, 123.88)")
     print(f"{'='*80}{CLR_RESET}")
 
@@ -217,11 +234,14 @@ async def main():
     
     uri = f"ws://{ip}/ws"
     simulator = IrrigationSimulator(uri)
-    await simulator.connect()
-    await simulator.run_simulation()
+    if await simulator.connect():
+        await simulator.run_simulation()
+    else:
+        print(f"{CLR_WARNING}[!] Connection aborted.{CLR_RESET}")
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print(f"\n\n{CLR_WARNING}[EXIT] Simulation terminated by user.{CLR_RESET}")
+
