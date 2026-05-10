@@ -72,6 +72,7 @@ enum OperationState {
   uploading,
   aiWeeding,
   npkDip,
+  autonomous,
   rainPaused,
   alarmRecovery,
 }

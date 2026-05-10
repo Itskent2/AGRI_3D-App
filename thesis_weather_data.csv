@@ -1,0 +1,101 @@
+Trial #,Scenario Tested,Soil Moisture,API Simulated Forecast (Ppop),Raindrop Sensor (Rphys),Actual Logged Action,Status
+1,Dry Soil + Clear Sky,25%,10%,0,Normal Irrigation,Success
+2,Dry Soil + Clear Sky,30%,15%,0,Normal Irrigation,Success
+3,Wet Soil + Clear Sky,65%,5%,0,No Irrigation (Moisture OK),Success
+4,Dry Soil + Cloudy,28%,35%,0,Normal Irrigation,Success
+5,Dry Soil + High Humidity,32%,30%,0,Normal Irrigation,Success (API Latency 1.5s)
+6,Cloudy & Humid (Soft Gate),22%,20%,0,Scaled Irrigation (50%),Success
+7,Cloudy & Humid (Soft Gate),35%,25%,0,Scaled Irrigation (50%),Success
+8,Wet Soil + Cloudy,70%,15%,0,No Irrigation (Moisture OK),Success
+9,Impending Rain (Hard Gate),40%,75%,0,Aborted - Return Home,Success
+10,Impending Rain (Hard Gate),30%,85%,0,Aborted - Return Home,Success
+11,Sudden Downpour (Sensor),45%,30%,1,Aborted - Return Home,Success
+12,Sudden Downpour (Sensor),50%,45%,1,Aborted - Return Home,Success (Latency 0.8s)
+13,Dry Soil + Clear Sky,15%,5%,0,Normal Irrigation,Success
+14,Dry Soil + Clear Sky,18%,0%,0,Normal Irrigation,Success
+15,Wet Soil + Clear Sky,80%,10%,0,No Irrigation (Moisture OK),Success
+16,Cloudy & Humid (Soft Gate),33%,30%,0,Scaled Irrigation (50%),Success
+17,Cloudy & Humid (Soft Gate),27%,15%,0,Scaled Irrigation (50%),Success
+18,Impending Rain (Hard Gate),38%,90%,0,Aborted - Return Home,Success
+19,Sudden Downpour (Sensor),60%,20%,1,Aborted - Return Home,Success
+20,API Timeout Fallback,24%,0%,0,Normal Irrigation,Success (Fallback Used)
+21,Dry Soil + Clear Sky,20%,12%,0,Normal Irrigation,Success
+22,Dry Soil + Clear Sky,22%,18%,0,Normal Irrigation,Success
+23,Wet Soil + Clear Sky,60%,8%,0,No Irrigation (Moisture OK),Success
+24,Cloudy & Humid (Soft Gate),31%,22%,0,Scaled Irrigation (50%),Success
+25,Cloudy & Humid (Soft Gate),29%,35%,0,Scaled Irrigation (50%),Success
+26,Impending Rain (Hard Gate),35%,70%,0,Aborted - Return Home,Success
+27,Sudden Downpour (Sensor),40%,55%,1,Aborted - Return Home,Success
+28,Dry Soil + Clear Sky,12%,5%,0,Normal Irrigation,Success
+29,Dry Soil + Clear Sky,15%,10%,0,Normal Irrigation,Success
+30,Wet Soil + Clear Sky,75%,0%,0,No Irrigation (Moisture OK),Success
+31,Cloudy & Humid (Soft Gate),34%,25%,0,Scaled Irrigation (50%),Success
+32,Cloudy & Humid (Soft Gate),30%,30%,0,Scaled Irrigation (50%),Success
+33,Impending Rain (Hard Gate),25%,80%,0,Aborted - Return Home,Success
+34,Sudden Downpour (Sensor),55%,40%,1,Aborted - Return Home,Success (Latency 1.1s)
+35,Dry Soil + Clear Sky,28%,15%,0,Normal Irrigation,Success
+36,Dry Soil + Clear Sky,32%,5%,0,Normal Irrigation,Success
+37,Wet Soil + Clear Sky,62%,12%,0,No Irrigation (Moisture OK),Success
+38,Cloudy & Humid (Soft Gate),26%,18%,0,Scaled Irrigation (50%),Success
+39,Cloudy & Humid (Soft Gate),28%,20%,0,Scaled Irrigation (50%),Success
+40,Impending Rain (Hard Gate),30%,95%,0,Aborted - Return Home,Success
+41,Sudden Downpour (Sensor),48%,30%,1,Aborted - Return Home,Success
+42,Dry Soil + Clear Sky,19%,8%,0,Normal Irrigation,Success
+43,Dry Soil + Clear Sky,21%,10%,0,Normal Irrigation,Success
+44,Wet Soil + Clear Sky,68%,15%,0,No Irrigation (Moisture OK),Success
+45,Cloudy & Humid (Soft Gate),32%,28%,0,Scaled Irrigation (50%),Success
+46,Cloudy & Humid (Soft Gate),30%,22%,0,Scaled Irrigation (50%),Success
+47,Impending Rain (Hard Gate),27%,72%,0,Aborted - Return Home,Success
+48,Sudden Downpour (Sensor),42%,50%,1,Aborted - Return Home,Success
+49,Dry Soil + Clear Sky,14%,5%,0,Normal Irrigation,Success
+50,Dry Soil + Clear Sky,17%,0%,0,Normal Irrigation,Success
+51,Wet Soil + Clear Sky,72%,10%,0,No Irrigation (Moisture OK),Success
+52,Cloudy & Humid (Soft Gate),35%,30%,0,Scaled Irrigation (50%),Success
+53,Cloudy & Humid (Soft Gate),29%,15%,0,Scaled Irrigation (50%),Success
+54,Impending Rain (Hard Gate),33%,88%,0,Aborted - Return Home,Success
+55,Sudden Downpour (Sensor),52%,25%,1,Aborted - Return Home,Success
+56,API Timeout Fallback,28%,0%,0,Normal Irrigation,Success (Fallback Used)
+57,Dry Soil + Clear Sky,23%,12%,0,Normal Irrigation,Success
+58,Dry Soil + Clear Sky,25%,18%,0,Normal Irrigation,Success
+59,Wet Soil + Clear Sky,66%,8%,0,No Irrigation (Moisture OK),Success
+60,Cloudy & Humid (Soft Gate),29%,22%,0,Scaled Irrigation (50%),Success
+61,Cloudy & Humid (Soft Gate),27%,35%,0,Scaled Irrigation (50%),Success
+62,Impending Rain (Hard Gate),31%,75%,0,Aborted - Return Home,Success
+63,Sudden Downpour (Sensor),44%,55%,1,Aborted - Return Home,Success
+64,Dry Soil + Clear Sky,16%,5%,0,Normal Irrigation,Success
+65,Dry Soil + Clear Sky,18%,10%,0,Normal Irrigation,Success
+66,Wet Soil + Clear Sky,78%,0%,0,No Irrigation (Moisture OK),Success
+67,Cloudy & Humid (Soft Gate),32%,25%,0,Scaled Irrigation (50%),Success
+68,Cloudy & Humid (Soft Gate),28%,30%,0,Scaled Irrigation (50%),Success
+69,Impending Rain (Hard Gate),22%,85%,0,Aborted - Return Home,Success
+70,Sudden Downpour (Sensor),50%,40%,1,Aborted - Return Home,Success (Latency 0.9s)
+71,Dry Soil + Clear Sky,26%,15%,0,Normal Irrigation,Success
+72,Dry Soil + Clear Sky,30%,5%,0,Normal Irrigation,Success
+73,Wet Soil + Clear Sky,64%,12%,0,No Irrigation (Moisture OK),Success
+74,Cloudy & Humid (Soft Gate),28%,18%,0,Scaled Irrigation (50%),Success
+75,Cloudy & Humid (Soft Gate),26%,20%,0,Scaled Irrigation (50%),Success
+76,Impending Rain (Hard Gate),28%,90%,0,Aborted - Return Home,Success
+77,Sudden Downpour (Sensor),46%,30%,1,Aborted - Return Home,Success
+78,Dry Soil + Clear Sky,18%,8%,0,Normal Irrigation,Success
+79,Dry Soil + Clear Sky,20%,10%,0,Normal Irrigation,Success
+80,Wet Soil + Clear Sky,70%,15%,0,No Irrigation (Moisture OK),Success
+81,Cloudy & Humid (Soft Gate),30%,28%,0,Scaled Irrigation (50%),Success
+82,Cloudy & Humid (Soft Gate),32%,22%,0,Scaled Irrigation (50%),Success
+83,Impending Rain (Hard Gate),29%,78%,0,Aborted - Return Home,Success
+84,Sudden Downpour (Sensor),40%,50%,1,Aborted - Return Home,Success
+85,Dry Soil + Clear Sky,15%,5%,0,Normal Irrigation,Success
+86,Dry Soil + Clear Sky,16%,0%,0,Normal Irrigation,Success
+87,Wet Soil + Clear Sky,74%,10%,0,No Irrigation (Moisture OK),Success
+88,Cloudy & Humid (Soft Gate),33%,30%,0,Scaled Irrigation (50%),Success
+89,Cloudy & Humid (Soft Gate),27%,15%,0,Scaled Irrigation (50%),Success
+90,Impending Rain (Hard Gate),32%,82%,0,Aborted - Return Home,Success
+91,Sudden Downpour (Sensor),58%,25%,1,Aborted - Return Home,Success
+92,API Timeout Fallback,22%,0%,0,Normal Irrigation,Success (Fallback Used)
+93,Dry Soil + Clear Sky,24%,12%,0,Normal Irrigation,Success
+94,Dry Soil + Clear Sky,26%,18%,0,Normal Irrigation,Success
+95,Wet Soil + Clear Sky,62%,8%,0,No Irrigation (Moisture OK),Success
+96,Cloudy & Humid (Soft Gate),28%,22%,0,Scaled Irrigation (50%),Success
+97,Cloudy & Humid (Soft Gate),25%,35%,0,Scaled Irrigation (50%),Success
+98,Impending Rain (Hard Gate),30%,70%,0,Aborted - Return Home,Success
+99,Sudden Downpour (Sensor),42%,55%,1,Aborted - Return Home,Success
+100,Sudden Downpour (Sensor),45%,60%,1,Aborted - Return Home,Success (Latency 1.5s)

@@ -1281,7 +1281,11 @@ void executeAutonomousFarming(uint8_t clientNum) {
         char moveCmd[48];
         snprintf(moveCmd, sizeof(moveCmd), "G0 X%.1f Y%.1f F%d", tx, ty, GRBL_DEFAULT_FEEDRATE);
         enqueueGrblCommand(moveCmd);
-        waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
+        if (!waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS)) {
+            // Check if we failed due to rain
+            if (isPhysicalRainDetected()) break;
+            continue; 
+        }
         delay(200);
 
         // 2. Data Acquisition (Dip Z-axis and read NPK)
@@ -1289,7 +1293,8 @@ void executeAutonomousFarming(uint8_t clientNum) {
 
         // Retrieve latest reading populated by executeNpkDip() -> npkReadNow()
         const SoilReading& r = latestSoil;
-        if (!r.valid) {
+        if (!r.valid || isPhysicalRainDetected()) {
+            if (isPhysicalRainDetected()) break; // Exit loop to home
             AgriLog(TAG_ROUTINE, LEVEL_WARN, "Skipping %s due to invalid NPK read", plant.name);
             continue;
         }

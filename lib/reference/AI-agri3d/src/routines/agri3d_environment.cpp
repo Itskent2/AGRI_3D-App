@@ -109,6 +109,60 @@ int getWeatherCloudCover() { return _cloudCover; }
 int getWeatherHumidity()   { return _relHumidity; }
 bool isPhysicalRainDetected() { return _rainPinHigh; }
 
+
+
+// ============================================================================
+// SAFETY MONITOR (FreeRTOS, Core 0)
+// ============================================================================
+
+/**
+ * @brief High-frequency safety task on Core 0.
+ * Monitors the rain sensor and sends immediate Feed-Hold to GRBL if triggered.
+ */
+static void safetyTask(void* /*pvParameters*/) {
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(50)); // Poll every 50ms for low-latency response
+
+#if !HW_RAIN_CONNECTED
+        continue;
+#endif
+
+        bool rainNow = (digitalRead(RAIN_PIN) == HIGH);
+        
+        if (rainNow != _rainPinHigh) {
+            _rainPinHigh = rainNow;
+
+            // Compute new combined environment state
+            EnvironmentState newEnv;
+            if      (rainNow && _weatherGated) newEnv = ENV_RAIN_AND_WEATHER;
+            else if (rainNow)                  newEnv = ENV_RAIN_SENSOR;
+            else if (_weatherGated)            newEnv = ENV_WEATHER_GATED;
+            else                               newEnv = ENV_CLEAR;
+
+            EnvironmentState oldEnv = sysState.getEnvironment();
+            sysState.setEnvironment(newEnv);
+
+            if (rainNow && oldEnv == ENV_CLEAR) {
+                AgriLog(TAG_ENV, LEVEL_ERR, "PHYSICAL RAIN DETECTED! Sending Feed-Hold ('!') to gantry.");
+                NanoSerial.print('!'); // Real-time bypass to stop gantry instantly
+                
+                // We also set the operation to PAUSED if it was in a routine
+                if (sysState.getOperation() == OP_SCANNING || 
+                    sysState.getOperation() == OP_NPK_DIP ||
+                    sysState.getOperation() == OP_AUTONOMOUS) {
+                    sysState.setOperation(OP_RAIN_PAUSED);
+                }
+            }
+
+            if (!rainNow && oldEnv != ENV_CLEAR && newEnv == ENV_CLEAR) {
+                AgriLog(TAG_ENV, LEVEL_SUCCESS, "Rain cleared. Ready to resume.");
+                // We don't automatically resume '!' because it might be dangerous.
+                // Flutter or Routine logic should handle 'G0 X0 Y0' or '~'.
+            }
+        }
+    }
+}
+
 void environmentInit() {
     // Load saved coordinates
     _prefs.begin("env", true);
@@ -123,40 +177,12 @@ void environmentInit() {
     // Weather task on Core 0 so it doesn't interfere with camera on Core 1
     xTaskCreatePinnedToCore(weatherTask, "weatherTask",
                             6144, nullptr, 1, nullptr, 0);
+
+    // Safety task on Core 0 with HIGHER priority (2) to ensure rain detection is instant
+    xTaskCreatePinnedToCore(safetyTask, "safetyTask",
+                            2048, nullptr, 2, nullptr, 0);
 }
 
 void environmentLoop() {
-#if !HW_RAIN_CONNECTED
-    // Rain sensor not wired yet — only weather API gate applies
-    // (weatherTask still runs and updates _weatherGated via setEnvironment)
-    return;
-#endif
-    bool rainNow = (digitalRead(RAIN_PIN) == HIGH);
-
-    if (rainNow == _rainPinHigh) return; // No change — skip
-    _rainPinHigh = rainNow;
-
-    // Compute new combined environment state
-    EnvironmentState newEnv;
-    if      (rainNow && _weatherGated) newEnv = ENV_RAIN_AND_WEATHER;
-    else if (rainNow)                  newEnv = ENV_RAIN_SENSOR;
-    else if (_weatherGated)            newEnv = ENV_WEATHER_GATED;
-    else                               newEnv = ENV_CLEAR;
-
-    if (newEnv == sysState.getEnvironment()) return;
-
-    if (rainNow && sysState.getEnvironment() == ENV_CLEAR) {
-        AgriLog(TAG_ENV, LEVEL_WARN, "Rain detected — sending feed-hold to Nano");
-        NanoSerial.print('!'); // Real-time bypass
-        sysState.setOperation(OP_RAIN_PAUSED);
-    }
-
-    if (!rainNow && !_weatherGated &&
-        sysState.getOperation() == OP_RAIN_PAUSED) {
-        AgriLog(TAG_ENV, LEVEL_SUCCESS, "Rain cleared — resuming");
-        NanoSerial.print('~'); // Real-time bypass
-        sysState.setOperation(OP_IDLE);
-    }
-
-    sysState.setEnvironment(newEnv);
+    // Polling logic moved to safetyTask on Core 0.
 }

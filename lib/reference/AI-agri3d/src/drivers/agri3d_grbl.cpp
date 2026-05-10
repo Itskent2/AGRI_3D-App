@@ -440,6 +440,13 @@ bool waitForGrblIdle(uint32_t timeoutMs) {
     // If sawRunning is false, the move was trivially short (already done before
     // the first poll), which is fine — the queue/nanoReady check covers it.
     while (true) {
+        // SAFETY CHECK: If rain is detected or weather gated during motion, abort!
+        EnvironmentState env = sysState.getEnvironment();
+        if (env == ENV_RAIN_SENSOR || env == ENV_RAIN_AND_WEATHER) {
+            AgriLog(TAG_GRBL, LEVEL_ERR, "waitForIdle: ABORT due to rain!");
+            return false;
+        }
+
         if (millis() - start > timeoutMs) {
             AgriLog(TAG_GRBL, LEVEL_ERR, "waitForIdle: TIMEOUT");
             return false;

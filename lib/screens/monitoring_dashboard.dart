@@ -1387,6 +1387,55 @@ class _ManualControlPanelState extends State<_ManualControlPanel> {
                 spacing: 24,
                 runSpacing: 24,
                 children: [
+                  // Auto Farm Button
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF10B981), width: 2),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.precision_manufacturing,
+                            color: Color(0xFF10B981),
+                            size: 28,
+                          ),
+                          onPressed: () {
+                            ESP32Service.instance.sendCommand("AUTO_FARM");
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Starting Autonomous Routine...'),
+                                backgroundColor: Color(0xFF10B981),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        "AUTO FARM",
+                        style: TextStyle(
+                          color: widget.textColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Run full AI routine",
+                        style: TextStyle(
+                          color: widget.subTextColor,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                  ),
+
                   // NPK Dip Button
                   Column(
                     mainAxisSize: MainAxisSize.min,
