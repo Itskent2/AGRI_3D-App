@@ -16,6 +16,9 @@
 #include <math.h>
 #include <time.h>
 
+// Forward declaration for task
+void streamTask(void *pvParameters);
+
 // ============================================================================
 // CAMERA INITIALISATION
 // ============================================================================
