@@ -478,9 +478,14 @@ class _HeatmapCardState extends State<_HeatmapCard> {
 
         // Heatmap canvas with hover
         Expanded(
-          child: MouseRegion(
-            onHover: (e) => setState(() => _hover = e.localPosition),
-            onExit: (_) => setState(() => _hover = null),
+          child: GestureDetector(
+            onPanUpdate: (d) => setState(() => _hover = d.localPosition),
+            onTapDown: (d) => setState(() => _hover = d.localPosition),
+            onTapUp: (_) => setState(() => _hover = null),
+            onPanEnd: (_) => setState(() => _hover = null),
+            child: MouseRegion(
+              onHover: (e) => setState(() => _hover = e.localPosition),
+              onExit: (_) => setState(() => _hover = null),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: Stack(fit: StackFit.expand, children: [
@@ -530,8 +535,8 @@ class _HeatmapCardState extends State<_HeatmapCard> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: widget.stops.map((s) {
-            final text = s.label.isNotEmpty ? '${s.label} (${s.value})' : s.value;
-            return Text(text, style: const TextStyle(color: Colors.white54, fontSize: 8, fontFamily: 'monospace', fontWeight: FontWeight.bold));
+            final text = s.label.isNotEmpty ? '${s.label}\n${s.value}' : s.value;
+            return Text(text, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 7, fontFamily: 'monospace', fontWeight: FontWeight.bold, height: 1.1));
           }).toList(),
         ),
       ]),
