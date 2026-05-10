@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io';
 import 'package:web_socket_channel/io.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'esp32_sensors.dart';
 
 enum LogLevel {
   info,
@@ -287,6 +289,18 @@ class ESP32Service extends ChangeNotifier {
             }
             return;
           }
+          // Try to decode as JSON (Telemetry/Events)
+          Map<String, dynamic>? parsed;
+          try {
+            final decoded = jsonDecode(textMsg);
+            if (decoded is Map<String, dynamic>) {
+              parsed = decoded;
+              // Update global sensor state
+              ESP32Sensors.instance.updateSensorsFromJson(parsed);
+            }
+          } catch (e) {
+            // Not JSON
+          }
 
           if (textMsg.contains('"evt":"PONG"') || textMsg.contains('"status":"PONG"')) {
             if (_lastPingSentAt != null) {
@@ -294,7 +308,7 @@ class ESP32Service extends ChangeNotifier {
               _lastPingSentAt = null;
             }
             try {
-              final pong = jsonDecode(textMsg);
+              final pong = parsed ?? jsonDecode(textMsg);
               if (pong['ping_no'] != null) pingCount = (pong['ping_no'] as num).toInt();
             } catch (_) {}
 
@@ -303,11 +317,12 @@ class ESP32Service extends ChangeNotifier {
             return;
           }
 
-          addLog(textMsg);
+          // Avoid logging frequent telemetry to console
+          if (parsed == null || parsed['type'] != 'telemetry') {
+            addLog(textMsg);
+          }
 
-          try {
-            final parsed = jsonDecode(textMsg);
-
+          if (parsed != null) {
             if (parsed['evt'] == 'FRAME_META' || parsed['evt'] == 'DETECT_FRAME') {
               _pendingFrameMeta = parsed;
               return;
@@ -400,7 +415,7 @@ class ESP32Service extends ChangeNotifier {
               if (raw.startsWith("\$131=")) { maxY = double.tryParse(raw.substring(5)) ?? maxY; _scheduleNotify(); }
               if (raw.startsWith("\$132=")) { maxZ = double.tryParse(raw.substring(5)) ?? maxZ; _scheduleNotify(); }
             }
-          } catch (_) {}
+          }
         },
         onDone: () {
           if (!completer.isCompleted) completer.complete(false);
