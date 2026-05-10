@@ -49,9 +49,10 @@ bool cameraInit() {
   // UXGA (1600×1200) — highest quality for plant-map stills
   // Requires PSRAM to be enabled in board settings
   if (psramFound()) {
-    // Allocate buffers for max resolution (UXGA) so we can scale up on the fly
-    config.frame_size = FRAMESIZE_UXGA;
-    config.jpeg_quality = 10; // 0-63, lower = higher quality
+    // Override: Use QVGA (320x240) to feed the 240x240 AI model 
+    // while keeping file sizes small (~4KB-6KB) for the 1900ms Wi-Fi latency.
+    config.frame_size = FRAMESIZE_QVGA; 
+    config.jpeg_quality = 12; // 0-63, lower = higher quality
     config.fb_count = 2;      // Double buffer for smoother stream
     config.fb_location = CAMERA_FB_IN_PSRAM;
     config.grab_mode = CAMERA_GRAB_LATEST;

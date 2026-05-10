@@ -466,9 +466,23 @@ void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
             String metaStr; serializeJson(meta, metaStr);
             webSocket.sendTXT(clientNum, metaStr);
 
-            // ── Send binary JPEG ──────────────────────────────────────────────
-            webSocket.sendBIN(clientNum, buf, fileSize);
+            // ── Send binary JPEG with TCP Buffer Retry Logic ──────────────────
+            int retries = 0;
+            bool sentOk = false;
+            while (retries < 40 && !sentOk) {
+                if (webSocket.sendBIN(clientNum, buf, fileSize)) {
+                    sentOk = true;
+                } else {
+                    retries++;
+                    vTaskDelay(pdMS_TO_TICKS(50)); // Wait for TCP buffer to drain
+                }
+            }
             free(buf);
+
+            if (!sentOk) {
+                AgriLog(TAG_SCAN, LEVEL_ERR, "Frame %d: Network buffer full (Latency too high) — skipping", idx);
+                continue; // Don't increment 'sent'
+            }
 
             sent++;
 
@@ -476,8 +490,8 @@ void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
             sysState.resetFlutterWatchdog();
 
             // ── Flow-control yield: give Core-0 time to TX the binary frame ───
-            // 50ms base + 1ms per 4KB keeps large frames from overlapping.
-            uint32_t yieldMs = 50 + (fileSize / 4096);
+            // Increased base delay to 100ms for high-latency enclosed housings.
+            uint32_t yieldMs = 100 + (fileSize / 2048); 
             vTaskDelay(pdMS_TO_TICKS(yieldMs));
 
             AgriLog(TAG_SCAN, LEVEL_INFO, "Uploaded frame %d/%d (%.1f,%.1f) %u B",

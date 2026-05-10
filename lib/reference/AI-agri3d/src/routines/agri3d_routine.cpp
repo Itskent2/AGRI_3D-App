@@ -941,6 +941,8 @@ void routineWorkerTask(void* pvParameters) {
                 executeScanUpload(globalScanParams.clientNum);
             } else if (routineType == 6) { // Scan Full (NPK + Photo)
                 executeScanFull(globalScanParams);
+            } else if (routineType == 7) { // Standalone NPK Dip
+                executeNpkDip();
             }
             
             sysState.setOperation(OP_IDLE);
@@ -1039,4 +1041,33 @@ void handleCleanSensors(uint8_t clientNum) {
     enqueueGrblCommand("M105"); // Weeder OFF
     
     webSocket.sendTXT(clientNum, "{\"evt\":\"CLEAN_SENSORS_COMPLETE\"}");
+}
+
+void executeNpkDip() {
+    AgriLog(TAG_ROUTINE, LEVEL_INFO, "Starting standalone NPK dip sequence...");
+    sysState.setOperation(OP_NPK_DIP);
+
+    // 1. Move Z down to 5mm depth (absolute)
+    enqueueGrblCommand("G90 G0 Z5 F500");
+    if (!waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS)) {
+        AgriLog(TAG_ROUTINE, LEVEL_ERR, "NPK Dip: Z-Down Timeout");
+        return;
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000)); // Allow probe to settle
+
+    // 2. Take reading
+    bool success = npkReadNow();
+    if (!success) {
+        AgriLog(TAG_ROUTINE, LEVEL_ERR, "NPK Dip: Sensor read failed");
+    }
+
+    // 3. Move Z back up to clearance (MaxZ - 10mm)
+    char upCmd[48];
+    snprintf(upCmd, sizeof(upCmd), "G90 G0 Z%.1f F1000", machineDim.maxZ - 10.0f);
+    enqueueGrblCommand(upCmd);
+    if (!waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS)) {
+        AgriLog(TAG_ROUTINE, LEVEL_WARN, "NPK Dip: Z-Up Return Timeout");
+    }
+
+    AgriLog(TAG_ROUTINE, LEVEL_SUCCESS, "NPK standalone dip complete.");
 }

@@ -11,10 +11,9 @@ TaskHandle_t CommTaskHandle = NULL;
  * Flutter and the Motors is never interrupted by heavy logic on Core 1.
  */
 void commTask(void *pvParameters) {
-    AgriLog(TAG_SYSTEM, LEVEL_INFO, "Communication Task started on Core %d", xPortGetCoreID());
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "Serial Communication Task started on Core %d (Low Priority)", xPortGetCoreID());
     for (;;) {
         grblLoop();     // Continuous autonomous polling of the Nano/GRBL status
-        npkLoop();      // Background soil polling (if HW_NPK_CONNECTED is true)
         sysState.refreshHeartbeats(); // Standardized watchdog & pro-active pings
         vTaskDelay(pdMS_TO_TICKS(1)); // Yield to allow background WiFi stack processing
     }
@@ -50,13 +49,13 @@ void setup() {
     AgriLog(TAG_SYSTEM, LEVEL_INFO, "Initialising Core 1 Routine Brain...");
     routineInit();
 
-    xTaskCreatePinnedToCore(commTask, "CommTask", 8192, NULL, 3, &CommTaskHandle, 0);
+    xTaskCreatePinnedToCore(commTask, "CommTask", 8192, NULL, 1, &CommTaskHandle, 0); // Priority 1 (Below WebSockets)
 
     AgriLog(TAG_SYSTEM, LEVEL_SUCCESS, "SETUP COMPLETE. Communication Bridge active on Core 0.");
 }
 
 void loop() {
-    // Core 1 is now reserved for the Brain/Routine task (to be implemented).
-    // For now, we yield to prevent WDT triggers.
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    // Routine logic and background polling on Core 1
+    npkLoop(); 
+    vTaskDelay(pdMS_TO_TICKS(10));
 }

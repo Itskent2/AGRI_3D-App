@@ -314,6 +314,7 @@ void networkInit() {
   sysState.setWifi(WIFI_CONNECTING);
 
   WiFi.mode(WIFI_STA);
+  WiFi.setTxPower(WIFI_POWER_19_5dBm); // Boost TX power to max for enclosed housings
   bool connected = false;
 
   for (int i = 0; i < WIFI_NET_COUNT && !connected; i++) {
@@ -343,7 +344,7 @@ void networkInit() {
         "NetTask",             /* Name of task. */
         8192,                  /* Stack size of task */
         NULL,                  /* Parameter of the task */
-        1,                     /* Priority of the task (1 is good for network) */
+        3,                     /* Priority of the task (High for network) */
         &networkTaskHandle,    /* Task handle to keep track of created task */
         0);                    /* Pin task to core 0 */
         
@@ -388,18 +389,30 @@ void networkCoreZeroTask(void *pvParameters) {
     // ── Zero-Copy Frame Handoff ──
     if (sysState.pendingFrameFB != nullptr) {
       if (sysState.pendingFrameClient >= 0) {
-        webSocket.sendBIN((uint8_t)sysState.pendingFrameClient,
-                          sysState.pendingFrame, sysState.pendingFrameLen);
-        if (sysState.pendingAiResult != nullptr) {
-          webSocket.sendTXT((uint8_t)sysState.pendingFrameClient, *sysState.pendingAiResult);
-          delete sysState.pendingAiResult;
-          sysState.pendingAiResult = nullptr;
+        // If the TCP buffer is full (due to high latency), sendBIN will return false.
+        // For live streaming, it is better to DROP the frame than to queue it
+        // and cause a 1002 Protocol Error or massive video delay.
+        bool sentOk = webSocket.sendBIN((uint8_t)sysState.pendingFrameClient,
+                                        sysState.pendingFrame, sysState.pendingFrameLen);
+        
+        if (sentOk) {
+            if (sysState.pendingAiResult != nullptr) {
+              webSocket.sendTXT((uint8_t)sysState.pendingFrameClient, *sysState.pendingAiResult);
+              delete sysState.pendingAiResult;
+              sysState.pendingAiResult = nullptr;
+            }
+        } else {
+            AgriLog(TAG_NET, LEVEL_WARN, "TCP Buffer Full! Dropping video frame (Latency too high)");
+            if (sysState.pendingAiResult != nullptr) {
+                delete sysState.pendingAiResult;
+                sysState.pendingAiResult = nullptr;
+            }
         }
       }
       
       // Buffer the websocket: Yield to let LwIP TCP buffer drain before freeing frame.
-      // If we don't do this, stream lag causes LwIP buffer overflow -> partial WS frames -> 1002 Protocol Error.
-      vTaskDelay(pdMS_TO_TICKS(40 + (sysState.pendingFrameLen / 4096)));
+      // Increased base delay for high latency conditions.
+      vTaskDelay(pdMS_TO_TICKS(100 + (sysState.pendingFrameLen / 2048)));
       
       esp_camera_fb_return(sysState.pendingFrameFB);
       sysState.pendingFrameFB = nullptr;

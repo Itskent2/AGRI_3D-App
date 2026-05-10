@@ -242,24 +242,8 @@ void webSocketEvent(uint8_t num, WStype_t type,
 
     // ── NPK ───────────────────────────────────────────────────────────────────
     if (cmd == "GET_NPK") {
-        AgriLog(TAG_CMD, LEVEL_INFO, "NPK Dip Sequence Started");
-        
-        // 1. Move Z down to 5mm depth
-        enqueueGrblCommand("G91 G0 Z5 F500");
-        if (!waitForGrblIdle(5000)) {
-            sendError(num, "Z-axis movement timeout");
-            return;
-        }
-        delay(1000); // Allow sensor probe to settle in soil
-        
-        // 2. Take reading
-        bool success = npkReadNow();
-        
-        // 3. Move Z back up to clearance (0)
-        enqueueGrblCommand("G91 G0 Z-5 F1000");
-        waitForGrblIdle(5000);
-        
-        if (!success) sendError(num, "NPK sensor not responding");
+        AgriLog(TAG_CMD, LEVEL_INFO, "Offloading NPK Dip to Brain (Core 1)");
+        startRoutine(7); // Trigger executeNpkDip() in background task
         return;
     }
     if (startsWith(cmd, "NPK_HISTORY:")) {

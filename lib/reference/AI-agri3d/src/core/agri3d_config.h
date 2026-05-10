@@ -17,7 +17,7 @@
 // Disabled modules compile but are no-ops, so code structure is preserved.
 // ============================================================================
 #define HW_CAMERA_CONNECTED true // OV5640 on custom ESP32-S3 N16R8 board
-#define HW_NPK_CONNECTED false   // RS485 7-in-1 soil sensor (not yet wired)
+#define HW_NPK_CONNECTED true    // RS485 7-in-1 soil sensor wired
 #define HW_RAIN_CONNECTED false  // Rain sensor (not yet wired)
 #define HW_SD_CONNECTED true     // SD_MMC slot on board
 #define HW_Z_AXIS_BROKEN false // Z-axis hardware fixed — allow moves
@@ -120,10 +120,10 @@
 // Flutter uses these constants for image stitching alignment.
 
 // ── NPK Sensor (RS485 / UART2) ────────────────────────────────────────────
-// NOTE: HW_NPK_CONNECTED = false — sensor not yet wired
-#define NPK_RX_PIN 19
-#define NPK_TX_PIN 20
-#define NPK_DERE 21 // Driver Enable / Receiver Enable
+// NOTE: HW_NPK_CONNECTED = true — wired to truly safe pins 41, 42, 2
+#define NPK_RX_PIN 41 // RO
+#define NPK_TX_PIN 42 // DI
+#define NPK_DERE 2    // Direction
 #define NPK_BAUD 9600
 
 // NPK polling interval (ms between automatic sensor reads)

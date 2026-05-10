@@ -176,3 +176,6 @@ void executeScanPlant(const ScanParams& cfg);
 
 /** Executed on Core 1 by routineWorkerTask */
 void executeScanFull(const ScanParams& cfg);
+
+/** Dip Z-axis to 5mm, take reading, return to MaxZ-10. Non-blocking. */
+void executeNpkDip();
