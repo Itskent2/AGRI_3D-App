@@ -28,14 +28,14 @@
 // To add a network: copy a WIFI_NET_x block and increment WIFI_NET_COUNT.
 #define WIFI_NET_COUNT 3
 
-#define WIFI_NET_2_SSID "ESPTEST"
-#define WIFI_NET_2_PASS "clarkgwapo"
+#define WIFI_NET_0_SSID "ESPTEST2"
+#define WIFI_NET_0_PASS "xxxxxxxx"
 
-#define WIFI_NET_1_SSID "AdminAccess"
-#define WIFI_NET_1_PASS "Admin@CTU.2024"
+#define WIFI_NET_2_SSID "AdminAccess"
+#define WIFI_NET_2_PASS "Admin@CTU.2024"
 
-#define WIFI_NET_0_SSID "ESPTEST"
-#define WIFI_NET_0_PASS "clarkgwapo"
+#define WIFI_NET_1_SSID "ESPTEST"
+#define WIFI_NET_1_PASS "clarkgwapo"
 
 #define WIFI_CONNECT_TIMEOUT_MS 8000 // ms to wait per network attempt
 #define WIFI_RETRY_INTERVAL_MS 30000 // ms between background reconnect attempts

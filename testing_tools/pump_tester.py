@@ -153,13 +153,23 @@ async def main():
     print("Waiting 25 seconds for movement to complete...")
     await asyncio.sleep(25)
 
-    print("\nSelect Sector/Pump to Test:")
-    print("1. Sector 1 & 2 (Irrigation - Water M100/M101)")
-    print("2. Sector 3 & 4 (Fertigation - Fertilizer M102/M103)")
-    choice = await asyncio.get_event_loop().run_in_executor(None, input, "Choice (1-2): ")
+    print("\nSelect Test Mode:")
+    print("  1. Sector 1: Water (Random 1-8s)")
+    print("  2. Sector 2: Water (Fixed 5s - Consistency)")
+    print("  3. Sector 3: Fertilizer (Random 1-30s)")
+    print("  4. Sector 4: Fertilizer (Fixed 30s - Consistency)")
+    choice = await asyncio.get_event_loop().run_in_executor(None, input, "Choice (1-4): ")
     
-    pump_name = "Water" if choice == "1" else "Fertilizer"
-    print(f"\n\033[96m[INFO] Using calibrated flow rate for {pump_name}: {tester.flow_rates[pump_name]} ml/sec\033[0m")
+    mapping = {
+        "1": ("Sector 1", "Water", "M100", "M101"),
+        "2": ("Sector 2", "Water", "M100", "M101"),
+        "3": ("Sector 3", "Fertilizer", "M102", "M103"),
+        "4": ("Sector 4", "Fertilizer", "M102", "M103")
+    }
+    mode_name, pump_type, on_cmd, off_cmd = mapping.get(choice, mapping["1"])
+    flow_rate = tester.flow_rates[pump_type]
+    
+    print(f"\n\033[96m[INFO] Using calibrated flow rate for {pump_type}: {flow_rate} ml/sec\033[0m")
     
     seed_input = await asyncio.get_event_loop().run_in_executor(None, input, "Enter random seed (optional): ")
     if seed_input.strip():
@@ -169,29 +179,34 @@ async def main():
             print(f"  \033[92m[✓] Using random seed: {seed}\033[0m")
         except ValueError:
             print("  \033[31m[⚠] Invalid seed, using random sequence.\033[0m")
-    on_cmd = "M100" if choice == "1" else "M102"
-    off_cmd = "M101" if choice == "1" else "M103"
     
     num_trials_input = await asyncio.get_event_loop().run_in_executor(None, input, "Number of trials [Default 25]: ")
     num_trials = int(num_trials_input) if num_trials_input.strip() else 25
     
-    filename = f"pump_results_{pump_name.lower()}_{int(time.time())}.csv"
+    filename = f"pump_results_{mode_name.lower().replace(' ', '_')}_{int(time.time())}.csv"
     
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["Trial", "Target_Seconds", "Actual_ML", "ML_Per_Sec"])
+        writer.writerow(["Trial", "Target_Seconds", "Target_ML", "Actual_ML", "ML_Per_Sec"])
         
         for trial in range(1, num_trials + 1):
             # Randomize time (1 to 8s for Water, 1 to 30s for Fert)
-            if pump_name == "Water":
+            if mode_name == "Sector 1":
                 duration = round(random.uniform(1.0, 8.0), 2)
-            else:
+            elif mode_name == "Sector 2":
+                duration = 5.0
+            elif mode_name == "Sector 3":
                 duration = round(random.uniform(1.0, 30.0), 2)
-            target_volume = duration * tester.flow_rates[pump_name]
+            elif mode_name == "Sector 4":
+                duration = 30.0
+            else:
+                duration = 1.0
+                
+            target_volume = round(duration * flow_rate, 1)
             
             print(f"\n" + "="*40)
-            print(f"Trial {trial} of {num_trials}")
-            print(f"Target: Run {pump_name} for {duration} seconds (Est. Vol: {target_volume:.1f} ml)")
+            print(f"Trial {trial} of {num_trials} — {mode_name}")
+            print(f"Target: Run {pump_type} for {duration} seconds (Target: {target_volume:.1f} ml)")
             print("="*40)
             
             # Clear message for pause
@@ -225,7 +240,10 @@ async def main():
                 ml_per_sec = round(ml / actual_duration, 3)
                 print(f"  \033[96mResult: {ml_per_sec} ml/sec\033[0m")
                 
-                writer.writerow([trial, actual_duration, ml, ml_per_sec])
+                # CSV-ready string output
+                print(f"  \033[90m[CSV] {trial}, {actual_duration:.2f}, {target_volume:.1f}, {ml:.1f}, {ml_per_sec}\033[0m")
+
+                writer.writerow([trial, actual_duration, target_volume, ml, ml_per_sec])
                 file.flush()
             except ValueError:
                 print("  [!] Invalid input, skipping record.")

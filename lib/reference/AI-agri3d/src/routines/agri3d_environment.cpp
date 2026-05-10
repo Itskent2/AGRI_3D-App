@@ -21,6 +21,9 @@ static Preferences _prefs;
 // ── Internal state ─────────────────────────────────────────────────────────────
 static bool _rainPinHigh     = false; // Last debounced rain pin state
 static bool _weatherGated    = false; // Last weather API result
+static int  _precipProb      = 0;
+static int  _cloudCover      = 0;
+static int  _relHumidity     = 0;
 
 // ============================================================================
 // WEATHER TASK (FreeRTOS, Core 0)
@@ -37,7 +40,7 @@ static void weatherTask(void* /*pvParameters*/) {
         String url = "http://api.open-meteo.com/v1/forecast"
                      "?latitude="  + String(_lat, 4) +
                      "&longitude=" + String(_lon, 4) +
-                     "&current=weather_code,precipitation_probability"
+                     "&current=weather_code,precipitation_probability,cloud_cover,relative_humidity_2m"
                      "&forecast_days=1";
 
         http.begin(url);
@@ -50,23 +53,25 @@ static void weatherTask(void* /*pvParameters*/) {
             // Parse weather_code from JSON (simple substring search avoids full parse)
             int wcIdx = body.indexOf("\"weather_code\":");
             int ppIdx = body.indexOf("\"precipitation_probability\":");
+            int ccIdx = body.indexOf("\"cloud_cover\":");
+            int rhIdx = body.indexOf("\"relative_humidity_2m\":");
 
-            int weatherCode = (wcIdx != -1) ?
-                body.substring(wcIdx + 15).toInt() : 0;
-            int precipProb  = (ppIdx != -1) ?
-                body.substring(ppIdx + 28).toInt() : 0;
+            int weatherCode = (wcIdx != -1) ? body.substring(wcIdx + 15).toInt() : 0;
+            _precipProb  = (ppIdx != -1) ? body.substring(ppIdx + 28).toInt() : 0;
+            _cloudCover  = (ccIdx != -1) ? body.substring(ccIdx + 14).toInt() : 0;
+            _relHumidity = (rhIdx != -1) ? body.substring(rhIdx + 22).toInt() : 0;
 
             // Gate if: WMO code ≥ 51 (drizzle/rain/storm) OR precip > 70%
-            _weatherGated = (weatherCode >= WEATHER_RAIN_CODE_MIN || precipProb > 70);
+            _weatherGated = (weatherCode >= WEATHER_RAIN_CODE_MIN || _precipProb > 70);
 
-            AgriLog(TAG_ENV, LEVEL_INFO, "Weather: code=%d precip=%d%% gated=%s",
-                          weatherCode, precipProb, _weatherGated ? "YES" : "NO");
+            AgriLog(TAG_ENV, LEVEL_INFO, "Weather: code=%d precip=%d%% cloud=%d%% RH=%d%% gated=%s",
+                          weatherCode, _precipProb, _cloudCover, _relHumidity, _weatherGated ? "YES" : "NO");
 
             // Broadcast weather info to Flutter
             StaticJsonDocument<128> doc;
             doc["evt"]         = "WEATHER";
             doc["code"]        = weatherCode;
-            doc["precipProb"]  = precipProb;
+            doc["precipProb"]  = _precipProb;
             doc["gated"]       = _weatherGated;
             String out; serializeJson(doc, out);
             webSocket.broadcastTXT(out);
@@ -98,6 +103,11 @@ void setWeatherLocation(float lat, float lon) {
     _prefs.end();
     AgriLog(TAG_ENV, LEVEL_INFO, "Location set: %.4f, %.4f", lat, lon);
 }
+
+int getWeatherPrecipProb() { return _precipProb; }
+int getWeatherCloudCover() { return _cloudCover; }
+int getWeatherHumidity()   { return _relHumidity; }
+bool isPhysicalRainDetected() { return _rainPinHigh; }
 
 void environmentInit() {
     // Load saved coordinates

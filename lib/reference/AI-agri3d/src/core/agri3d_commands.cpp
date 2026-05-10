@@ -251,6 +251,14 @@ void webSocketEvent(uint8_t num, WStype_t type,
         handleScanFull(num, args(cmd));
         return;
     }
+    if (cmd == "DIP_ALL_PLANTS") {
+        handleDipAllPlants(num);
+        return;
+    }
+    if (cmd == "AUTO_FARM") {
+        handleAutonomousFarming(num);
+        return;
+    }
     if (startsWith(cmd, "AUTO_DETECT_PLANTS:")) {
         handleAutoDetectPlants(num, args(cmd));
         return;

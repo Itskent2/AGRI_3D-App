@@ -1,4 +1,4 @@
-Index,Moisture(%),Humidity,EC(us/cm),pH,Nitrogen,Phosphorus,Potassium
+Index,Moisture(%),Temperature(C),EC(us/cm),pH,Nitrogen,Phosphorus,Potassium
 1,81.9,28.8,3099,8.1,608,1451,1455
 2,100.0,29.0,3322,7.9,654,1559,1563
 3,100.0,29.3,3186,7.3,626,1493,1497

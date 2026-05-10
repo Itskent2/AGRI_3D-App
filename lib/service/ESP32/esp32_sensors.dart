@@ -17,6 +17,11 @@ class ESP32Sensors extends ChangeNotifier {
   double ec = 0.0;
   double ph = 0.0;
 
+  // True once at least one real reading has been received
+  bool hasLiveData = false;
+  bool hasNpkData = false;
+  bool hasMoistureData = false;
+
   // Telemetry sensors
   int gatingFeatureGF = 1; // 1 = Safe, 0 = Gated
   int rainPhysicalRPhys = 0; // 0 = Dry, 1 = Rain
@@ -37,17 +42,21 @@ class ESP32Sensors extends ChangeNotifier {
     }
     if (jsonData.containsKey('moisture')) {
       soilMoisture = (jsonData['moisture'] as num).toDouble();
+      hasMoistureData = true;
     }
     
     // NPK parsing
     if (jsonData.containsKey('n')) {
       nitrogen = (jsonData['n'] as num).toDouble();
+      hasNpkData = true;
     }
     if (jsonData.containsKey('p')) {
       phosphorus = (jsonData['p'] as num).toDouble();
+      hasNpkData = true;
     }
     if (jsonData.containsKey('k')) {
       potassium = (jsonData['k'] as num).toDouble();
+      hasNpkData = true;
     }
     if (jsonData.containsKey('ec')) {
       ec = (jsonData['ec'] as num).toDouble();
@@ -76,6 +85,8 @@ class ESP32Sensors extends ChangeNotifier {
       espFreeHeap = (jsonData['free_heap'] as num).toInt();
     }
 
+    // Mark that we have received live data from ESP32
+    hasLiveData = true;
     notifyListeners(); // Tells UI to update the numbers
   }
 }

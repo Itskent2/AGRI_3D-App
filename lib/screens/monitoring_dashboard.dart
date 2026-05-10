@@ -8,6 +8,7 @@ import '../providers/theme_provider.dart';
 import '../providers/sensor_provider.dart';
 import '../widgets/sensor_heatmaps.dart';
 import '../service/ESP32/esp32_service.dart';
+import 'dart:math' as math;
 
 // ─────────────────────────────────────────────────────────────
 // Telemetry data model
@@ -155,11 +156,11 @@ class MonitoringDashboardScreen extends ConsumerWidget {
                         child: _StatusCard(
                           icon: Icons.water_drop,
                           label: 'Soil Moisture',
-                          value: '${sensors.soilMoisture.toStringAsFixed(0)}%',
+                          value: sensors.hasMoistureData ? '${sensors.soilMoisture.toStringAsFixed(0)}%' : '--',
                           color: const Color(0xFF3B82F6),
-                          trend: sensors.soilMoisture < 30 ? '⚠ Below threshold' : 'Optimal range',
-                          alert: sensors.soilMoisture < 30,
-                          percent: (sensors.soilMoisture / 100).clamp(0.0, 1.0),
+                          trend: !sensors.hasMoistureData ? 'Awaiting data' : (sensors.soilMoisture < 30 ? '⚠ Below threshold' : 'Optimal range'),
+                          alert: sensors.hasMoistureData && sensors.soilMoisture < 30,
+                          percent: sensors.hasMoistureData ? (sensors.soilMoisture / 100).clamp(0.0, 1.0) : 0.0,
                           isDark: isDark,
                           glassColor: glassColor,
                           borderColor: borderColor,
@@ -172,11 +173,11 @@ class MonitoringDashboardScreen extends ConsumerWidget {
                         child: _StatusCard(
                           icon: Icons.grass,
                           label: 'Nitrogen (N)',
-                          value: '${sensors.nitrogen.toStringAsFixed(0)} mg/kg',
+                          value: sensors.hasNpkData ? '${sensors.nitrogen.toStringAsFixed(0)} mg/kg' : '--',
                           color: const Color(0xFF22C55E),
-                          trend: sensors.nitrogen < 20 ? '⚠ Deficient' : 'Sufficient',
-                          alert: sensors.nitrogen < 20,
-                          percent: (sensors.nitrogen / 300).clamp(0.0, 1.0),
+                          trend: !sensors.hasNpkData ? 'Awaiting dip' : (sensors.nitrogen < 20 ? '⚠ Deficient' : 'Sufficient'),
+                          alert: sensors.hasNpkData && sensors.nitrogen < 20,
+                          percent: sensors.hasNpkData ? (sensors.nitrogen / 300).clamp(0.0, 1.0) : 0.0,
                           isDark: isDark,
                           glassColor: glassColor,
                           borderColor: borderColor,
@@ -189,11 +190,11 @@ class MonitoringDashboardScreen extends ConsumerWidget {
                         child: _StatusCard(
                           icon: Icons.grain,
                           label: 'Phosphorus (P)',
-                          value: '${sensors.phosphorus.toStringAsFixed(0)} mg/kg',
+                          value: sensors.hasNpkData ? '${sensors.phosphorus.toStringAsFixed(0)} mg/kg' : '--',
                           color: const Color(0xFFA855F7),
-                          trend: sensors.phosphorus < 20 ? '⚠ Deficient' : 'Sufficient',
-                          alert: sensors.phosphorus < 20,
-                          percent: (sensors.phosphorus / 200).clamp(0.0, 1.0),
+                          trend: !sensors.hasNpkData ? 'Awaiting dip' : (sensors.phosphorus < 20 ? '⚠ Deficient' : 'Sufficient'),
+                          alert: sensors.hasNpkData && sensors.phosphorus < 20,
+                          percent: sensors.hasNpkData ? (sensors.phosphorus / 200).clamp(0.0, 1.0) : 0.0,
                           isDark: isDark,
                           glassColor: glassColor,
                           borderColor: borderColor,
@@ -206,11 +207,11 @@ class MonitoringDashboardScreen extends ConsumerWidget {
                         child: _StatusCard(
                           icon: Icons.science,
                           label: 'Potassium (K)',
-                          value: '${sensors.potassium.toStringAsFixed(0)} mg/kg',
+                          value: sensors.hasNpkData ? '${sensors.potassium.toStringAsFixed(0)} mg/kg' : '--',
                           color: const Color(0xFFEAB308),
-                          trend: sensors.potassium < 20 ? '⚠ Deficient' : 'Sufficient',
-                          alert: sensors.potassium < 20,
-                          percent: (sensors.potassium / 400).clamp(0.0, 1.0),
+                          trend: !sensors.hasNpkData ? 'Awaiting dip' : (sensors.potassium < 20 ? '⚠ Deficient' : 'Sufficient'),
+                          alert: sensors.hasNpkData && sensors.potassium < 20,
+                          percent: sensors.hasNpkData ? (sensors.potassium / 400).clamp(0.0, 1.0) : 0.0,
                           isDark: isDark,
                           glassColor: glassColor,
                           borderColor: borderColor,
@@ -223,11 +224,11 @@ class MonitoringDashboardScreen extends ConsumerWidget {
                         child: _StatusCard(
                           icon: Icons.bolt,
                           label: 'Conductivity (EC)',
-                          value: '${sensors.ec.toStringAsFixed(0)} μS/cm',
+                          value: sensors.hasNpkData ? '${sensors.ec.toStringAsFixed(0)} μS/cm' : '--',
                           color: const Color(0xFF06B6D4),
-                          trend: sensors.ec < 100 ? '⚠ Low' : 'Normal',
-                          alert: sensors.ec < 100,
-                          percent: (sensors.ec / 1000).clamp(0.0, 1.0),
+                          trend: !sensors.hasNpkData ? 'Awaiting dip' : (sensors.ec < 100 ? '⚠ Low' : 'Normal'),
+                          alert: sensors.hasNpkData && sensors.ec < 100,
+                          percent: sensors.hasNpkData ? (sensors.ec / 1000).clamp(0.0, 1.0) : 0.0,
                           isDark: isDark,
                           glassColor: glassColor,
                           borderColor: borderColor,
@@ -240,11 +241,11 @@ class MonitoringDashboardScreen extends ConsumerWidget {
                         child: _StatusCard(
                           icon: Icons.opacity,
                           label: 'Soil pH',
-                          value: '${sensors.ph.toStringAsFixed(1)}',
+                          value: sensors.hasNpkData ? sensors.ph.toStringAsFixed(1) : '--',
                           color: const Color(0xFFF97316),
-                          trend: sensors.ph < 6.0 ? 'Acidic' : (sensors.ph > 7.5 ? 'Alkaline' : 'Neutral'),
-                          alert: sensors.ph < 5.0 || sensors.ph > 8.5,
-                          percent: (sensors.ph / 14).clamp(0.0, 1.0),
+                          trend: !sensors.hasNpkData ? 'Awaiting dip' : (sensors.ph < 6.0 ? 'Acidic' : (sensors.ph > 7.5 ? 'Alkaline' : 'Neutral')),
+                          alert: sensors.hasNpkData && (sensors.ph < 5.0 || sensors.ph > 8.5),
+                          percent: sensors.hasNpkData ? (sensors.ph / 14).clamp(0.0, 1.0) : 0.0,
                           isDark: isDark,
                           glassColor: glassColor,
                           borderColor: borderColor,
@@ -965,7 +966,7 @@ class _TelemetryChartState extends State<_TelemetryChart>
 // Daily monitoring panel
 // ─────────────────────────────────────────────────────────────
 
-class _DailyMonitoringPanel extends StatelessWidget {
+class _DailyMonitoringPanel extends StatefulWidget {
   const _DailyMonitoringPanel({
     required this.accent,
     required this.isDark,
@@ -979,7 +980,60 @@ class _DailyMonitoringPanel extends StatelessWidget {
   final bool isDark;
 
   @override
+  State<_DailyMonitoringPanel> createState() => _DailyMonitoringPanelState();
+}
+
+class _DailyMonitoringPanelState extends State<_DailyMonitoringPanel> {
+  @override
+  void initState() {
+    super.initState();
+    ESP32Service.instance.addListener(_onUpdate);
+  }
+
+  @override
+  void dispose() {
+    ESP32Service.instance.removeListener(_onUpdate);
+    super.dispose();
+  }
+
+  void _onUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  /// Computes the average of a given field across the last hour of NPK history.
+  /// Returns null if no valid data exists.
+  double? _avgLastHour(double Function(NpkLogEntry) getter) {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final cutoff = now - 3600; // 1 hour ago
+    final history = ESP32Service.instance.npkHistory;
+    final recent = history.where((e) => e.ts >= cutoff).toList();
+    if (recent.isEmpty) return null;
+    final vals = recent.map(getter).where((v) => v >= 0).toList();
+    if (vals.isEmpty) return null;
+    return vals.reduce((a, b) => a + b) / vals.length;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final avgN = _avgLastHour((e) => e.n);
+    final avgP = _avgLastHour((e) => e.p);
+    final avgK = _avgLastHour((e) => e.k);
+    final avgM = _avgLastHour((e) => e.m);
+
+    // Compute composite nutrient score: avg(N,P,K) mapped to 0..1 range (max ~300 mg/kg)
+    double nutrientScore = 0.0;
+    String nutrientLabel = 'No data yet';
+    bool hasNpk = false;
+    if (avgN != null && avgP != null && avgK != null) {
+      hasNpk = true;
+      final avgNpk = (avgN + avgP + avgK) / 3.0;
+      nutrientScore = (avgNpk / 150.0).clamp(0.0, 1.0);
+      nutrientLabel = avgNpk < 30 ? 'Deficient' : (avgNpk < 80 ? 'Moderate' : 'Stable');
+    }
+
+    // Moisture alert
+    bool moistureLow = avgM != null && avgM < 35.0;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: BackdropFilter(
@@ -987,9 +1041,9 @@ class _DailyMonitoringPanel extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: glassColor,
+            color: widget.glassColor,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor),
+            border: Border.all(color: widget.borderColor),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1000,14 +1054,14 @@ class _DailyMonitoringPanel extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                     fontStyle: FontStyle.italic,
-                    color: textColor,
+                    color: widget.textColor,
                     letterSpacing: 0.5,
                   ),
                   children: [
                     const TextSpan(text: 'DAILY '),
                     TextSpan(
                       text: 'MONITORING',
-                      style: TextStyle(color: accent),
+                      style: TextStyle(color: widget.accent),
                     ),
                   ],
                 ),
@@ -1015,45 +1069,59 @@ class _DailyMonitoringPanel extends StatelessWidget {
               const SizedBox(height: 20),
               _HealthItem(
                 icon: Icons.track_changes,
-                label: 'Average Nutrient Level',
-                value: 'Stable',
-                percent: 0.85,
+                label: hasNpk ? 'Avg Nutrient (N+P+K) — 1h' : 'Average Nutrient Level',
+                value: hasNpk ? nutrientLabel : 'No data',
+                percent: nutrientScore,
                 barColor: const Color(0xFF3B82F6),
-                textColor: textColor,
-                subTextColor: subTextColor,
-                isDark: isDark,
+                textColor: widget.textColor,
+                subTextColor: widget.subTextColor,
+                isDark: widget.isDark,
               ),
+              if (hasNpk) ...[
+                const SizedBox(height: 12),
+                _HealthItem(
+                  icon: Icons.grass,
+                  label: 'N avg: ${avgN!.toStringAsFixed(1)} · P avg: ${avgP!.toStringAsFixed(1)} · K avg: ${avgK!.toStringAsFixed(1)}',
+                  value: 'mg/kg',
+                  percent: math.min(1.0, (avgN + avgP + avgK) / 450.0),
+                  barColor: const Color(0xFF22C55E),
+                  textColor: widget.textColor,
+                  subTextColor: widget.subTextColor,
+                  isDark: widget.isDark,
+                ),
+              ],
               const SizedBox(height: 24),
-              Divider(color: borderColor),
+              Divider(color: widget.borderColor),
               const SizedBox(height: 12),
-              _AlertTile(
-                icon: Icons.warning_amber_rounded,
-                iconColor: const Color(0xFFEF4444),
-                bgColor: const Color(0xFFEF4444),
-                label: 'Crop Alert',
-                message: 'Sector B-4: Fungal damage detected in Carrot Plot #3',
-                isDark: isDark,
-                subTextColor: subTextColor,
-              ),
+              if (moistureLow)
+                _AlertTile(
+                  icon: Icons.water_drop_outlined,
+                  iconColor: const Color(0xFF3B82F6),
+                  bgColor: const Color(0xFF3B82F6),
+                  label: 'Moisture Alert',
+                  message: 'Avg soil moisture ${avgM!.toStringAsFixed(0)}% — Irrigation suggested',
+                  isDark: widget.isDark,
+                  subTextColor: widget.subTextColor,
+                )
+              else
+                _AlertTile(
+                  icon: Icons.water_drop_outlined,
+                  iconColor: const Color(0xFF3B82F6),
+                  bgColor: const Color(0xFF3B82F6),
+                  label: 'Moisture',
+                  message: avgM != null ? 'Avg moisture ${avgM.toStringAsFixed(0)}% — OK' : 'No moisture data yet — run Dip NPK',
+                  isDark: widget.isDark,
+                  subTextColor: widget.subTextColor,
+                ),
               const SizedBox(height: 8),
               _AlertTile(
                 icon: Icons.bug_report_outlined,
-                iconColor: accent,
-                bgColor: accent,
+                iconColor: widget.accent,
+                bgColor: widget.accent,
                 label: 'Interference',
                 message: 'Weeds detected surrounding Lettuce Plot #2',
-                isDark: isDark,
-                subTextColor: subTextColor,
-              ),
-              const SizedBox(height: 8),
-              _AlertTile(
-                icon: Icons.water_drop_outlined,
-                iconColor: const Color(0xFF3B82F6),
-                bgColor: const Color(0xFF3B82F6),
-                label: 'Moisture',
-                message: 'Sector 4 moisture below 35% - Irrigation suggested',
-                isDark: isDark,
-                subTextColor: subTextColor,
+                isDark: widget.isDark,
+                subTextColor: widget.subTextColor,
               ),
             ],
           ),

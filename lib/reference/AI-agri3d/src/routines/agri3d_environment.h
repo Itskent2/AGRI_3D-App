@@ -32,3 +32,15 @@ void environmentLoop();
  * @param lon Longitude (e.g. 123.8854)
  */
 void setWeatherLocation(float lat, float lon);
+
+/** Get latest precipitation probability (0-100%) */
+int getWeatherPrecipProb();
+
+/** Get latest cloud cover (0-100%) */
+int getWeatherCloudCover();
+
+/** Get latest relative humidity (0-100%) */
+int getWeatherHumidity();
+
+/** Returns true if physical rain pin is currently triggered */
+bool isPhysicalRainDetected();

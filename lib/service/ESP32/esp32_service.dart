@@ -10,6 +10,38 @@ import 'package:crypto/crypto.dart';
 import '../../models/plot_model.dart';
 import 'esp32_sensors.dart';
 
+class NpkLogEntry {
+  final int x, y, ts;
+  final double n, p, k, m, ec, ph, temp;
+
+  NpkLogEntry({
+    required this.x, required this.y, required this.ts,
+    required this.n, required this.p, required this.k, required this.m,
+    required this.ec, required this.ph, required this.temp,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'x': x, 'y': y, 'ts': ts,
+    'n': n, 'p': p, 'k': k, 'm': m,
+    'ec': ec, 'ph': ph, 'temp': temp,
+  };
+
+  factory NpkLogEntry.fromJson(Map<String, dynamic> json) {
+    return NpkLogEntry(
+      x: (json['x'] as num).toInt(),
+      y: (json['y'] as num).toInt(),
+      ts: (json['ts'] as num).toInt(),
+      n: (json['n'] as num).toDouble(),
+      p: (json['p'] as num).toDouble(),
+      k: (json['k'] as num).toDouble(),
+      m: (json['m'] as num).toDouble(),
+      ec: (json['ec'] ?? 0).toDouble(),
+      ph: (json['ph'] ?? 0).toDouble(),
+      temp: (json['temp'] ?? 0).toDouble(),
+    );
+  }
+}
+
 enum LogLevel { info, warn, error, success }
 
 enum EnvironmentState { clear, rainSensor, weatherGated, rainAndWeather }
@@ -60,6 +92,11 @@ class ESP32Service extends ChangeNotifier {
   String? _lastKnownIP;
   String? get currentIP => _lastKnownIP;
   List<LogEntry> logs = [];
+  List<NpkLogEntry> npkHistory = [];
+  bool isLoadingHistory = true;
+
+  // Accumulator for chunked plant map delivery
+  final List<dynamic> _pendingPlants = [];
 
   List<String> get logStrings =>
       logs.map((e) => "[${e.tag}] ${e.message}").toList();
@@ -150,7 +187,72 @@ class ESP32Service extends ChangeNotifier {
   static final ESP32Service instance = ESP32Service._internal();
 
   ESP32Service._internal() {
+    _loadLocalNpkHistory();
     autoDiscover(reason: "System Initialization");
+  }
+
+  Future<void> _loadLocalNpkHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString('npk_history');
+    if (jsonStr != null) {
+      try {
+        final list = jsonDecode(jsonStr) as List;
+        npkHistory = list.map((e) => NpkLogEntry.fromJson(e)).toList();
+        _deduplicateAndSortHistory();
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    isLoadingHistory = false;
+    _scheduleNotify();
+  }
+
+  void _deduplicateAndSortHistory() {
+    final seen = <int>{};
+    final unique = <NpkLogEntry>[];
+    for (var entry in npkHistory) {
+      if (!seen.contains(entry.ts)) {
+        seen.add(entry.ts);
+        unique.add(entry);
+      }
+    }
+    npkHistory.clear();
+    npkHistory.addAll(unique);
+    npkHistory.sort((a, b) => a.ts.compareTo(b.ts));
+  }
+
+  Future<void> _saveLocalNpkHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = npkHistory.map((e) => e.toJson()).toList();
+    await prefs.setString('npk_history', jsonEncode(list));
+  }
+
+  /// Converts a raw JSON list of plant objects into a typed [Plot] list.
+  List<Plot> _parsePlotList(List<dynamic> list) {
+    return list.map((p) {
+      return Plot(
+        id: (p['idx'] as num).toInt(),
+        name: p['name']?.toString() ?? 'Plant',
+        x: (p['x'] as num).toDouble(),
+        y: (p['y'] as num).toDouble(),
+        rosetteDiameter: (p['diameter'] as num?)?.toDouble() ?? 0.0,
+        dx: (p['dx'] as num?)?.toDouble() ?? 0.0,
+        dy: (p['dy'] as num?)?.toDouble() ?? 0.0,
+        cropType: CropType.fromValue((p['c'] as num?)?.toInt() ?? 0),
+        ts: (p['ts'] as num?)?.toInt() ?? 0,
+        moisture: 0.0,
+        npk: NpkLevel(
+          n: (p['n'] as num?)?.toDouble() ?? 0.0,
+          p: (p['p'] as num?)?.toDouble() ?? 0.0,
+          k: (p['k'] as num?)?.toDouble() ?? 0.0,
+        ),
+        targetNpk: NpkLevel(
+          n: (p['tN'] as num?)?.toDouble() ?? 0.0,
+          p: (p['tP'] as num?)?.toDouble() ?? 0.0,
+          k: (p['tK'] as num?)?.toDouble() ?? 0.0,
+        ),
+      );
+    }).toList();
   }
 
   Completer<void>? _discoveryCompleter;
@@ -343,6 +445,7 @@ class ESP32Service extends ChangeNotifier {
 
             _startPingLoop();
             sendCommand("GET_GCODE_INFO");
+            sendCommand("GET_PLANT_MAP"); // Fetch full plant registry on every connect
             if (!completer.isCompleted) completer.complete(true);
             return;
           }
@@ -493,6 +596,36 @@ class ESP32Service extends ChangeNotifier {
                 parsed['evt'] == 'NPK' ||
                 parsed['evt'] == 'NPK_LOG_CHUNK' ||
                 parsed['evt'] == 'NPK_LOG_END') {
+              
+              if (parsed['evt'] == 'NPK_LOG_CHUNK') {
+                final readings = parsed['readings'] as List;
+                for (var r in readings) {
+                  npkHistory.add(NpkLogEntry.fromJson(r));
+                }
+              } else if (parsed['evt'] == 'NPK_LOG_END') {
+                _deduplicateAndSortHistory();
+                _saveLocalNpkHistory();
+                isLoadingHistory = false;
+                _scheduleNotify();
+              } else if (parsed['evt'] == 'NPK') {
+                int ts = (parsed['ts'] as num?)?.toInt() ?? (DateTime.now().millisecondsSinceEpoch ~/ 1000);
+                npkHistory.add(NpkLogEntry(
+                    x: (parsed['x'] as num).toInt(),
+                    y: (parsed['y'] as num).toInt(),
+                    ts: ts,
+                    n: (parsed['n'] as num).toDouble(),
+                    p: (parsed['p'] as num).toDouble(),
+                    k: (parsed['k'] as num).toDouble(),
+                    m: (parsed['m'] ?? -1).toDouble(),
+                    ec: (parsed['ec'] ?? 0).toDouble(),
+                    ph: (parsed['ph'] ?? 0).toDouble(),
+                    temp: (parsed['temp'] ?? 0).toDouble(),
+                ));
+                _deduplicateAndSortHistory();
+                _saveLocalNpkHistory();
+                _scheduleNotify();
+              }
+              
               _npkUpdateCtrl.add(parsed);
               return;
             }
@@ -589,28 +722,29 @@ class ESP32Service extends ChangeNotifier {
               return;
             }
 
+            // ── Legacy single-shot PLANT_MAP (small registries ≤~7 plants) ──
             if (parsed['evt'] == 'PLANT_MAP') {
               final List<dynamic> list = parsed['plants'] ?? [];
-              registeredPlots = list.map((p) {
-                return Plot(
-                  id: (p['idx'] as num).toInt(),
-                  name: p['name']?.toString() ?? 'Plant',
-                  x: (p['x'] as num).toDouble(),
-                  y: (p['y'] as num).toDouble(),
-                  rosetteDiameter: (p['diameter'] as num?)?.toDouble() ?? 0.0,
-                  moisture: 0.0,
-                  npk: NpkLevel(
-                    n: (p['n'] as num?)?.toDouble() ?? 0.0,
-                    p: (p['p'] as num?)?.toDouble() ?? 0.0,
-                    k: (p['k'] as num?)?.toDouble() ?? 0.0,
-                  ),
-                  targetNpk: NpkLevel(
-                    n: (p['tN'] as num?)?.toDouble() ?? 0.0,
-                    p: (p['tP'] as num?)?.toDouble() ?? 0.0,
-                    k: (p['tK'] as num?)?.toDouble() ?? 0.0,
-                  ),
-                );
-              }).toList();
+              registeredPlots = _parsePlotList(list);
+              _scheduleNotify();
+              return;
+            }
+
+            // ── Chunked plant map protocol ──
+            if (parsed['evt'] == 'PLANT_MAP_START') {
+              _pendingPlants.clear();
+              return;
+            }
+
+            if (parsed['evt'] == 'PLANT_CHUNK') {
+              final List<dynamic> chunk = parsed['plants'] ?? [];
+              _pendingPlants.addAll(chunk);
+              return;
+            }
+
+            if (parsed['evt'] == 'PLANT_MAP_END') {
+              registeredPlots = _parsePlotList(_pendingPlants);
+              _pendingPlants.clear();
               _scheduleNotify();
               return;
             }
@@ -863,22 +997,10 @@ class ESP32Service extends ChangeNotifier {
     sendCommand("REJECT_PLANT:${x.toStringAsFixed(1)}:${y.toStringAsFixed(1)}");
   }
 
-  void registerPlant(
-    String name,
-    double x,
-    double y,
-    double diameter, {
-    double? tn,
-    double? tp,
-    double? tk,
-  }) {
-    String cmd =
-        "REGISTER_PLANT:${x.toStringAsFixed(1)}:${y.toStringAsFixed(1)}:$name:${diameter.toStringAsFixed(1)}";
-    if (tn != null && tp != null && tk != null) {
-      cmd +=
-          ":${tn.toStringAsFixed(1)}:${tp.toStringAsFixed(1)}:${tk.toStringAsFixed(1)}";
-    }
-    sendCommand(cmd);
+  void registerPlant(Plot plot) {
+    // Send as JSON payload formatted as command
+    final payload = jsonEncode(plot.toJson());
+    sendCommand("REGISTER_PLANT:$payload");
   }
 
   void deletePlant(int idx) {

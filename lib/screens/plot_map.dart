@@ -51,8 +51,11 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
     ESP32Service.instance.onPlantCandidate.listen(_handlePlantCandidate);
     ESP32Service.instance.addListener(_onServiceChange);
 
-    // Fetch initial plant map
-    ESP32Service.instance.sendCommand("GET_PLANT_MAP");
+    // Fetch initial plant map — only if already authenticated.
+    // If not yet connected, esp32_service sends GET_PLANT_MAP after AUTH_SUCCESS.
+    if (ESP32Service.instance.isConnected) {
+      ESP32Service.instance.sendCommand("GET_PLANT_MAP");
+    }
   }
 
   void _onServiceChange() {
@@ -472,6 +475,9 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
     final xCtrl = TextEditingController();
     final yCtrl = TextEditingController();
     final rosetteCtrl = TextEditingController(text: "150");
+    final dxCtrl = TextEditingController();
+    final dyCtrl = TextEditingController();
+    CropType selectedCrop = CropType.none;
 
     final textColor = isDark ? Colors.white : Colors.black;
     final inputDecoration = InputDecoration(
@@ -487,8 +493,10 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
     showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -507,6 +515,49 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildConfigField("Name", nameCtrl, inputDecoration, textColor),
+                const SizedBox(height: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Crop Type",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF374151) : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<CropType>(
+                          value: selectedCrop,
+                          isExpanded: true,
+                          dropdownColor: isDark ? const Color(0xFF374151) : Colors.white,
+                          style: TextStyle(color: textColor),
+                          items: CropType.values.map((CropType type) {
+                            return DropdownMenuItem<CropType>(
+                              value: type,
+                              child: Text(type.label),
+                            );
+                          }).toList(),
+                          onChanged: (CropType? newValue) {
+                            if (newValue != null) {
+                              setState(() {
+                                selectedCrop = newValue;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -536,6 +587,28 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                   inputDecoration,
                   textColor,
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildConfigField(
+                        "Dip X (mm)",
+                        dxCtrl,
+                        inputDecoration,
+                        textColor,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildConfigField(
+                        "Dip Y (mm)",
+                        dyCtrl,
+                        inputDecoration,
+                        textColor,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -553,10 +626,26 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
               onPressed: () {
                 final x = double.tryParse(xCtrl.text) ?? 0.0;
                 final y = double.tryParse(yCtrl.text) ?? 0.0;
+                final dx = double.tryParse(dxCtrl.text) ?? 0.0;
+                final dy = double.tryParse(dyCtrl.text) ?? 0.0;
                 final r = double.tryParse(rosetteCtrl.text) ?? 150.0;
                 final name = nameCtrl.text.isNotEmpty ? nameCtrl.text : "Plant";
 
-                ESP32Service.instance.registerPlant(name, x, y, r);
+                final newPlot = Plot(
+                  id: 0, // Assigned by ESP32 or not used initially
+                  name: name,
+                  x: x,
+                  y: y,
+                  dx: dx,
+                  dy: dy,
+                  cropType: selectedCrop,
+                  rosetteDiameter: r,
+                  moisture: 0,
+                  npk: const NpkLevel(n: 0, p: 0, k: 0),
+                  targetNpk: const NpkLevel(n: 0, p: 0, k: 0),
+                );
+
+                ESP32Service.instance.registerPlant(newPlot);
 
                 Navigator.pop(ctx);
               },
@@ -574,6 +663,7 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
             ),
           ],
         );
+        });
       },
     );
   }
@@ -684,6 +774,27 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                   backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: Colors.orange.withOpacity(0.35),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: service.isScanning || service.isUploadingScan
+                    ? null
+                    : () {
+                        ESP32Service.instance.sendCommand("DIP_ALL_PLANTS");
+                      },
+                icon: const Icon(Icons.water_drop, size: 16),
+                label: const Text('Dip NPK'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.blue.withOpacity(0.35),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
@@ -1104,6 +1215,23 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                                   ).withOpacity(0.3),
                                   width: 1,
                                 ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      // Dip Coordinates Indicator
+                      if (plot.dx != 0 || plot.dy != 0)
+                        Positioned(
+                          left: mapToScreen(plot.dx, plot.dy).dx - 4,
+                          top: mapToScreen(plot.dx, plot.dy).dy - 4,
+                          child: IgnorePointer(
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.blueAccent,
+                                border: Border.all(color: Colors.white, width: 1),
                               ),
                             ),
                           ),

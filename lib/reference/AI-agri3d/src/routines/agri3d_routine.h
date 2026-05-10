@@ -46,6 +46,10 @@ struct PlantPosition {
     float  diameter;    ///< Rosette diameter in mm for exclusion zone
     bool   active;      ///< true = slot in use
     bool   aiDetected;  ///< true = added via AUTO_DETECT (not manual)
+    float  dx;          ///< Dipping coordinate X
+    float  dy;          ///< Dipping coordinate Y
+    int    cropType;    ///< Crop Type Enum (1=Lettuce, 2=Kangkong, 3=Spinach)
+    uint32_t ts;        ///< Timestamp of last check
 };
 
 /**
@@ -129,6 +133,14 @@ void handleScanFull(uint8_t clientNum, const String& params);
  *        Format: REGISTER_PLANT:x:y:name:diameter[:targetN:targetP:targetK]
  */
 void handleRegisterPlant(uint8_t clientNum, const String& params);
+
+/** Dip all registered plants autonomously */
+void handleDipAllPlants(uint8_t clientNum);
+void executeDipAllPlants(uint8_t clientNum);
+
+/** Autonomous Master Farming Routine */
+void handleAutonomousFarming(uint8_t clientNum);
+void executeAutonomousFarming(uint8_t clientNum);
 
 /**
  * @brief Delete a specific plant from the registry by index.
