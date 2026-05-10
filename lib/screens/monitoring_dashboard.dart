@@ -93,74 +93,170 @@ class MonitoringDashboardScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
+              // ── Section Header ──
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 3,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        borderRadius: BorderRadius.circular(2),
+                        boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.6), blurRadius: 6)],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'SOIL SENSORS',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: textColor,
+                        letterSpacing: 2.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'LIVE',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF22C55E),
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Container(
+                      width: 5, height: 5,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF22C55E),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
               // ── Dynamic Sensor Status Grid ──
               ListenableBuilder(
                 listenable: sensors,
                 builder: (context, _) {
-                  return GridView.count(
-                    crossAxisCount: isWide ? 4 : 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: isWide ? 1.5 : 2.2,
+                  final cardWidth = isWide
+                      ? (MediaQuery.of(context).size.width - 96) / 4
+                      : (MediaQuery.of(context).size.width - 64) / 2;
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
                     children: [
-                      _StatusCard(
-                        icon: Icons.water_drop,
-                        label: 'Soil Moisture',
-                        value: '${sensors.soilMoisture.toStringAsFixed(0)}%',
-                        color: const Color(0xFF3B82F6),
-                        trend: 'Stable',
-                        alert: sensors.soilMoisture < 30,
-                        isDark: isDark,
-                        glassColor: glassColor,
-                        borderColor: borderColor,
-                        textColor: textColor,
-                        subTextColor: subTextColor,
+                      SizedBox(
+                        width: cardWidth,
+                        child: _StatusCard(
+                          icon: Icons.water_drop,
+                          label: 'Soil Moisture',
+                          value: '${sensors.soilMoisture.toStringAsFixed(0)}%',
+                          color: const Color(0xFF3B82F6),
+                          trend: sensors.soilMoisture < 30 ? '⚠ Below threshold' : 'Optimal range',
+                          alert: sensors.soilMoisture < 30,
+                          percent: (sensors.soilMoisture / 100).clamp(0.0, 1.0),
+                          isDark: isDark,
+                          glassColor: glassColor,
+                          borderColor: borderColor,
+                          textColor: textColor,
+                          subTextColor: subTextColor,
+                        ),
                       ),
-                      _StatusCard(
-                        icon: Icons.grass,
-                        label: 'Nitrogen (N)',
-                        value: '${sensors.nitrogen.toStringAsFixed(0)}',
-                        color: const Color(0xFF22C55E),
-                        trend: 'mg/kg',
-                        alert: sensors.nitrogen < 20,
-                        isDark: isDark,
-                        glassColor: glassColor,
-                        borderColor: borderColor,
-                        textColor: textColor,
-                        subTextColor: subTextColor,
+                      SizedBox(
+                        width: cardWidth,
+                        child: _StatusCard(
+                          icon: Icons.grass,
+                          label: 'Nitrogen (N)',
+                          value: '${sensors.nitrogen.toStringAsFixed(0)} mg/kg',
+                          color: const Color(0xFF22C55E),
+                          trend: sensors.nitrogen < 20 ? '⚠ Deficient' : 'Sufficient',
+                          alert: sensors.nitrogen < 20,
+                          percent: (sensors.nitrogen / 300).clamp(0.0, 1.0),
+                          isDark: isDark,
+                          glassColor: glassColor,
+                          borderColor: borderColor,
+                          textColor: textColor,
+                          subTextColor: subTextColor,
+                        ),
                       ),
-                      _StatusCard(
-                        icon: Icons.grain,
-                        label: 'Phosphorus (P)',
-                        value: '${sensors.phosphorus.toStringAsFixed(0)}',
-                        color: const Color(0xFFA855F7),
-                        trend: 'mg/kg',
-                        alert: sensors.phosphorus < 20,
-                        isDark: isDark,
-                        glassColor: glassColor,
-                        borderColor: borderColor,
-                        textColor: textColor,
-                        subTextColor: subTextColor,
+                      SizedBox(
+                        width: cardWidth,
+                        child: _StatusCard(
+                          icon: Icons.grain,
+                          label: 'Phosphorus (P)',
+                          value: '${sensors.phosphorus.toStringAsFixed(0)} mg/kg',
+                          color: const Color(0xFFA855F7),
+                          trend: sensors.phosphorus < 20 ? '⚠ Deficient' : 'Sufficient',
+                          alert: sensors.phosphorus < 20,
+                          percent: (sensors.phosphorus / 200).clamp(0.0, 1.0),
+                          isDark: isDark,
+                          glassColor: glassColor,
+                          borderColor: borderColor,
+                          textColor: textColor,
+                          subTextColor: subTextColor,
+                        ),
                       ),
-                      _StatusCard(
-                        icon: Icons.science,
-                        label: 'Potassium (K)',
-                        value: '${sensors.potassium.toStringAsFixed(0)}',
-                        color: const Color(0xFFEAB308),
-                        trend: 'mg/kg',
-                        alert: sensors.potassium < 20,
-                        isDark: isDark,
-                        glassColor: glassColor,
-                        borderColor: borderColor,
-                        textColor: textColor,
-                        subTextColor: subTextColor,
+                      SizedBox(
+                        width: cardWidth,
+                        child: _StatusCard(
+                          icon: Icons.science,
+                          label: 'Potassium (K)',
+                          value: '${sensors.potassium.toStringAsFixed(0)} mg/kg',
+                          color: const Color(0xFFEAB308),
+                          trend: sensors.potassium < 20 ? '⚠ Deficient' : 'Sufficient',
+                          alert: sensors.potassium < 20,
+                          percent: (sensors.potassium / 400).clamp(0.0, 1.0),
+                          isDark: isDark,
+                          glassColor: glassColor,
+                          borderColor: borderColor,
+                          textColor: textColor,
+                          subTextColor: subTextColor,
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _StatusCard(
+                          icon: Icons.bolt,
+                          label: 'Conductivity (EC)',
+                          value: '${sensors.ec.toStringAsFixed(0)} μS/cm',
+                          color: const Color(0xFF06B6D4),
+                          trend: sensors.ec < 100 ? '⚠ Low' : 'Normal',
+                          alert: sensors.ec < 100,
+                          percent: (sensors.ec / 1000).clamp(0.0, 1.0),
+                          isDark: isDark,
+                          glassColor: glassColor,
+                          borderColor: borderColor,
+                          textColor: textColor,
+                          subTextColor: subTextColor,
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _StatusCard(
+                          icon: Icons.opacity,
+                          label: 'Soil pH',
+                          value: '${sensors.ph.toStringAsFixed(1)}',
+                          color: const Color(0xFFF97316),
+                          trend: sensors.ph < 6.0 ? 'Acidic' : (sensors.ph > 7.5 ? 'Alkaline' : 'Neutral'),
+                          alert: sensors.ph < 5.0 || sensors.ph > 8.5,
+                          percent: (sensors.ph / 14).clamp(0.0, 1.0),
+                          isDark: isDark,
+                          glassColor: glassColor,
+                          borderColor: borderColor,
+                          textColor: textColor,
+                          subTextColor: subTextColor,
+                        ),
                       ),
                     ],
                   );
                 },
               ),
+
               const SizedBox(height: 16),
               if (isWide)
                 IntrinsicHeight(
@@ -233,10 +329,10 @@ class MonitoringDashboardScreen extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Weather banner
+// Connection Status Banner (replaces weather banner)
 // ─────────────────────────────────────────────────────────────
 
-class _WeatherBanner extends StatelessWidget {
+class _WeatherBanner extends StatefulWidget {
   const _WeatherBanner({
     required this.accent,
     required this.isDark,
@@ -249,41 +345,140 @@ class _WeatherBanner extends StatelessWidget {
   final bool isDark;
 
   @override
+  State<_WeatherBanner> createState() => _WeatherBannerState();
+}
+
+class _WeatherBannerState extends State<_WeatherBanner>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final service = ESP32Service.instance;
+    final connected = service.isConnected;
+    final dotColor =
+        connected ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
+    final statusText = connected ? 'SYSTEM ONLINE' : 'SEARCHING…';
+    final subText = connected
+        ? 'All sensors active · Real-time telemetry'
+        : 'Waiting for ESP32 connection';
+
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           decoration: BoxDecoration(
-            color: glassColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accent.withValues(alpha: 0.3)),
+            gradient: LinearGradient(
+              colors: [
+                widget.accent.withValues(alpha: 0.12),
+                widget.glassColor,
+              ],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: widget.accent.withValues(alpha: 0.35)),
           ),
           child: Row(
             children: [
-              Icon(Icons.wb_sunny, color: accent, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Clear Skies: Optimal photosynthesis active',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                    letterSpacing: 1.5,
-                  ),
+              // Pulsing dot
+              AnimatedBuilder(
+                animation: _pulseAnim,
+                builder: (_, __) => Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color:
+                            dotColor.withValues(alpha: 0.25 * _pulseAnim.value),
+                      ),
+                    ),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: dotColor,
+                        boxShadow: [
+                          BoxShadow(
+                            color: dotColor.withValues(alpha: 0.8),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Icon(Icons.grain, color: Color(0xFF6B7280), size: 16),
-              const SizedBox(width: 6),
-              const Text(
-                'Next Rain: Wed',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF6B7280),
-                  fontFamily: 'monospace',
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: widget.textColor,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subText,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: widget.textColor.withValues(alpha: 0.5),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // AGRI-3D chip
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: widget.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(99),
+                  border:
+                      Border.all(color: widget.accent.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  'AGRI-3D',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: widget.accent,
+                    letterSpacing: 1.5,
+                  ),
                 ),
               ),
             ],
@@ -295,7 +490,7 @@ class _WeatherBanner extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Status card
+// Enhanced Status Card with arc progress
 // ─────────────────────────────────────────────────────────────
 
 class _StatusCard extends StatelessWidget {
@@ -311,88 +506,128 @@ class _StatusCard extends StatelessWidget {
     required this.borderColor,
     required this.textColor,
     required this.subTextColor,
+    this.percent = 0.0,
   });
 
   final IconData icon;
   final String label, value, trend;
   final Color color, glassColor, borderColor, textColor, subTextColor;
   final bool alert, isDark;
+  final double percent; // 0.0 to 1.0 for arc
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: glassColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: alert
+                  ? const Color(0xFFEF4444).withValues(alpha: 0.6)
+                  : color.withValues(alpha: 0.25),
+              width: alert ? 1.5 : 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Top row: icon + alert dot
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(icon, color: color, size: 20),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: subTextColor,
-                          fontFamily: 'monospace',
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                      Text(
-                        value,
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: textColor,
-                          fontStyle: FontStyle.italic,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    trend,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: alert ? const Color(0xFFEF4444) : subTextColor,
-                    ),
+                    child: Icon(icon, color: color, size: 18),
                   ),
                   if (alert)
                     Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFFEF4444),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(
+                          color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: const Text(
+                        '! LOW',
+                        style: TextStyle(
+                          fontSize: 7,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFEF4444),
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
                 ],
+              ),
+              const SizedBox(height: 8),
+              // Value
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: textColor,
+                  fontStyle: FontStyle.italic,
+                  letterSpacing: -0.5,
+                  height: 1.0,
+                ),
+              ),
+              // Label + unit
+              Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 8,
+                  color: subTextColor,
+                  fontFamily: 'monospace',
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 6),
+              // Progress bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(
+                  value: percent.clamp(0.0, 1.0),
+                  minHeight: 3,
+                  backgroundColor: isDark
+                      ? Colors.white.withValues(alpha: 0.07)
+                      : Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    alert ? const Color(0xFFEF4444) : color,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              // Trend text
+              Text(
+                trend,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: alert
+                      ? const Color(0xFFEF4444)
+                      : color.withValues(alpha: 0.85),
+                ),
               ),
             ],
           ),

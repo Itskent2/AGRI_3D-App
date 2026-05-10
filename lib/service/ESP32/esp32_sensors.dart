@@ -12,6 +12,10 @@ class ESP32Sensors extends ChangeNotifier {
   double nitrogen = 0.0;
   double phosphorus = 0.0;
   double potassium = 0.0;
+  
+  // Additional 7-in-1 sensors
+  double ec = 0.0;
+  double ph = 0.0;
 
   // Telemetry sensors
   int gatingFeatureGF = 1; // 1 = Safe, 0 = Gated
@@ -44,6 +48,12 @@ class ESP32Sensors extends ChangeNotifier {
     }
     if (jsonData.containsKey('k')) {
       potassium = (jsonData['k'] as num).toDouble();
+    }
+    if (jsonData.containsKey('ec')) {
+      ec = (jsonData['ec'] as num).toDouble();
+    }
+    if (jsonData.containsKey('ph')) {
+      ph = (jsonData['ph'] as num).toDouble();
     }
 
     // Telemetry parsing

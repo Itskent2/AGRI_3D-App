@@ -13,6 +13,8 @@
 #include "agri3d_network.h"
 #include "agri3d_grbl.h"
 #include "agri3d_logger.h"
+#include "agri3d_sd.h"
+#include <SD_MMC.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <time.h>
@@ -20,9 +22,9 @@
 // ── Hardware ──────────────────────────────────────────────────────────────────
 HardwareSerial NpkSerial(2);
 
-// Standard Modbus RTU query for NPK sensor (function 03, reg 0x001E, count 3)
-static const uint8_t NPK_QUERY[] = { 0x01, 0x03, 0x00, 0x1E, 0x00, 0x03, 0x65, 0xCD };
-static const int     NPK_RESP_LEN = 11; // 01 03 06 N_H N_L P_H P_L K_H K_L CRC_L CRC_H
+// Standard Modbus RTU query for 7-in-1 soil sensor (function 03, reg 0x0000, count 7)
+static const uint8_t NPK_QUERY[] = { 0x01, 0x03, 0x00, 0x00, 0x00, 0x07, 0x04, 0x08 };
+static const int     NPK_RESP_LEN = 19; // 01 03 0E (14 bytes data) CRC_L CRC_H
 
 // ── Grid dimensions (match Flutter plot_model.dart) ───────────────────────────
 // Edit these if Flutter's gridCols / gridRows change.
@@ -40,6 +42,24 @@ static unsigned long _lastPollMs = 0;
 // ============================================================================
 // INTERNAL HELPERS
 // ============================================================================
+
+/**
+ * @brief Calculate Modbus CRC16
+ */
+uint16_t calculateCRC(const uint8_t* data, uint16_t length) {
+    uint16_t crc = 0xFFFF;
+    for (uint16_t i = 0; i < length; i++) {
+        crc ^= data[i];
+        for (int j = 0; j < 8; j++) {
+            if (crc & 1) {
+                crc = (crc >> 1) ^ 0xA001;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    return crc;
+}
 
 /** Map gantry mm position → heatmap grid cell index. */
 static int mmToGridX(float mm) {
@@ -99,15 +119,23 @@ static void broadcastNpkLive(const NpkReading& r) {
 
     // ── 1. Unified NPK packet (matches NpkLevel.fromJson in plot_model.dart) ──
     {
-        StaticJsonDocument<192> doc;
+        StaticJsonDocument<256> doc;
         doc["evt"]  = "NPK";
         doc["x"]    = r.gridX;    // grid col (matches plot_model x)
         doc["y"]    = r.gridY;    // grid row (matches plot_model y)
-        doc["n"]    = serialized(String(r.n, 1));
-        doc["p"]    = serialized(String(r.p, 1));
-        doc["k"]    = serialized(String(r.k, 1));
-        doc["mmX"]  = serialized(String(r.x, 1));  // raw mm position
-        doc["mmY"]  = serialized(String(r.y, 1));
+        doc["m"]        = r.moisture;
+        doc["temp"]     = r.tempC;
+        doc["ec"]       = r.ec;
+        doc["ph"]       = r.ph;
+        doc["n"]        = r.n;
+        doc["p"]        = r.p;
+        doc["k"]        = r.k;
+        doc["moisture"] = r.moisture;
+        doc["temp"]     = r.tempC;
+        doc["ec"]       = r.ec;
+        doc["ph"]       = r.ph;
+        doc["mmX"]  = r.x;
+        doc["mmY"]  = r.y;
         doc["ts"]   = (long)r.timestamp;
         String out; serializeJson(doc, out);
         webSocket.broadcastTXT(out);
@@ -164,47 +192,92 @@ bool npkReadNow() {
 
     // ── Wait for response ──────────────────────────────────────────────────
     unsigned long t = millis();
-    while (NpkSerial.available() < NPK_RESP_LEN) {
-        if (millis() - t > 500) {
+    while (!NpkSerial.available()) {
+        if (millis() - t > 2000) {
             AgriLog(TAG_SENSORS, LEVEL_WARN, "Timeout — no response from sensor");
             return false;
         }
         delay(10);
     }
 
-    // ── Read response bytes ────────────────────────────────────────────────
-    uint8_t buf[NPK_RESP_LEN];
-    NpkSerial.readBytes(buf, NPK_RESP_LEN);
-
-    // Basic validation: check slave addr and function code
-    if (buf[0] != 0x01 || buf[1] != 0x03 || buf[2] != 0x06) {
-        AgriLog(TAG_SENSORS, LEVEL_ERR, "Bad frame: %02X %02X %02X", buf[0], buf[1], buf[2]);
-        return false;
+    // Read all bytes with a timeout gap of 50ms
+    uint8_t buf[128];
+    int len = 0;
+    unsigned long lastByteTime = millis();
+    
+    while (len < 128) {
+        if (NpkSerial.available()) {
+            buf[len++] = NpkSerial.read();
+            lastByteTime = millis();
+        } else {
+            if (millis() - lastByteTime > 50) {
+                break; // End of packet
+            }
+            delay(2);
+        }
     }
 
-    // ── Parse N, P, K ─────────────────────────────────────────────────────
-    float n = (float)((buf[3] << 8) | buf[4]);  // Nitrogen   mg/kg
-    float p = (float)((buf[5] << 8) | buf[6]);  // Phosphorus mg/kg
-    float k = (float)((buf[7] << 8) | buf[8]);  // Potassium  mg/kg
+    // FORGIVING PARSER: Look for Modbus function code 03 and length 0E (14)
+    for (int i = 0; i < len - 16; i++) {
+        if (buf[i] == 0x03 && buf[i+1] == 0x0E) {
+            AgriLog(TAG_SENSORS, LEVEL_INFO, "Found valid Modbus pattern in response.");
+            
+            // Extract data
+            float moisture = (float)((buf[i+2] << 8) | buf[i+3]) / 10.0f;
+            int16_t tempRaw = (int16_t)((buf[i+4] << 8) | buf[i+5]);
+            float tempC = (float)tempRaw / 10.0f;
+            float ec = (float)((buf[i+6] << 8) | buf[i+7]);
+            float ph = (float)((buf[i+8] << 8) | buf[i+9]) / 10.0f;
+            float n = (float)((buf[i+10] << 8) | buf[i+11]);
+            float p = (float)((buf[i+12] << 8) | buf[i+13]);
+            float k = (float)((buf[i+14] << 8) | buf[i+15]);
 
-    // ── Build reading with current gantry position ─────────────────────────
-    NpkReading r;
-    r.n         = n;
-    r.p         = p;
-    r.k         = k;
-    r.x         = sysState.getX();
-    r.y         = sysState.getY();
-    r.gridX     = mmToGridX(sysState.getX());
-    r.gridY     = mmToGridY(sysState.getY());
-    r.timestamp = time(nullptr);
-    r.valid     = true;
+            // ── Build reading with current gantry position ─────────────────────────
+            SoilReading r;
+            r.moisture  = moisture;
+            r.tempC     = tempC;
+            r.ec        = ec;
+            r.ph        = ph;
+            r.n         = n;
+            r.p         = p;
+            r.k         = k;
+            r.x         = sysState.getX();
+            r.y         = sysState.getY();
+            r.gridX     = mmToGridX(sysState.getX());
+            r.gridY     = mmToGridY(sysState.getY());
+            r.timestamp = time(nullptr);
+            r.valid     = true;
 
-    latestSoil = r;
+            latestSoil = r;
 
-    saveToNVS(r);
-    broadcastNpkLive(r);
-    return true;
+            saveToNVS(r);
+
+            // ── Save to SD Card ───────────────────────────────────────────────────
+#if HW_SD_CONNECTED
+            File file = SD_MMC.open("/soil_data.csv", FILE_APPEND);
+            if (file) {
+                if (file.size() == 0) {
+                    file.println("Timestamp,X,Y,GridX,GridY,Moisture,TempC,EC,pH,N,P,K");
+                }
+                file.printf("%ld,%.1f,%.1f,%d,%d,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f\n",
+                            (long)r.timestamp, r.x, r.y, r.gridX, r.gridY,
+                            r.moisture, r.tempC, r.ec, r.ph, r.n, r.p, r.k);
+                file.close();
+                AgriLog(TAG_SENSORS, LEVEL_INFO, "Saved reading to SD card");
+            } else {
+                AgriLog(TAG_SENSORS, LEVEL_WARN, "Failed to open soil_data.csv on SD");
+            }
+#endif
+
+            broadcastNpkLive(r);
+            return true;
+        }
+    }
+
+    AgriLog(TAG_SENSORS, LEVEL_ERR, "Could not find valid Modbus pattern in response");
+    return false;
 }
+
 
 // ============================================================================
 // HISTORY QUERIES

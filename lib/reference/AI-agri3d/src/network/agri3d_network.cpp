@@ -298,8 +298,7 @@ static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
     }
     break;
   }
-  case WStype_BIN:
-  case WStype_PING: {
+  case WStype_BIN: {
     if (currentClientState == AUTHENTICATED) {
         lastHeartbeat = millis();
         sysState.resetFlutterWatchdog();

@@ -124,7 +124,7 @@
 #define NPK_RX_PIN 41 // RO
 #define NPK_TX_PIN 42 // DI
 #define NPK_DERE 2    // Direction
-#define NPK_BAUD 9600
+#define NPK_BAUD 4800
 
 // NPK polling interval (ms between automatic sensor reads)
 #define NPK_POLL_INTERVAL_MS (5UL * 60UL * 1000UL) // Every 5 minutes

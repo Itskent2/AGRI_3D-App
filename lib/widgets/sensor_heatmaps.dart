@@ -1,8 +1,12 @@
 // lib/widgets/sensor_heatmaps.dart
 
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:file_picker/file_picker.dart';
+
 
 import '../providers/theme_provider.dart';
 import '../service/ESP32/esp32_service.dart';
@@ -11,15 +15,18 @@ import '../models/plot_model.dart'; // For gridCols, gridRows
 // ── DATA MODEL ──
 class NpkLogEntry {
   final int x, y, ts;
-  final double n, p, k, m;
+  final double n, p, k, m, ec, ph, temp;
 
   NpkLogEntry({
     required this.x, required this.y, required this.ts,
     required this.n, required this.p, required this.k, required this.m,
+    required this.ec, required this.ph, required this.temp,
   });
 }
 
-enum HeatmapType { Moisture, Nitrogen, Phosphorus, Potassium }
+
+enum HeatmapType { Moisture, Nitrogen, Phosphorus, Potassium, EC, pH }
+
 
 class SensorHeatmaps extends ConsumerStatefulWidget {
   const SensorHeatmaps({super.key});
@@ -45,17 +52,103 @@ class _SensorHeatmapsState extends ConsumerState<SensorHeatmaps> {
   void initState() {
     super.initState();
 
-    _npkSub = ESP32Service.instance.onNpkUpdate.listen(_onData);
-    
-    // Request full log history for today
-    if (ESP32Service.instance.isConnected) {
-      final now = DateTime.now();
-      final dateStr = "${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}";
-      ESP32Service.instance.sendCommand("GET_NPK_LOG:$dateStr");
-    } else {
-      setState(() => _isLoadingHistory = false);
+    _loadLocalHistory().then((_) {
+      _npkSub = ESP32Service.instance.onNpkUpdate.listen(_onData);
+      
+      // Request full log history for today
+      if (ESP32Service.instance.isConnected) {
+        final now = DateTime.now();
+        final dateStr = "${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}";
+        ESP32Service.instance.sendCommand("GET_NPK_LOG:$dateStr");
+      } else {
+        setState(() => _isLoadingHistory = false);
+      }
+    });
+  }
+
+  Future<void> _loadLocalHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString('npk_history');
+    if (jsonStr != null) {
+      try {
+        final list = jsonDecode(jsonStr) as List;
+        setState(() {
+          for (var r in list) {
+            _history.add(NpkLogEntry(
+              x: (r['x'] as num).toInt(),
+              y: (r['y'] as num).toInt(),
+              ts: (r['ts'] as num).toInt(),
+              n: (r['n'] as num).toDouble(),
+              p: (r['p'] as num).toDouble(),
+              k: (r['k'] as num).toDouble(),
+              m: (r['m'] as num).toDouble(),
+              ec: (r['ec'] ?? 0).toDouble(),
+              ph: (r['ph'] ?? 0).toDouble(),
+              temp: (r['temp'] ?? 0).toDouble(),
+            ));
+          }
+          _deduplicateAndSortHistory();
+        });
+      } catch (e) {
+        // Ignore parse ecxsv    
+      }
     }
   }
+
+  void _deduplicateAndSortHistory() {
+    final seen = <int>{};
+    final unique = <NpkLogEntry>[];
+    for (var entry in _history) {
+      if (!seen.contains(entry.ts)) {
+        seen.add(entry.ts);
+        unique.add(entry);
+      }
+    }
+    _history.clear();
+    _history.addAll(unique);
+    _history.sort((a, b) => a.ts.compareTo(b.ts));
+    
+    if (_history.isNotEmpty) {
+      _minTime = _history.first.ts.toDouble();
+      _maxTime = _history.last.ts.toDouble();
+      if (!_isPlaying) _playbackTime = _maxTime;
+    }
+  }
+
+  Future<void> _saveLocalHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = _history.map((e) => {
+      'x': e.x, 'y': e.y, 'ts': e.ts,
+      'n': e.n, 'p': e.p, 'k': e.k, 'm': e.m,
+      'ec': e.ec, 'ph': e.ph, 'temp': e.temp,
+    }).toList();
+    await prefs.setString('npk_history', jsonEncode(list));
+  }
+
+  Future<void> _exportToCSV() async {
+    String csv = "Timestamp,GridX,GridY,Moisture,Temp,EC,pH,Nitrogen,Phosphorus,Potassium\n";
+    for (var e in _history) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(e.ts * 1000);
+      csv += "${dt.toIso8601String()},${e.x},${e.y},${e.m},${e.temp},${e.ec},${e.ph},${e.n},${e.p},${e.k}\n";
+    }
+    
+    try {
+      final result = await FilePicker.platform.saveFile(
+        fileName: 'soil_data_export.csv',
+        bytes: utf8.encode(csv),
+      );
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Exported to $result')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
+    }
+  }
+
 
   void _onData(Map<String, dynamic> data) {
     if (!mounted) return;
@@ -71,16 +164,17 @@ class _SensorHeatmapsState extends ConsumerState<SensorHeatmaps> {
             p: (r['p'] as num).toDouble(),
             k: (r['k'] as num).toDouble(),
             m: (r['m'] as num).toDouble(),
+            ec: (r['ec'] ?? 0).toDouble(),
+            ph: (r['ph'] ?? 0).toDouble(),
+            temp: (r['temp'] ?? 0).toDouble(),
           ));
         }
       } else if (data['evt'] == 'NPK_LOG_END') {
-        _history.sort((a, b) => a.ts.compareTo(b.ts));
-        if (_history.isNotEmpty) {
-          _minTime = _history.first.ts.toDouble();
-          _maxTime = _history.last.ts.toDouble();
-          _playbackTime = _maxTime; // Default to latest
-        }
-        setState(() => _isLoadingHistory = false);
+        setState(() {
+          _deduplicateAndSortHistory();
+          _saveLocalHistory();
+          _isLoadingHistory = false;
+        });
       } else if (data['evt'] == 'NPK') {
         // Live update - append to history and move slider
         int ts = (data['ts'] as num?)?.toInt() ?? (DateTime.now().millisecondsSinceEpoch ~/ 1000);
@@ -92,15 +186,20 @@ class _SensorHeatmapsState extends ConsumerState<SensorHeatmaps> {
             p: (data['p'] as num).toDouble(),
             k: (data['k'] as num).toDouble(),
             m: (data['m'] ?? -1).toDouble(),
+            ec: (data['ec'] ?? 0).toDouble(),
+            ph: (data['ph'] ?? 0).toDouble(),
+            temp: (data['temp'] ?? 0).toDouble(),
         ));
-        _maxTime = ts.toDouble();
-        if (_minTime == 0) _minTime = _maxTime;
-        if (!_isPlaying) _playbackTime = _maxTime; // Auto-follow if not playing
-        setState(() {});
+        setState(() {
+          _deduplicateAndSortHistory();
+          _saveLocalHistory();
+        });
       }
+
     } catch (e) {
       // Ignore parse errors
     }
+
   }
 
   @override
@@ -150,7 +249,10 @@ class _SensorHeatmapsState extends ConsumerState<SensorHeatmaps> {
           case HeatmapType.Nitrogen: grid[entry.y][entry.x] = entry.n; break;
           case HeatmapType.Phosphorus: grid[entry.y][entry.x] = entry.p; break;
           case HeatmapType.Potassium: grid[entry.y][entry.x] = entry.k; break;
+          case HeatmapType.EC: grid[entry.y][entry.x] = entry.ec; break;
+          case HeatmapType.pH: grid[entry.y][entry.x] = entry.ph; break;
         }
+
       }
     }
     return grid;
@@ -171,11 +273,20 @@ class _SensorHeatmapsState extends ConsumerState<SensorHeatmaps> {
       if (v < 20) return Colors.red.shade400;
       if (v < 40) return Colors.purple.shade400;
       return Colors.purple.shade700;
-    } else { // Potassium
+    } else if (type == HeatmapType.Potassium) {
       if (v < 20) return Colors.red.shade400;
       if (v < 40) return Colors.amber.shade400;
       return Colors.amber.shade700;
+    } else if (type == HeatmapType.EC) {
+      if (v < 100) return Colors.red.shade400;
+      if (v < 500) return Colors.cyan.shade400;
+      return Colors.cyan.shade700;
+    } else { // pH
+      if (v < 6.0) return Colors.orange.shade400;
+      if (v < 7.5) return Colors.green.shade400;
+      return Colors.purple.shade400;
     }
+
   }
 
   Widget _buildHeatmapCard(HeatmapType type, bool isDark) {
@@ -265,39 +376,45 @@ class _SensorHeatmapsState extends ConsumerState<SensorHeatmaps> {
                   letterSpacing: 1.0,
                 ),
               ),
-              if (_isLoadingHistory)
-                const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+              Row(
+                children: [
+                  if (_isLoadingHistory)
+                    const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: Icon(Icons.download, color: isDark ? Colors.white70 : Colors.black54),
+                    onPressed: _exportToCSV,
+                    tooltip: "Export CSV",
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              )
+
             ],
           ),
           const SizedBox(height: 16),
           
-          // 2x2 Grid of Heatmaps
+          // 3x2 Grid of Heatmaps
           SizedBox(
-            height: 250,
-            child: Row(
+            height: 380,
+            child: GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 1.5,
+              physics: const NeverScrollableScrollPhysics(),
               children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      Expanded(child: _buildHeatmapCard(HeatmapType.Moisture, isDark)),
-                      const SizedBox(height: 8),
-                      Expanded(child: _buildHeatmapCard(HeatmapType.Nitrogen, isDark)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    children: [
-                      Expanded(child: _buildHeatmapCard(HeatmapType.Phosphorus, isDark)),
-                      const SizedBox(height: 8),
-                      Expanded(child: _buildHeatmapCard(HeatmapType.Potassium, isDark)),
-                    ],
-                  ),
-                ),
+                _buildHeatmapCard(HeatmapType.Moisture, isDark),
+                _buildHeatmapCard(HeatmapType.Nitrogen, isDark),
+                _buildHeatmapCard(HeatmapType.Phosphorus, isDark),
+                _buildHeatmapCard(HeatmapType.Potassium, isDark),
+                _buildHeatmapCard(HeatmapType.EC, isDark),
+                _buildHeatmapCard(HeatmapType.pH, isDark),
               ],
             ),
           ),
+
           const SizedBox(height: 16),
 
           // Playback Controls

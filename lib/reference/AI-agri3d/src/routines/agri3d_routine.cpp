@@ -1047,23 +1047,36 @@ void executeNpkDip() {
     AgriLog(TAG_ROUTINE, LEVEL_INFO, "Starting standalone NPK dip sequence...");
     sysState.setOperation(OP_NPK_DIP);
 
-    // 1. Move Z down to 5mm depth (absolute)
-    enqueueGrblCommand("G90 G0 Z5 F500");
+    // 1. Move Z down to 5mm depth (absolute) at half speed (F83)
+    enqueueGrblCommand("G90 G0 Z5 F83"); // Half of previous F167
     if (!waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS)) {
         AgriLog(TAG_ROUTINE, LEVEL_ERR, "NPK Dip: Z-Down Timeout");
         return;
     }
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Allow probe to settle
+    vTaskDelay(pdMS_TO_TICKS(5000)); // Increased to 5s based on your T90 test (Mean stabilization was 3.84s)
 
-    // 2. Take reading
-    bool success = npkReadNow();
-    if (!success) {
-        AgriLog(TAG_ROUTINE, LEVEL_ERR, "NPK Dip: Sensor read failed");
+    // 2. Take reading with retries
+    int retries = 5;
+    bool success = false;
+    while (retries > 0 && !success) {
+        success = npkReadNow();
+        if (!success) {
+            retries--;
+            if (retries > 0) {
+                AgriLog(TAG_ROUTINE, LEVEL_WARN, "NPK read failed, retrying in 1s... (%d left)", retries);
+                vTaskDelay(pdMS_TO_TICKS(1000));
+            }
+        }
     }
 
-    // 3. Move Z back up to clearance (MaxZ - 10mm)
+    if (!success) {
+        AgriLog(TAG_ROUTINE, LEVEL_ERR, "NPK Dip: Sensor read failed after all attempts");
+    }
+
+
+    // 3. Move Z back up to clearance (MaxZ - 10mm) at the same slow speed
     char upCmd[48];
-    snprintf(upCmd, sizeof(upCmd), "G90 G0 Z%.1f F1000", machineDim.maxZ - 10.0f);
+    snprintf(upCmd, sizeof(upCmd), "G90 G0 Z%.1f F83", machineDim.maxZ - 10.0f); // Same speed as dipping
     enqueueGrblCommand(upCmd);
     if (!waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS)) {
         AgriLog(TAG_ROUTINE, LEVEL_WARN, "NPK Dip: Z-Up Return Timeout");

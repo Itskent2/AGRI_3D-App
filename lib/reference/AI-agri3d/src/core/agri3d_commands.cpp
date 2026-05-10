@@ -18,6 +18,7 @@
 #include "agri3d_routine.h"
 #include "agri3d_environment.h"
 #include "agri3d_sd.h"
+#include <SD_MMC.h>
 #include <ArduinoJson.h>
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -114,6 +115,65 @@ void webSocketEvent(uint8_t num, WStype_t type,
         npkSendFullHistory(num);
         return;
     }
+    if (cmd.startsWith("GET_NPK_LOG:")) {
+        // Read from SD card file /soil_data.csv and send in chunks
+        File file = SD_MMC.open("/soil_data.csv", FILE_READ);
+        if (!file) {
+            webSocket.sendTXT(num, "{\"evt\":\"NPK_LOG_END\",\"status\":\"fail\"}");
+            return;
+        }
+        
+        DynamicJsonDocument doc(2048);
+        doc["evt"] = "NPK_LOG_CHUNK";
+        JsonArray readings = doc.createNestedArray("readings");
+        
+        // Skip header
+        if (file.available()) file.readStringUntil('\n');
+        
+        int count = 0;
+        while (file.available()) {
+            String line = file.readStringUntil('\n');
+            if (line.length() < 10) continue;
+            
+            long ts;
+            float x, y;
+            int gx, gy;
+            float m, temp, ec, ph, n, p, k;
+            if (sscanf(line.c_str(), "%ld,%f,%f,%d,%d,%f,%f,%f,%f,%f,%f,%f", 
+                       &ts, &x, &y, &gx, &gy, &m, &temp, &ec, &ph, &n, &p, &k) == 12) {
+                JsonObject r = readings.createNestedObject();
+                r["ts"] = ts;
+                r["x"] = gx;
+                r["y"] = gy;
+                r["n"] = n;
+                r["p"] = p;
+                r["k"] = k;
+                r["m"] = m;
+                r["ec"] = ec;
+                r["ph"] = ph;
+                count++;
+            }
+            
+            if (count >= 10) {
+                String out; serializeJson(doc, out);
+                webSocket.sendTXT(num, out);
+                doc.clear();
+                doc["evt"] = "NPK_LOG_CHUNK";
+                readings = doc.createNestedArray("readings");
+                count = 0;
+            }
+        }
+        
+        if (count > 0) {
+            String out; serializeJson(doc, out);
+            webSocket.sendTXT(num, out);
+        }
+        
+        file.close();
+        webSocket.sendTXT(num, "{\"evt\":\"NPK_LOG_END\",\"status\":\"ok\"}");
+        return;
+    }
+
     if (cmd == "PING" || cmd.startsWith("{\"cmd\":\"PING\"")) {
         webSocket.sendTXT(num, "{\"evt\":\"PONG\",\"ms\":" +
                                String(millis()) + "}");

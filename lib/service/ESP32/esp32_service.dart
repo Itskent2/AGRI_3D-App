@@ -13,11 +13,28 @@ import 'esp32_sensors.dart';
 enum LogLevel { info, warn, error, success }
 
 enum EnvironmentState { clear, rainSensor, weatherGated, rainAndWeather }
+
 enum WifiState { disconnected, connecting, connected }
+
 enum FlutterState { disconnected, connected }
+
 enum NanoState { unknown, connected, unresponsive }
+
 enum GrblState { unknown, idle, run, jog, home, hold, alarm, check, door }
-enum OperationState { idle, homing, sdRunning, fertilizing, scanning, uploading, aiWeeding, npkDip, rainPaused, alarmRecovery }
+
+enum OperationState {
+  idle,
+  homing,
+  sdRunning,
+  fertilizing,
+  scanning,
+  uploading,
+  aiWeeding,
+  npkDip,
+  rainPaused,
+  alarmRecovery,
+}
+
 class LogEntry {
   final String message;
   final String tag; // e.g. "NET", "SCAN", "FERT"
@@ -49,9 +66,9 @@ class ESP32Service extends ChangeNotifier {
 
   // ── Security & Session ──
   static const String _authKey = "AGRI3D_SECURE_TOKEN_V1";
-    Timer? _watchdogTimer;
+  Timer? _watchdogTimer;
 
-    StreamSubscription? _channelSubscription;
+  StreamSubscription? _channelSubscription;
   bool _isConnecting = false;
   final Map<String, DateTime> _lastAttemptTimes = {};
 
@@ -96,8 +113,10 @@ class ESP32Service extends ChangeNotifier {
   // ── Plant Map Scan State ──
   /// true = SD scan complete, UPLOAD_SCAN available
   bool isScanReady = false;
+
   /// true = upload phase in progress (OP_UPLOADING on ESP32)
   bool isUploadingScan = false;
+
   /// 0.0–1.0 progress of Phase 1 (SD capture)
   double scanProgress = 0.0;
   int scanFrameIdx = 0;
@@ -105,6 +124,7 @@ class ESP32Service extends ChangeNotifier {
   // Plant Registry
   List<Plot> registeredPlots = [];
   int scanFrameTotal = 0;
+
   /// 0.0–1.0 progress of Phase 2 (upload to Flutter)
   double uploadScanProgress = 0.0;
 
@@ -290,6 +310,11 @@ class ESP32Service extends ChangeNotifier {
               parsed = decoded;
               // Update global sensor state
               ESP32Sensors.instance.updateSensorsFromJson(parsed);
+
+              // FORCE LOG TO CONSOLE FOR DEBUGGING
+              if (parsed['evt'] == 'NPK' || parsed.containsKey('n')) {
+                print("🚨 NPK DATA RECEIVED: $textMsg");
+              }
             }
           } catch (e) {
             // Not JSON
@@ -339,8 +364,9 @@ class ESP32Service extends ChangeNotifier {
             }
             try {
               final pong = parsed ?? jsonDecode(textMsg);
-              if (pong['ping_no'] != null) pingCount = (pong['ping_no'] as num).toInt();
-              
+              if (pong['ping_no'] != null)
+                pingCount = (pong['ping_no'] as num).toInt();
+
               if (pong['plants'] != null) {
                 final plantsList = pong['plants'] as List<dynamic>? ?? [];
                 // Update basic plantMap if needed or registeredPlots
@@ -368,7 +394,8 @@ class ESP32Service extends ChangeNotifier {
               return;
             }
 
-            if (parsed['evt'] == 'FRAME_META' || parsed['evt'] == 'DETECT_FRAME') {
+            if (parsed['evt'] == 'FRAME_META' ||
+                parsed['evt'] == 'DETECT_FRAME') {
               _pendingFrameMeta = parsed;
               // Track upload progress during Phase 2
               if (isUploadingScan && scanFrameTotal > 0) {
@@ -394,15 +421,18 @@ class ESP32Service extends ChangeNotifier {
               scanProgress = 0.0;
               scanFrameIdx = 0;
               scanFrameTotal = (parsed['total'] as num?)?.toInt() ?? 0;
-              if (parsed['maxX'] != null) maxX = (parsed['maxX'] as num).toDouble();
-              if (parsed['maxY'] != null) maxY = (parsed['maxY'] as num).toDouble();
+              if (parsed['maxX'] != null)
+                maxX = (parsed['maxX'] as num).toDouble();
+              if (parsed['maxY'] != null)
+                maxY = (parsed['maxY'] as num).toDouble();
               addLog('Scan started: ${scanFrameTotal} frames', tag: 'SCAN');
               _scheduleNotify();
               return;
             }
             if (parsed['evt'] == 'SCAN_PROGRESS') {
               scanFrameIdx = (parsed['idx'] as num?)?.toInt() ?? scanFrameIdx;
-              scanFrameTotal = (parsed['total'] as num?)?.toInt() ?? scanFrameTotal;
+              scanFrameTotal =
+                  (parsed['total'] as num?)?.toInt() ?? scanFrameTotal;
               scanProgress = scanFrameTotal > 0
                   ? scanFrameIdx / scanFrameTotal
                   : 0.0;
@@ -410,7 +440,8 @@ class ESP32Service extends ChangeNotifier {
               return;
             }
             if (parsed['evt'] == 'SCAN_COMPLETE') {
-              isScanReady = parsed['ready'] == true && parsed['aborted'] != true;
+              isScanReady =
+                  parsed['ready'] == true && parsed['aborted'] != true;
               scanProgress = 1.0;
               addLog(
                 isScanReady
@@ -427,7 +458,10 @@ class ESP32Service extends ChangeNotifier {
               isUploadingScan = true;
               uploadScanProgress = 0.0;
               scanFrameTotal = (parsed['total'] as num?)?.toInt() ?? 0;
-              addLog('Uploading plant map: $scanFrameTotal frames…', tag: 'SCAN');
+              addLog(
+                'Uploading plant map: $scanFrameTotal frames…',
+                tag: 'SCAN',
+              );
               _scheduleNotify();
               return;
             }
@@ -445,7 +479,11 @@ class ESP32Service extends ChangeNotifier {
             }
             if (parsed['evt'] == 'UPLOAD_SCAN_ERROR') {
               isUploadingScan = false;
-              addLog('Upload error: ${parsed["reason"]}', tag: 'SCAN', level: LogLevel.error);
+              addLog(
+                'Upload error: ${parsed["reason"]}',
+                tag: 'SCAN',
+                level: LogLevel.error,
+              );
               _scheduleNotify();
               return;
             }
@@ -536,9 +574,11 @@ class ESP32Service extends ChangeNotifier {
               // Sync uploading state from operation integer
               if (parsed['operation'] != null) {
                 final opInt = (parsed['operation'] as num).toInt();
-                if (opInt == OperationState.uploading.index && !isUploadingScan) {
+                if (opInt == OperationState.uploading.index &&
+                    !isUploadingScan) {
                   isUploadingScan = true;
-                } else if (opInt != OperationState.uploading.index && isUploadingScan) {
+                } else if (opInt != OperationState.uploading.index &&
+                    isUploadingScan) {
                   // ESP32 finished uploading but we missed the UPLOAD_SCAN_COMPLETE
                   isUploadingScan = false;
                   uploadScanProgress = 1.0;
@@ -727,8 +767,12 @@ class ESP32Service extends ChangeNotifier {
     var bytes = utf8.encode(nonce);
     var hmacSha256 = Hmac(sha256, key);
     var digest = hmacSha256.convert(bytes);
-    
-    addLog("DEBUG: Sending AUTH response for nonce $nonce", tag: "AUTH", level: LogLevel.info);
+
+    addLog(
+      "DEBUG: Sending AUTH response for nonce $nonce",
+      tag: "AUTH",
+      level: LogLevel.info,
+    );
     sendCommand('{"cmd":"AUTH", "hash":"$digest"}');
   }
 
@@ -819,8 +863,15 @@ class ESP32Service extends ChangeNotifier {
     sendCommand("REJECT_PLANT:${x.toStringAsFixed(1)}:${y.toStringAsFixed(1)}");
   }
 
-  void registerPlant(String name, double x, double y, double diameter,
-      {double? tn, double? tp, double? tk}) {
+  void registerPlant(
+    String name,
+    double x,
+    double y,
+    double diameter, {
+    double? tn,
+    double? tp,
+    double? tk,
+  }) {
     String cmd =
         "REGISTER_PLANT:${x.toStringAsFixed(1)}:${y.toStringAsFixed(1)}:$name:${diameter.toStringAsFixed(1)}";
     if (tn != null && tp != null && tk != null) {
