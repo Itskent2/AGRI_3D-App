@@ -87,9 +87,33 @@ void webSocketEvent(uint8_t num, WStype_t type,
         int res = args(cmd).toInt();
         sensor_t *s = esp_camera_sensor_get();
         if (s) {
+            bool wasStreaming = sysState.isStreaming();
+            if (wasStreaming) {
+                sysState.setStreaming(false);
+                // Wait for stream task to finish current frame and pause
+                while (sysState.isStreamTaskBusy()) {
+                    delay(10);
+                }
+            }
             s->set_framesize(s, (framesize_t)res);
+            sysState.setResolution((framesize_t)res);
+            delay(500); // Wait for sensor to stabilize after reallocation
             AgriLog(TAG_CAM, LEVEL_INFO, "Resolution set to %d", res);
+            if (wasStreaming) {
+                sysState.setStreaming(true);
+            }
         }
+        return;
+    }
+    if (startsWith(cmd, "SET_CAM_PROFILE:")) {
+        String p = args(cmd);
+        p.toLowerCase();
+        CameraProfile profile;
+        if      (p == "night") profile = CAM_PROFILE_NIGHT;
+        else if (p == "day")   profile = CAM_PROFILE_DAY;
+        else                   profile = CAM_PROFILE_AUTO;
+        cameraSetProfile(profile);
+        webSocket.sendTXT(num, "{\"evt\":\"CAM_PROFILE_SET\",\"profile\":\"" + p + "\"}");
         return;
     }
 
@@ -101,7 +125,7 @@ void webSocketEvent(uint8_t num, WStype_t type,
         npkSendFullHistory(num);
         return;
     }
-    if (cmd == "PING") {
+    if (cmd == "PING" || cmd.startsWith("{\"cmd\":\"PING\"")) {
         webSocket.sendTXT(num, "{\"evt\":\"PONG\",\"ms\":" +
                                String(millis()) + "}");
         return;
@@ -180,6 +204,10 @@ void webSocketEvent(uint8_t num, WStype_t type,
     }
     if (startsWith(cmd, "AUTO_DETECT_PLANTS:")) {
         handleAutoDetectPlants(num, args(cmd));
+        return;
+    }
+    if (cmd == "UPLOAD_SCAN") {
+        handleScanUpload(num);
         return;
     }
 

@@ -43,11 +43,31 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
   final _pCtrl = TextEditingController();
   final _kCtrl = TextEditingController();
 
+  final ScrollController _consoleScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     ESP32Service.instance.onFrameCaptured.listen(_handleFrameCaptured);
     ESP32Service.instance.onPlantCandidate.listen(_handlePlantCandidate);
+    ESP32Service.instance.addListener(_onServiceChange);
+  }
+
+  void _onServiceChange() {
+    _scrollToBottom();
+    if (mounted) setState(() {});
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (_consoleScrollController.hasClients) {
+        _consoleScrollController.animateTo(
+          _consoleScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _handlePlantCandidate(Map<String, dynamic> data) {
@@ -124,6 +144,8 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
 
   @override
   void dispose() {
+    ESP32Service.instance.removeListener(_onServiceChange);
+    _consoleScrollController.dispose();
     _nCtrl.dispose(); _pCtrl.dispose(); _kCtrl.dispose();
     super.dispose();
   }
@@ -154,11 +176,114 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
     });
   }
 
+  void _showScanConfigDialog(BuildContext context, Color accentColor, bool isDark) {
+    final colsCtrl = TextEditingController(text: "3");
+    final rowsCtrl = TextEditingController(text: "3");
+    final stepXCtrl = TextEditingController(text: "200");
+    final stepYCtrl = TextEditingController(text: "200");
+    final zHeightCtrl = TextEditingController(text: "200");
+
+    final textColor = isDark ? Colors.white : Colors.black;
+    final inputDecoration = InputDecoration(
+      filled: true,
+      fillColor: isDark ? const Color(0xFF374151) : Colors.grey.shade100,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.camera_alt, color: accentColor),
+              const SizedBox(width: 8),
+              Text("Configure Scan", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: _buildConfigField("Columns", colsCtrl, inputDecoration, textColor)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildConfigField("Rows", rowsCtrl, inputDecoration, textColor)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: _buildConfigField("Step X (mm)", stepXCtrl, inputDecoration, textColor)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildConfigField("Step Y (mm)", stepYCtrl, inputDecoration, textColor)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildConfigField("Camera Z-Height (mm)", zHeightCtrl, inputDecoration, textColor),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text("Cancel", style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final cols = int.tryParse(colsCtrl.text) ?? 3;
+                final rows = int.tryParse(rowsCtrl.text) ?? 3;
+                final stepX = double.tryParse(stepXCtrl.text) ?? 200.0;
+                final stepY = double.tryParse(stepYCtrl.text) ?? 200.0;
+                final zHeight = double.tryParse(zHeightCtrl.text) ?? 200.0;
+                
+                // Clear previous stitched images before starting a new scan
+                setState(() {
+                  _stitchedImages.clear();
+                });
+
+                ESP32Service.instance.startPhotoScan(cols, rows, stepX, stepY, zHeight);
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accentColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text("Start Scan", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildConfigField(String label, TextEditingController ctrl, InputDecoration decoration, Color textColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: textColor, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          style: TextStyle(color: textColor, fontSize: 14),
+          decoration: decoration,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeProvider);
     final accent = themeState.currentAccentColor;
     final isDark = themeState.isDark(context);
+    final service = ESP32Service.instance;
 
     // Adaptive Theme Variables
     final textColor = isDark ? Colors.white : const Color(0xFF111827);
@@ -172,8 +297,11 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 16,
+            runSpacing: 12,
             children: [
               RichText(
                 text: TextSpan(
@@ -184,10 +312,12 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                   ],
                 ),
               ),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   ElevatedButton.icon(
-                    onPressed: () {
+                    onPressed: service.isScanning || service.isUploadingScan ? null : () {
                       ESP32Service.instance.startAutoDetect(3, 3, 200.0, 200.0, 200.0);
                     },
                     icon: const Icon(Icons.search, size: 16),
@@ -195,33 +325,172 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange,
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.orange.withOpacity(0.35),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   ElevatedButton.icon(
-                    onPressed: () {
-                      ESP32Service.instance.startPhotoScan(3, 3, 200.0, 200.0, 200.0);
-                    },
+                    onPressed: service.isScanning || service.isUploadingScan ? null
+                        : () => _showScanConfigDialog(context, accent, isDark),
                     icon: const Icon(Icons.camera_alt, size: 16),
                     label: const Text('Scan Bed'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accent,
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: accent.withOpacity(0.35),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                   ),
                 ],
               ),
-
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          // ── 3-phase scan status bar ──
+          _buildScanStatus(service, accent, isDark, cardColor, borderColor, textColor, subTextColor),
+          const SizedBox(height: 12),
           _buildGrid(accent, isDark, gridBg, borderColor),
           const SizedBox(height: 16),
           _buildDetail(accent, isDark, cardColor, borderColor, textColor, subTextColor),
+          const SizedBox(height: 16),
+          _buildConsole(isDark, cardColor, borderColor, textColor, subTextColor),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  // ── 3-Phase Scan Status Bar ──────────────────────────────────────────────
+
+  Widget _buildScanStatus(ESP32Service service, Color accent, bool isDark,
+      Color cardColor, Color borderColor, Color textColor, Color subTextColor) {
+
+    // Phase 1: actively scanning (saving to SD)
+    if (service.scanProgress > 0 && service.scanProgress < 1.0 && !service.isScanReady) {
+      return _buildProgressCard(
+        icon: Icons.camera_alt,
+        iconColor: accent,
+        title: 'SCANNING BED…',
+        subtitle: 'Frame ${service.scanFrameIdx} of ${service.scanFrameTotal} — saving to SD card',
+        progress: service.scanProgress,
+        progressColor: accent,
+        isDark: isDark, cardColor: cardColor, borderColor: borderColor,
+        textColor: textColor, subTextColor: subTextColor,
+      );
+    }
+
+    // Phase 2a: scan complete, waiting for user to tap Upload
+    if (service.isScanReady && !service.isUploadingScan) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF14532D).withOpacity(isDark ? 0.4 : 0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.5)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('SCAN COMPLETE',
+                    style: TextStyle(color: Color(0xFF22C55E),
+                        fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  Text('${service.scanFrameTotal} frames saved on SD card',
+                    style: TextStyle(color: subTextColor, fontSize: 12)),
+                ],
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() => _stitchedImages.clear());
+                ESP32Service.instance.startScanUpload();
+              },
+              icon: const Icon(Icons.upload, size: 14),
+              label: const Text('Upload Plant Map', style: TextStyle(fontSize: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF22C55E),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Phase 2b: uploading frames to Flutter
+    if (service.isUploadingScan) {
+      return _buildProgressCard(
+        icon: Icons.upload,
+        iconColor: const Color(0xFF60A5FA),
+        title: 'UPLOADING PLANT MAP…',
+        subtitle: 'Receiving frames from SD card…',
+        progress: service.uploadScanProgress,
+        progressColor: const Color(0xFF60A5FA),
+        isDark: isDark, cardColor: cardColor, borderColor: borderColor,
+        textColor: textColor, subTextColor: subTextColor,
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildProgressCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required double progress,
+    required Color progressColor,
+    required bool isDark,
+    required Color cardColor,
+    required Color borderColor,
+    required Color textColor,
+    required Color subTextColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 16),
+              const SizedBox(width: 8),
+              Text(title,
+                style: TextStyle(color: textColor, fontSize: 11,
+                    fontWeight: FontWeight.w900, letterSpacing: 1)),
+              const Spacer(),
+              Text('${(progress * 100).toStringAsFixed(0)}%',
+                style: TextStyle(color: iconColor, fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: isDark ? const Color(0xFF374151) : Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(subtitle, style: TextStyle(color: subTextColor, fontSize: 11)),
         ],
       ),
     );
@@ -436,6 +705,103 @@ class _PlotMapScreenState extends ConsumerState<PlotMapScreen> {
         ],
       ),
     );
+  }
+
+  // ── Console ──────────────────────────────────────────────
+
+  Widget _buildConsole(bool isDark, Color cardColor, Color borderColor, Color textColor, Color subTextColor) {
+    final service = ESP32Service.instance;
+    final logs = service.logs; // In a full app we might filter by specific tags
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.terminal, color: Color(0xFF60A5FA), size: 18),
+              const SizedBox(width: 8),
+              Text(
+                "SYSTEM LOG",
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w900,
+                  fontStyle: FontStyle.italic,
+                  fontSize: 12,
+                  letterSpacing: 1,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "${logs.length} entries",
+                  style: TextStyle(color: subTextColor, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 200,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF030712) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
+            ),
+            child: logs.isEmpty
+                ? Center(
+                    child: Text(
+                      "Waiting for logs...",
+                      style: TextStyle(color: subTextColor, fontSize: 11, fontStyle: FontStyle.italic),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _consoleScrollController,
+                    itemCount: logs.length,
+                    itemBuilder: (context, i) {
+                      final log = logs[i];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          log.message,
+                          style: TextStyle(
+                            color: _getLogColor(log.level, isDark),
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getLogColor(LogLevel level, bool isDark) {
+    switch (level) {
+      case LogLevel.error:
+        return const Color(0xFFEF4444);
+      case LogLevel.warn:
+        return const Color(0xFFF59E0B);
+      case LogLevel.success:
+        return const Color(0xFF10B981);
+      default:
+        return isDark ? const Color(0xFF9CA3AF) : const Color(0xFF4B5563);
+    }
   }
 }
 

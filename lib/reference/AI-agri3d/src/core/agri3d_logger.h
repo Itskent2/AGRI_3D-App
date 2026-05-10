@@ -37,6 +37,8 @@ static const char* getLevelStr(LogLevel level) {
     }
 }
 
+extern void broadcastLog(const char* log);
+
 inline void AgriLog(LogTag tag, LogLevel level, const char* format, ...) {
     char buffer[256];
     va_list args;
@@ -44,5 +46,9 @@ inline void AgriLog(LogTag tag, LogLevel level, const char* format, ...) {
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    Serial.printf("%s%s %s\n", getTagStr(tag), getLevelStr(level), buffer);
+    char logStr[300];
+    snprintf(logStr, sizeof(logStr), "%s%s %s", getTagStr(tag), getLevelStr(level), buffer);
+
+    Serial.println(logStr);
+    broadcastLog(logStr);
 }

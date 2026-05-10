@@ -11,6 +11,7 @@
 #include "agri3d_sd.h"
 #include "agri3d_state.h"
 #include "../core/agri3d_logger.h"
+#include "../core/agri3d_ai.h"
 #include <ArduinoJson.h>
 #include <math.h>
 #include <time.h>
@@ -45,19 +46,20 @@ bool cameraInit() {
   // UXGA (1600×1200) — highest quality for plant-map stills
   // Requires PSRAM to be enabled in board settings
   if (psramFound()) {
+    // Allocate buffers for max resolution (UXGA) so we can scale up on the fly
     config.frame_size = FRAMESIZE_UXGA;
     config.jpeg_quality = 10; // 0-63, lower = higher quality
     config.fb_count = 2;      // Double buffer for smoother stream
     config.fb_location = CAMERA_FB_IN_PSRAM;
     config.grab_mode = CAMERA_GRAB_LATEST;
   } else {
-    // Fall back to QVGA if no PSRAM to prevent DRAM exhaustion!
+    // Allocate buffers for QVGA if no PSRAM to prevent DRAM exhaustion
     config.frame_size = FRAMESIZE_QVGA;
     config.jpeg_quality = 12;
     config.fb_count = 1;
     config.fb_location = CAMERA_FB_IN_DRAM;
     config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
-    AgriLog(TAG_CAM, LEVEL_WARN, "No PSRAM — falling back to QVGA to save memory");
+    AgriLog(TAG_CAM, LEVEL_WARN, "No PSRAM — initializing with QVGA buffers");
   }
 
   esp_err_t err = esp_camera_init(&config);
@@ -69,6 +71,9 @@ bool cameraInit() {
   // Fine-tune sensor settings for agricultural (outdoor) scenes
   sensor_t *s = esp_camera_sensor_get();
   if (s) {
+    // Set to the actual desired resolution after initialization
+    s->set_framesize(s, sysState.getResolution());
+    
     s->set_brightness(s, 0); // -2 to 2
     s->set_contrast(s, 0);   // -2 to 2
     s->set_saturation(s, 1); // Boost green for vegetation
@@ -81,9 +86,9 @@ bool cameraInit() {
 
   AgriLog(TAG_CAM, LEVEL_SUCCESS, "Camera OK (UXGA JPEG)");
 
-  // Launch stream task on Core 0 to offload it from the main network/grbl loop on Core 1
+  // Launch stream task on Core 1 to offload it from the network/grbl loop on Core 0
   xTaskCreatePinnedToCore(streamTask, "streamTask", 8192, nullptr, 2, nullptr,
-                          0);
+                          1);
   return true;
 }
 
@@ -98,16 +103,54 @@ void streamTask(void * /*pvParameters*/) {
         sysState.getFlutter() == FLUTTER_CONNECTED) {
 
       // CONGESTION CONTROL: If the network task hasn't finished sending the previous
-      // frame, don't even capture a new one. This keeps the heap clean and the CPU cool.
+      // frame, drop this frame to avoid lag and wait for the next interval.
       if (sysState.pendingFrame != nullptr) {
-        vTaskDelay(pdMS_TO_TICKS(10)); // Busy wait/throttle
+        uint32_t delayMs = 60000UL / (uint32_t)sysState.getFpm();
+        vTaskDelay(pdMS_TO_TICKS(delayMs));
         continue;
       }
 
+      sysState.setStreamTaskBusy(true); // Mark as busy before camera access
+
       camera_fb_t *fb = esp_camera_fb_get();
       if (!fb) {
+        AgriLog(TAG_CAM, LEVEL_WARN, "Camera FB get failed!");
+        sysState.setStreamTaskBusy(false); // Not busy if failed
         vTaskDelay(pdMS_TO_TICKS(100));
         continue;
+      }
+
+      // ── RUN AI INFERENCE ──
+      if (aiIsReady()) {
+          AiResult res = aiAnalyzeJpeg(fb->buf, fb->len, fb->width, fb->height);
+          
+          StaticJsonDocument<512> doc;
+          doc["evt"] = "AI_DETECTIONS";
+          JsonArray detections = doc.createNestedArray("detections");
+          for (int i = 0; i < res.totalDetections; i++) {
+              JsonObject det = detections.createNestedObject();
+              det["label"] = res.detections[i].label;
+              det["conf"] = res.detections[i].confidence;
+              det["x"] = res.detections[i].x;
+              det["y"] = res.detections[i].y;
+              det["w"] = res.detections[i].width;
+              det["h"] = res.detections[i].height;
+          }
+          String* out = new String();
+          serializeJson(doc, *out);
+          
+          // Clean up previous result if not sent yet to avoid memory leak
+          if (sysState.pendingAiResult != nullptr) {
+              delete sysState.pendingAiResult;
+          }
+          sysState.pendingAiResult = out;
+      } else {
+          // Throttled log to avoid flooding the console
+          static unsigned long lastAiLog = 0;
+          if (millis() - lastAiLog > 10000) { // Every 10 seconds
+              AgriLog(TAG_CAM, LEVEL_WARN, "AI Engine is not ready yet.");
+              lastAiLog = millis();
+          }
       }
 
       // ZERO-COPY HANDOFF: 
@@ -117,6 +160,8 @@ void streamTask(void * /*pvParameters*/) {
       sysState.pendingFrame = fb->buf;
       sysState.pendingFrameLen = fb->len;
       sysState.pendingFrameClient = activeClientNum;
+
+      sysState.setStreamTaskBusy(false); // Done with this frame
 
       // Convert FPM to delay: delay_ms = 60000 / fpm
       uint32_t delayMs = 60000UL / (uint32_t)sysState.getFpm();
@@ -147,8 +192,19 @@ bool captureFrameAtPosition(uint8_t clientNum, int idx, int total,
   sysState.setStreaming(false);
   delay(200); // Wait for stream task to yield
 
+  sensor_t *s = esp_camera_sensor_get();
+  /*
+  if (s) {
+      s->set_framesize(s, FRAMESIZE_UXGA);
+      delay(500); // Wait for sensor to adjust
+  }
+  */
+
   camera_fb_t *fb = esp_camera_fb_get();
-  if (!fb) return false;
+  if (!fb) {
+      // if (s) s->set_framesize(s, FRAMESIZE_QQVGA); // Restore on fail
+      return false;
+  }
 
   // 3. Metadata & SD Save
   time_t now = time(nullptr);
@@ -179,9 +235,22 @@ bool captureFrameAtPosition(uint8_t clientNum, int idx, int total,
     sysState.pendingFrame = fb->buf;
     sysState.pendingFrameLen = fb->len;
     sysState.pendingFrameClient = clientNum;
+
+    // Wait for Core 0 to send it before we change resolution back!
+    while (sysState.pendingFrameFB != nullptr) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
   } else {
     esp_camera_fb_return(fb);
   }
+
+  // 5. Restore resolution for streaming
+  /*
+  if (s) {
+      s->set_framesize(s, FRAMESIZE_QQVGA);
+      delay(200);
+  }
+  */
 
   AgriLog(TAG_CAM, LEVEL_INFO, "Frame %d: %s %s (%.1f,%.1f) %uB%s", idx, dateStr,
                 timeStr, targetX, targetY, fb->len,

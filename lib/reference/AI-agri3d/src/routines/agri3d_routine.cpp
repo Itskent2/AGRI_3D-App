@@ -13,6 +13,7 @@
 
 #include "agri3d_routine.h"
 #include "../core/AI_Agri3D.h"
+#include "xgboost_model.h"
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <math.h>
@@ -21,8 +22,10 @@
 void routineWorkerTask(void* pvParameters);
 
 // ── Plant Registry ─────────────────────────────────────────────────────────
-PlantPosition plantRegistry[MAX_PLANTS];
-int           plantCount = 0;
+PlantPosition  plantRegistry[MAX_PLANTS];
+int            plantCount = 0;
+
+ScanParams globalScanParams;
 
 // ── Candidate Buffer (awaiting Flutter confirmation) ───────────────────────
 PlantCandidate candidateBuffer[MAX_CANDIDATES];
@@ -30,8 +33,8 @@ int            candidateCount = 0;
 
 static Preferences _prefs;
 static const char* NVS_ROUTINE_NS = "routine";
-static float _waterFlowRate = 10.0f; // Default 10 ml/s
-static float _fertFlowRate  = 10.0f; // Default 10 ml/s
+static float _waterFlowRate = 24.0f; // Default 24 ml/s
+static float _fertFlowRate  = 2.0f;  // Default 2 ml/s
 
 // ============================================================================
 // PLANT REGISTRY — NVS PERSISTENCE
@@ -157,8 +160,20 @@ static void performFertigation(uint8_t clientNum, const PlantPosition& plant,
             if (needsNpk) fertMl = 50.0f; // Default 50mL when user-set targets
         }
 
-        // TODO(Luna): XGBoost model override
-        // fertMl = xgboostFertilizerAmount(soil, plant);
+        // XGBoost model override (Using the 14MB C model)
+        // Expected features: N, P, K, temperature, humidity, pH
+        double xgb_features[6] = {
+            (double)soil.n, (double)soil.p, (double)soil.k, 
+            25.0, // Default Temperature
+            60.0, // Default Humidity
+            6.5   // Default pH
+        };
+        double xgb_prediction = score(xgb_features);
+        
+        // If the XGBoost model outputs a valid prediction, override the default
+        if (xgb_prediction > 0) {
+            fertMl = (float)xgb_prediction;
+        }
 
         if (fertMl > 0) {
             String fertCmd = "M7 ml" + String((int)fertMl);
@@ -278,6 +293,16 @@ void handleFarmingCycle(uint8_t clientNum, const RoutineConfig& cfg) {
     for (int i = 0; i < MAX_PLANTS; i++) {
         if (!plantRegistry[i].active) continue;
         if (sysState.getFlutter() == FLUTTER_DISCONNECTED) break; // Abort if app disconnected
+
+        // Pause routine if live streaming is active
+        if (sysState.isStreaming()) {
+            AgriLog(TAG_ROUTINE, LEVEL_WARN, "Live stream active — pausing farming routine.");
+            while (sysState.isStreaming()) {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                if (sysState.getFlutter() == FLUTTER_DISCONNECTED) break;
+            }
+            AgriLog(TAG_ROUTINE, LEVEL_INFO, "Live stream stopped — resuming farming routine.");
+        }
 
         PlantPosition& plant = plantRegistry[i];
         
@@ -590,9 +615,25 @@ void handleAutoDetectPlants(uint8_t clientNum, const String& params) {
     int   rows  = params.substring(c1+1,c2).toInt();
     float stepX = params.substring(c2+1,c3).toFloat();
     float stepY = params.substring(c3+1,c4).toFloat();
-    // float zH = params.substring(c4+1).toFloat(); // reserved for Z
+    float zH = params.substring(c4+1).toFloat(); // Use Z height
 
     int total = cols * rows;
+    AgriLog(TAG_ROUTINE, LEVEL_INFO, "Enqueuing %dx%d auto-detect (%d frames) to Brain Core",
+                cols, rows, total);
+
+    globalScanParams.clientNum = clientNum;
+    globalScanParams.cols = cols;
+    globalScanParams.rows = rows;
+    globalScanParams.stepX = stepX;
+    globalScanParams.stepY = stepY;
+    globalScanParams.zHeight = zH;
+
+    startRoutine(4); // ROUTINE_AUTO_DETECT
+}
+
+void executeAutoDetectPlants(const ScanParams& cfg) {
+    int total = cfg.cols * cfg.rows;
+    uint8_t clientNum = cfg.clientNum;
 
     // Clear previous candidates
     memset(candidateBuffer, 0, sizeof(candidateBuffer));
@@ -601,10 +642,19 @@ void handleAutoDetectPlants(uint8_t clientNum, const String& params) {
     bool streamWasActive = sysState.isStreaming();
     sysState.setStreaming(false);
     sysState.setOperation(OP_HOMING);
-    enqueueGrblCommand("$HX"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
-    enqueueGrblCommand("$HY"); waitForGrblIdle(SCAN_HOME_TIMEOUT_MS);
+    
+    // Home all axes
+    enqueueGrblCommand("$H");
+    waitForGrblIdle(SCAN_HOME_TIMEOUT_MS * 3);
     requestMachineDimensions(); delay(1000);
+    
     sysState.setOperation(OP_SCANNING);
+
+    // Move Z to requested height
+    char zMove[32];
+    snprintf(zMove, sizeof(zMove), "G0 Z%.1f F500", cfg.zHeight);
+    enqueueGrblCommand(zMove);
+    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
 
     StaticJsonDocument<96> startDoc;
     startDoc["evt"]   = "DETECT_START";
@@ -613,12 +663,12 @@ void handleAutoDetectPlants(uint8_t clientNum, const String& params) {
     webSocket.sendTXT(clientNum, startOut);
 
     int frameIdx = 0;
-    for (int row = 0; row < rows; row++) {
-        for (int colStep = 0; colStep < cols; colStep++) {
+    for (int row = 0; row < cfg.rows; row++) {
+        for (int colStep = 0; colStep < cfg.cols; colStep++) {
             if (sysState.getFlutter() == FLUTTER_DISCONNECTED) goto detect_done;
-            int col = (row % 2 == 0) ? colStep : (cols - 1 - colStep);
-            float tx = min(col * stepX, machineDim.maxX);
-            float ty = min(row * stepY, machineDim.maxY);
+            int col = (row % 2 == 0) ? colStep : (cfg.cols - 1 - colStep);
+            float tx = min(col * cfg.stepX, machineDim.maxX);
+            float ty = min(row * cfg.stepY, machineDim.maxY);
             frameIdx++;
 
             NanoSerial.printf("G0 X%.1f Y%.1f F%d\n", tx, ty, GRBL_DEFAULT_FEEDRATE);
@@ -781,8 +831,8 @@ void routineInit() {
     loadPlantRegistry();
     
     _prefs.begin(NVS_ROUTINE_NS, true);
-    _waterFlowRate = _prefs.getFloat("w_rate", 10.0f);
-    _fertFlowRate  = _prefs.getFloat("f_rate", 10.0f);
+    _waterFlowRate = _prefs.getFloat("w_rate", 24.0f);
+    _fertFlowRate  = _prefs.getFloat("f_rate", 2.0f);
     _prefs.end();
     
     // Create the Routine Task (The Brain) on Core 1
@@ -821,6 +871,12 @@ void routineWorkerTask(void* pvParameters) {
                 handleFarmingCycle(activeClientNum, dummyCfg);
             } else if (routineType == 2) { // Full Grid Scan
                 // handleFullGridScan(); // To be refactored
+            } else if (routineType == 3) { // Scan Plant Bed — Phase 1: SD save
+                executeScanPlant(globalScanParams);
+            } else if (routineType == 4) { // Auto Detect Plants
+                executeAutoDetectPlants(globalScanParams);
+            } else if (routineType == 5) { // Scan Upload — Phase 2: SD → Flutter
+                executeScanUpload(globalScanParams.clientNum);
             }
             
             sysState.setOperation(OP_IDLE);

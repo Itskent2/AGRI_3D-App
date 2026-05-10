@@ -15,8 +15,8 @@
  * Flow:
  *   1. aiInit()          — called once in setup() to verify PSRAM & model
  *   2. aiAnalyzeJpeg()   — primary API: takes raw JPEG from camera,
- *                           decodes to RGB, resizes to 96×96, runs inference
- *   3. aiAnalyzeFrame()  — lower-level: takes pre-processed 96×96 RGB buffer
+ *                           decodes to RGB, resizes to target AI input size, runs inference
+ *   3. aiAnalyzeFrame()  — lower-level: takes pre-processed RGB buffer
  */
 
 #include "agri3d_ai.h"
@@ -25,6 +25,7 @@
 #include "agri3d_state.h"
 
 // Edge Impulse model variables (pulls in the compiled TFLite graph)
+#include "edge-impulse-sdk/classifier/ei_run_classifier.h"
 #include "model-parameters/model_variables.h"
 
 #include <esp_camera.h>
@@ -49,37 +50,37 @@ static void *ei_psram_alloc(size_t size, size_t alignment) {
 // ============================================================================
 
 void aiInit() {
-  AgriLog(TAG_SYSTEM, LEVEL_INFO,
-          "[AI] Initializing Edge Impulse Weed Detection...");
+  AgriLog(TAG_AI, LEVEL_INFO,
+          "Initializing Edge Impulse Weed Detection...");
 
   // Verify PSRAM is available (model needs ~290KB arena)
   size_t psramFree = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-  AgriLog(TAG_SYSTEM, LEVEL_INFO, "[AI] PSRAM free: %d KB (arena needs ~%d KB)",
+  AgriLog(TAG_AI, LEVEL_INFO, "PSRAM free: %d KB (arena needs ~%d KB)",
           psramFree / 1024, EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE / 1024);
 
   if (psramFree < EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE) {
-    AgriLog(TAG_SYSTEM, LEVEL_ERR, "[AI] ✘ Not enough PSRAM for model arena!");
+    AgriLog(TAG_AI, LEVEL_ERR, "✘ Not enough PSRAM for model arena!");
     _aiReady = false;
     return;
   }
 
   // Log model metadata
-  AgriLog(TAG_SYSTEM, LEVEL_INFO, "[AI] Project: %s (#%d v%d)",
+  AgriLog(TAG_AI, LEVEL_INFO, "Project: %s (#%d v%d)",
           EI_CLASSIFIER_PROJECT_NAME, EI_CLASSIFIER_PROJECT_ID,
           EI_CLASSIFIER_PROJECT_DEPLOY_VERSION);
-  AgriLog(TAG_SYSTEM, LEVEL_INFO,
-          "[AI] Input: %dx%d RGB | Labels: %d | FOMO grid: 12x12",
+  AgriLog(TAG_AI, LEVEL_INFO,
+          "Input: %dx%d RGB | Labels: %d | FOMO grid: 12x12",
           EI_CLASSIFIER_INPUT_WIDTH, EI_CLASSIFIER_INPUT_HEIGHT,
           EI_CLASSIFIER_LABEL_COUNT);
 
   // Print class labels
   for (int i = 0; i < EI_CLASSIFIER_LABEL_COUNT; i++) {
-    AgriLog(TAG_SYSTEM, LEVEL_INFO, "[AI] Class %d: \"%s\"", i,
+    AgriLog(TAG_AI, LEVEL_INFO, "Class %d: \"%s\"", i,
             ei_classifier_inferencing_categories[i]);
   }
 
   _aiReady = true;
-  AgriLog(TAG_SYSTEM, LEVEL_SUCCESS, "[AI] ✓ Edge Impulse Engine Ready");
+  AgriLog(TAG_AI, LEVEL_SUCCESS, "✓ Edge Impulse Engine Ready");
 }
 
 bool aiIsReady() { return _aiReady; }
@@ -96,26 +97,11 @@ typedef struct {
   size_t bufferLen;
 } ei_rgb_signal_ctx_t;
 
-static int ei_rgb_signal_get_data(size_t offset, size_t length,
-                                  float *out_ptr) {
-  // Edge Impulse expects pixel values normalized to 0.0–1.0 for image DSP.
-  // However, with INT8 quantized models, the SDK handles this internally.
-  // We provide raw RGB values as floats here.
-  ei_rgb_signal_ctx_t *ctx = (ei_rgb_signal_ctx_t *)ei_read_signal_user_data;
 
-  for (size_t i = 0; i < length; i++) {
-    if (offset + i < ctx->bufferLen) {
-      out_ptr[i] = (float)ctx->buffer[offset + i];
-    } else {
-      out_ptr[i] = 0.0f;
-    }
-  }
-  return 0;
-}
 
 // Global context pointer for the signal callback
 static ei_rgb_signal_ctx_t _signalCtx;
-static void *ei_read_signal_user_data = nullptr;
+
 
 static int ei_rgb_signal_get_data_wrapper(size_t offset, size_t length,
                                           float *out_ptr) {
@@ -141,7 +127,7 @@ AiResult aiAnalyzeFrame(uint8_t *buf, size_t len) {
   res.totalDetections = 0;
 
   if (!_aiReady) {
-    AgriLog(TAG_SYSTEM, LEVEL_ERR, "[AI] Engine not initialized");
+    AgriLog(TAG_AI, LEVEL_ERR, "Engine not initialized");
     return res;
   }
 
@@ -150,8 +136,8 @@ AiResult aiAnalyzeFrame(uint8_t *buf, size_t len) {
 
   // Expected: 96 * 96 * 3 = 27648 bytes
   if (len != EI_CLASSIFIER_NN_INPUT_FRAME_SIZE) {
-    AgriLog(TAG_SYSTEM, LEVEL_ERR,
-            "[AI] Buffer size mismatch: got %d, expected %d", len,
+    AgriLog(TAG_AI, LEVEL_ERR,
+            "Buffer size mismatch: got %d, expected %d", len,
             EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
     return res;
   }
@@ -173,12 +159,12 @@ AiResult aiAnalyzeFrame(uint8_t *buf, size_t len) {
   unsigned long elapsed = millis() - t0;
 
   if (err != EI_IMPULSE_OK) {
-    AgriLog(TAG_SYSTEM, LEVEL_ERR, "[AI] Inference failed (error %d)", err);
+    AgriLog(TAG_AI, LEVEL_ERR, "Inference failed (error %d)", err);
     return res;
   }
 
-  AgriLog(TAG_SYSTEM, LEVEL_INFO,
-          "[AI] Inference: %lu ms | DSP: %d ms | NN: %d ms", elapsed,
+  AgriLog(TAG_AI, LEVEL_INFO,
+          "Inference: %lu ms | DSP: %d ms | NN: %d ms", elapsed,
           (int)result.timing.dsp, (int)result.timing.classification);
 
   // ── Parse FOMO bounding boxes ──
@@ -210,17 +196,16 @@ AiResult aiAnalyzeFrame(uint8_t *buf, size_t len) {
       res.weedCount++;
       if (bb.value > highestWeedConf) {
         highestWeedConf = bb.value;
-        // Convert FOMO grid position to pixel offset from center
-        // FOMO grid is 12×12 over 96×96 image → 8px per cell
-        highestWeedX = (bb.x * 8 + 4) - 48; // Center = 48
-        highestWeedY = (bb.y * 8 + 4) - 48;
+        // FOMO coordinates are already in AI input pixel space!
+        highestWeedX = bb.x - (EI_CLASSIFIER_INPUT_WIDTH / 2);
+        highestWeedY = bb.y - (EI_CLASSIFIER_INPUT_HEIGHT / 2);
       }
     } else if (strcmp(bb.label, "crop") == 0) {
       res.foundPlant = true;
       res.cropCount++;
     }
 
-    AgriLog(TAG_SYSTEM, LEVEL_INFO, "[AI] → %s (%.1f%%) at grid [%d,%d]",
+    AgriLog(TAG_AI, LEVEL_INFO, "→ %s (%.1f%%) at grid [%d,%d]",
             bb.label, bb.value * 100.0f, bb.x, bb.y);
   }
 
@@ -229,7 +214,7 @@ AiResult aiAnalyzeFrame(uint8_t *buf, size_t len) {
   res.xOffset = highestWeedX;
   res.yOffset = highestWeedY;
 
-  AgriLog(TAG_SYSTEM, LEVEL_INFO, "[AI] Result: %d crops, %d weeds detected",
+  AgriLog(TAG_AI, LEVEL_INFO, "Result: %d crops, %d weeds detected",
           res.cropCount, res.weedCount);
 
   return res;
@@ -239,7 +224,7 @@ AiResult aiAnalyzeFrame(uint8_t *buf, size_t len) {
 // JPEG CONVENIENCE WRAPPER
 // ============================================================================
 
-AiResult aiAnalyzeJpeg(uint8_t *jpegBuf, size_t jpegLen) {
+AiResult aiAnalyzeJpeg(uint8_t *jpegBuf, size_t jpegLen, int width, int height) {
   AiResult res = {};
   res.foundPlant = false;
   res.foundWeed = false;
@@ -255,86 +240,82 @@ AiResult aiAnalyzeJpeg(uint8_t *jpegBuf, size_t jpegLen) {
   }
 
   // ── Step 1: Decode JPEG to RGB888 using ESP32's hardware JPEG decoder ──
-  // We need a 96×96 RGB image. The camera gives us a JPEG at whatever
+  // We need an RGB image of the AI's required input size. The camera gives us a JPEG at whatever
   // resolution is configured. We decode then downsample.
 
-  // Allocate RGB buffer in PSRAM (96×96×3 = 27648 bytes)
-  const int targetW = EI_CLASSIFIER_INPUT_WIDTH;  // 96
-  const int targetH = EI_CLASSIFIER_INPUT_HEIGHT; // 96
+  const int targetW = EI_CLASSIFIER_INPUT_WIDTH;
+  const int targetH = EI_CLASSIFIER_INPUT_HEIGHT;
   const size_t rgbSize = targetW * targetH * 3;
 
   uint8_t *rgbBuf = (uint8_t *)heap_caps_malloc(rgbSize, MALLOC_CAP_SPIRAM);
   if (!rgbBuf) {
-    AgriLog(TAG_SYSTEM, LEVEL_ERR,
-            "[AI] Failed to allocate RGB buffer (%d bytes)", rgbSize);
+    AgriLog(TAG_AI, LEVEL_ERR,
+            "Failed to allocate RGB buffer (%d bytes)", rgbSize);
     return res;
   }
 
-  // Use ESP32's built-in JPEG decoder (from esp_camera / ROM)
-  // fmt2rgb888 decodes JPEG to RGB888 at original resolution.
-  // For efficiency, we first try to get a small frame from the camera.
+  // Allocate full-size decode buffer based on actual JPEG dimensions
+  const int srcW = width;
+  const int srcH = height;
+  size_t fullSize = srcW * srcH * 3;
+
+  uint8_t *fullBuf = (uint8_t *)heap_caps_malloc(fullSize, MALLOC_CAP_SPIRAM);
+  if (!fullBuf) {
+    AgriLog(TAG_AI, LEVEL_ERR, "Failed to allocate decode buffer");
+    heap_caps_free(rgbBuf);
+    return res;
+  }
 
   // Decode JPEG → full-size RGB
-  // Note: This temporarily allocates a large buffer for the full image.
-  // On ESP32-S3 with 8MB PSRAM this is fine.
-  bool decoded = fmt2rgb888(jpegBuf, jpegLen, PIXFORMAT_JPEG, rgbBuf);
-
+  bool decoded = fmt2rgb888(jpegBuf, jpegLen, PIXFORMAT_JPEG, fullBuf);
   if (!decoded) {
-    // fmt2rgb888 only works if output buffer matches the JPEG dimensions.
-    // Since our rgbBuf is 96×96 but JPEG might be larger, we need a two-step:
-    // 1) Decode to full size, 2) Downsample to 96×96
-
-    // Get the JPEG dimensions from the header
-    // For now, decode to a temp buffer and bilinear downsample
-
-    // Allocate full-size decode buffer (QVGA = 320×240×3 = 230KB)
-    // The camera should be set to a low resolution for AI captures
-    const int srcW = 320; // Assume QVGA for AI captures
-    const int srcH = 240;
-    size_t fullSize = srcW * srcH * 3;
-
-    uint8_t *fullBuf = (uint8_t *)heap_caps_malloc(fullSize, MALLOC_CAP_SPIRAM);
-    if (!fullBuf) {
-      AgriLog(TAG_SYSTEM, LEVEL_ERR, "[AI] Failed to allocate decode buffer");
-      heap_caps_free(rgbBuf);
-      return res;
-    }
-
-    decoded = fmt2rgb888(jpegBuf, jpegLen, PIXFORMAT_JPEG, fullBuf);
-    if (!decoded) {
-      AgriLog(TAG_SYSTEM, LEVEL_ERR, "[AI] JPEG decode failed");
-      heap_caps_free(fullBuf);
-      heap_caps_free(rgbBuf);
-      return res;
-    }
-
-    // ── Step 2: Bilinear downsample from srcW×srcH to 96×96 ──
-    for (int dy = 0; dy < targetH; dy++) {
-      for (int dx = 0; dx < targetW; dx++) {
-        // Map target pixel to source coordinates
-        int sx = (dx * srcW) / targetW;
-        int sy = (dy * srcH) / targetH;
-
-        // Clamp
-        if (sx >= srcW)
-          sx = srcW - 1;
-        if (sy >= srcH)
-          sy = srcH - 1;
-
-        int srcIdx = (sy * srcW + sx) * 3;
-        int dstIdx = (dy * targetW + dx) * 3;
-
-        rgbBuf[dstIdx + 0] = fullBuf[srcIdx + 0]; // R
-        rgbBuf[dstIdx + 1] = fullBuf[srcIdx + 1]; // G
-        rgbBuf[dstIdx + 2] = fullBuf[srcIdx + 2]; // B
-      }
-    }
-
+    AgriLog(TAG_AI, LEVEL_ERR, "JPEG decode failed");
     heap_caps_free(fullBuf);
+    heap_caps_free(rgbBuf);
+    return res;
   }
+
+  // ── Step 2: Bilinear downsample from srcW×srcH to 96×96 ──
+  for (int dy = 0; dy < targetH; dy++) {
+    for (int dx = 0; dx < targetW; dx++) {
+      // Map target pixel to source coordinates
+      int sx = (dx * srcW) / targetW;
+      int sy = (dy * srcH) / targetH;
+
+      // Clamp
+      if (sx >= srcW)
+        sx = srcW - 1;
+      if (sy >= srcH)
+        sy = srcH - 1;
+
+      int srcIdx = (sy * srcW + sx) * 3;
+      int dstIdx = (dy * targetW + dx) * 3;
+
+      rgbBuf[dstIdx + 0] = fullBuf[srcIdx + 0]; // R
+      rgbBuf[dstIdx + 1] = fullBuf[srcIdx + 1]; // G
+      rgbBuf[dstIdx + 2] = fullBuf[srcIdx + 2]; // B
+    }
+  }
+
+  heap_caps_free(fullBuf);
 
   // ── Step 3: Run inference on the 96×96 RGB buffer ──
   res = aiAnalyzeFrame(rgbBuf, rgbSize);
+
+  // Scale detections back to the original image size
+  for (int i = 0; i < res.totalDetections; i++) {
+    // FOMO coordinates are already in AI input pixel space!
+    int px = res.detections[i].x;
+    int py = res.detections[i].y;
+    
+    // Scale to original image size (srcW, srcH)
+    res.detections[i].x = (px * srcW) / EI_CLASSIFIER_INPUT_WIDTH;
+    res.detections[i].y = (py * srcH) / EI_CLASSIFIER_INPUT_HEIGHT;
+    
+    // Scale width and height
+    res.detections[i].width = (res.detections[i].width * srcW) / EI_CLASSIFIER_INPUT_WIDTH;
+    res.detections[i].height = (res.detections[i].height * srcH) / EI_CLASSIFIER_INPUT_HEIGHT;
+  }
 
   heap_caps_free(rgbBuf);
   return res;

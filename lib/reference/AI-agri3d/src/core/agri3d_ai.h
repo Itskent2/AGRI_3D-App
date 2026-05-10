@@ -66,7 +66,7 @@ AiResult aiAnalyzeFrame(uint8_t* buf, size_t len);
  * @param jpegBuf  Pointer to JPEG data from esp_camera.
  * @param jpegLen  Length of JPEG data.
  */
-AiResult aiAnalyzeJpeg(uint8_t* jpegBuf, size_t jpegLen);
+AiResult aiAnalyzeJpeg(uint8_t* jpegBuf, size_t jpegLen, int width, int height);
 
 /**
  * @brief Returns true if the AI engine initialized successfully.

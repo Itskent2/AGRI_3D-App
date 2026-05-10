@@ -169,7 +169,12 @@ void limits_go_home(uint8_t cycle_mask) {
           // Set target direction based on cycle mask and homing cycle approach
           // state. NOTE: This happens to compile smaller than any other
           // implementation tried.
-          if (bit_istrue(settings.homing_dir_mask, bit(idx))) {
+          uint8_t dir_mask = settings.homing_dir_mask;
+          if (standard_mask == (1 << Z_AXIS)) {
+            dir_mask &= ~(1 << Z_AXIS); // Clear Z bit to force seeking positive (UP) for Phase 0
+          }
+
+          if (bit_istrue(dir_mask, bit(idx))) {
             if (approach) {
               target[idx] = -max_travel;
             } else {
