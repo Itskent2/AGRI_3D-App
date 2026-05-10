@@ -61,7 +61,7 @@ enum ClientState { DISCONNECTED, AUTH_PENDING, AUTHENTICATED };
 ClientState currentClientState = DISCONNECTED;
 String currentChallengeNonce = "";
 unsigned long lastHeartbeat = 0;
-static const unsigned long COMM_TIMEOUT_MS = 30000; // Increased to 30 seconds to prevent watchdog disconnects
+static const unsigned long COMM_TIMEOUT_MS = 60000; // Must exceed Flutter ping watchdog (20 missed x 2s = 40s)
 
 TaskHandle_t networkTaskHandle = NULL;
 static bool _pendingChallenge = false;
@@ -261,6 +261,12 @@ static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
     }
     break;
   }
+  case WStype_PING:
+  case WStype_PONG:
+    // WebSocket-level control frames: reset heartbeat so the deadman switch
+    // doesn't fire during OS-level keep-alive pings from Flutter.
+    lastHeartbeat = millis();
+    break;
   case WStype_TEXT: {
     String msg = String((char *)payload);
     lastHeartbeat = millis();
