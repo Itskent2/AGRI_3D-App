@@ -13,7 +13,11 @@ import 'esp32_sensors.dart';
 enum LogLevel { info, warn, error, success }
 
 enum EnvironmentState { clear, rainSensor, weatherGated, rainAndWeather }
-
+enum WifiState { disconnected, connecting, connected }
+enum FlutterState { disconnected, connected }
+enum NanoState { unknown, connected, unresponsive }
+enum GrblState { unknown, idle, run, jog, home, hold, alarm, check, door }
+enum OperationState { idle, homing, sdRunning, fertilizing, scanning, uploading, aiWeeding, npkDip, rainPaused, alarmRecovery }
 class LogEntry {
   final String message;
   final String tag; // e.g. "NET", "SCAN", "FERT"
@@ -496,7 +500,8 @@ class ESP32Service extends ChangeNotifier {
             if (parsed['evt'] == 'SYSTEM_STATE') {
               if (parsed['nano'] != null) {
                 final wasConnected = nanoConnected;
-                nanoConnected = parsed['nano'] == 'CONNECTED';
+                final nanoInt = (parsed['nano'] as num).toInt();
+                nanoConnected = (nanoInt == NanoState.connected.index);
                 if (nanoConnected != wasConnected) {
                   addLog(
                     nanoConnected
@@ -508,16 +513,12 @@ class ESP32Service extends ChangeNotifier {
                 }
               }
               if (parsed['environment'] != null) {
-                final env = parsed['environment'].toString();
-                if (env == 'RAIN_SENSOR')
-                  environment = EnvironmentState.rainSensor;
-                else if (env == 'WEATHER_GATED')
-                  environment = EnvironmentState.weatherGated;
-                else if (env == 'RAIN_AND_WEATHER')
-                  environment = EnvironmentState.rainAndWeather;
-                else
-                  environment = EnvironmentState.clear;
+                final envInt = (parsed['environment'] as num).toInt();
+                if (envInt >= 0 && envInt < EnvironmentState.values.length) {
+                  environment = EnvironmentState.values[envInt];
+                }
               }
+
               if (parsed['x'] != null) x = (parsed['x'] as num).toDouble();
               if (parsed['y'] != null) y = (parsed['y'] as num).toDouble();
               if (parsed['z'] != null) z = (parsed['z'] as num).toDouble();
@@ -532,14 +533,16 @@ class ESP32Service extends ChangeNotifier {
               if (parsed['cam_offset'] != null)
                 cameraOffset = (parsed['cam_offset'] as num).toDouble();
 
-              // Sync uploading state from operation string
-              final op = parsed['operation']?.toString() ?? '';
-              if (op == 'UPLOADING' && !isUploadingScan) {
-                isUploadingScan = true;
-              } else if (op != 'UPLOADING' && isUploadingScan) {
-                // ESP32 finished uploading but we missed the UPLOAD_SCAN_COMPLETE
-                isUploadingScan = false;
-                uploadScanProgress = 1.0;
+              // Sync uploading state from operation integer
+              if (parsed['operation'] != null) {
+                final opInt = (parsed['operation'] as num).toInt();
+                if (opInt == OperationState.uploading.index && !isUploadingScan) {
+                  isUploadingScan = true;
+                } else if (opInt != OperationState.uploading.index && isUploadingScan) {
+                  // ESP32 finished uploading but we missed the UPLOAD_SCAN_COMPLETE
+                  isUploadingScan = false;
+                  uploadScanProgress = 1.0;
+                }
               }
 
               _scheduleNotify();

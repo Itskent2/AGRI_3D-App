@@ -93,12 +93,6 @@ private:
     unsigned long _lastFlutterWarnLogMs;
     unsigned long currentPollIntervalMs() const;
 
-    const char* wifiStr(WifiState s);
-    const char* flutterStr(FlutterState s);
-    const char* nanoStr(NanoState s);
-    const char* grblStr(GrblState s);
-    const char* opStr(OperationState s);
-    const char* envStr(EnvironmentState s);
 };
 
 // Global singleton instance

@@ -49,14 +49,14 @@ void SystemState::broadcast() {
 
     StaticJsonDocument<384> doc;
     doc["evt"]         = "SYSTEM_STATE";
-    doc["wifi"]        = wifiStr(_wifi);
-    doc["flutter"]     = flutterStr(_flutter);
-    doc["nano"]        = nanoStr(_nano);
-    doc["grbl"]        = grblStr(_grbl);
-    doc["operation"]   = opStr(_operation);
-    doc["environment"] = envStr(_environment);
+    doc["wifi"]        = (int)_wifi;
+    doc["flutter"]     = (int)_flutter;
+    doc["nano"]        = (int)_nano;
+    doc["grbl"]        = (int)_grbl;
+    doc["operation"]   = (int)_operation;
+    doc["environment"] = (int)_environment;
     doc["streaming"]   = _isStreaming;
-    doc["camera"]      = isCameraAvailable() ? "FREE" : "LOCKED";
+    doc["camera"]      = isCameraAvailable() ? 1 : 0;
     doc["x"]           = serialized(String(_grblX, 2));
     doc["y"]           = serialized(String(_grblY, 2));
     doc["z"]           = serialized(String(_grblZ, 2));
@@ -267,72 +267,3 @@ bool isCameraAvailable() {
            sysState.getOperation() != OP_AI_WEEDING;
 }
 
-// ============================================================================
-// STRING CONVERTERS (Private Helpers)
-// ============================================================================
-
-const char* SystemState::wifiStr(WifiState s) {
-    switch (s) {
-        case WIFI_DISCONNECTED: return "DISCONNECTED";
-        case WIFI_CONNECTING:   return "CONNECTING";
-        case WIFI_CONNECTED:    return "CONNECTED";
-        default:                return "UNKNOWN";
-    }
-}
-
-const char* SystemState::flutterStr(FlutterState s) {
-    switch (s) {
-        case FLUTTER_DISCONNECTED: return "DISCONNECTED";
-        case FLUTTER_CONNECTED:    return "CONNECTED";
-        default:                   return "UNKNOWN";
-    }
-}
-
-const char* SystemState::nanoStr(NanoState s) {
-    switch (s) {
-        case NANO_UNKNOWN:       return "UNKNOWN";
-        case NANO_CONNECTED:     return "CONNECTED";
-        case NANO_UNRESPONSIVE:  return "UNRESPONSIVE";
-        default:                 return "UNKNOWN";
-    }
-}
-
-const char* SystemState::grblStr(GrblState s) {
-    switch (s) {
-        case GRBL_UNKNOWN: return "UNKNOWN";
-        case GRBL_IDLE:    return "IDLE";
-        case GRBL_RUN:     return "RUN";
-        case GRBL_JOG:     return "JOG";
-        case GRBL_HOME:    return "HOME";
-        case GRBL_HOLD:    return "HOLD";
-        case GRBL_ALARM:   return "ALARM";
-        case GRBL_CHECK:   return "CHECK";
-        case GRBL_DOOR:    return "DOOR";
-        default:           return "UNKNOWN";
-    }
-}
-
-const char* SystemState::opStr(OperationState s) {
-    switch (s) {
-        case OP_IDLE:           return "IDLE";
-        case OP_HOMING:         return "HOMING";
-        case OP_SD_RUNNING:     return "SD_RUNNING";
-        case OP_FERTILIZING:    return "FERTILIZING";
-        case OP_SCANNING:       return "SCANNING";
-        case OP_UPLOADING:      return "UPLOADING";
-        case OP_AI_WEEDING:     return "AI_WEEDING";
-        case OP_RAIN_PAUSED:    return "RAIN_PAUSED";
-        case OP_ALARM_RECOVERY: return "ALARM_RECOVERY";
-        default:                return "UNKNOWN";
-    }
-}
-
-const char* SystemState::envStr(EnvironmentState s) {
-    switch (s) {
-        case ENV_CLEAR:            return "CLEAR";
-        case ENV_RAIN_SENSOR:      return "RAIN_SENSOR";
-        case ENV_WEATHER_GATED:    return "WEATHER_GATED";
-        case ENV_RAIN_AND_WEATHER: return "RAIN_AND_WEATHER";
-        default:                   return "CLEAR";
-    }
-}
