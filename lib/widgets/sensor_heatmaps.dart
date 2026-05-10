@@ -529,9 +529,10 @@ class _HeatmapCardState extends State<_HeatmapCard> {
         const SizedBox(height: 3),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: widget.stops.where((s) => s.label.isNotEmpty).map((s) =>
-            Text(s.label, style: const TextStyle(color: Colors.white38, fontSize: 7, fontFamily: 'monospace'))
-          ).toList(),
+          children: widget.stops.map((s) {
+            final text = s.label.isNotEmpty ? '${s.label} (${s.value})' : s.value;
+            return Text(text, style: const TextStyle(color: Colors.white54, fontSize: 8, fontFamily: 'monospace', fontWeight: FontWeight.bold));
+          }).toList(),
         ),
       ]),
     );
