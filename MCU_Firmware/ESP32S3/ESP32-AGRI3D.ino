@@ -270,12 +270,14 @@ void loop() {
   bool currentRain = digitalRead(RAIN_PIN_DIGITAL); 
   if ((currentRain || isWeatherGated) && !rainDetected) {
     rainDetected = true; 
+    webSocket.broadcastTXT("RAIN:WET");
     if (currentState == STATE_STREAMING_SD) {
       NanoSerial.print("!"); // Feed Hold
       currentState = STATE_RAIN_PAUSED;
     }
   } else if (!currentRain && !isWeatherGated && rainDetected) {
     rainDetected = false;
+    webSocket.broadcastTXT("RAIN:DRY");
     // TODO: Add auto-resume logic here (~ command) if desired
   }
 
