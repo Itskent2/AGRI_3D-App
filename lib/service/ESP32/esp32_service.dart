@@ -27,9 +27,18 @@ class NpkLogEntry {
   };
 
   factory NpkLogEntry.fromJson(Map<String, dynamic> json) {
+    int parsedX = (json['mmX'] as num?)?.toInt() ?? (json['x'] as num).toInt();
+    int parsedY = (json['mmY'] as num?)?.toInt() ?? (json['y'] as num).toInt();
+    
+    // If we only got grid coordinates (0-4 for X, 0-2 for Y) from history, map them back to mm
+    if (parsedX <= 10 && parsedY <= 10 && !json.containsKey('mmX')) {
+      parsedX = parsedX * 250; // (1000 / (5 - 1))
+      parsedY = parsedY * 500; // (1000 / (3 - 1))
+    }
+
     return NpkLogEntry(
-      x: (json['x'] as num).toInt(),
-      y: (json['y'] as num).toInt(),
+      x: parsedX,
+      y: parsedY,
       ts: (json['ts'] as num).toInt(),
       n: (json['n'] as num).toDouble(),
       p: (json['p'] as num).toDouble(),
