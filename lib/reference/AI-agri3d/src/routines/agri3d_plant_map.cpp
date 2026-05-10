@@ -119,7 +119,25 @@
     // PUBLIC: SCAN_PLANT HANDLER (command entry point — runs on Core 1 via queue)
     // ============================================================================
 
-    void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
+    void checkExistingScan() {
+    File indexFile = SD_MMC.open(SCAN_INDEX_PATH, FILE_READ);
+    if (!indexFile) return;
+
+    int total = 0;
+    while (indexFile.available()) {
+        String line = indexFile.readStringUntil('\n');
+        line.trim();
+        if (line.length() > 2) total++;
+    }
+    indexFile.close();
+
+    if (total > 0) {
+        AgriLog(TAG_SCAN, LEVEL_INFO, "Found existing scan index on SD with %d frames.", total);
+        sysState.setScanReadyForUpload(true);
+    }
+}
+
+void handleScanPlant(uint8_t clientNum, const String& cmdBody) {
         // Format: "cols:rows:stepX:stepY:zHeight"
         int c1 = cmdBody.indexOf(':');
         int c2 = cmdBody.indexOf(':', c1 + 1);
@@ -219,8 +237,12 @@
 
                 int col = (row % 2 == 0) ? colStep : (cfg.cols - 1 - colStep);
 
-                float targetX = col * cfg.stepX;
-                float targetY = row * cfg.stepY;
+                // Apply camera offset: the camera is physically offset from
+                // the gantry centre along the Y axis. Move the gantry so the
+                // *camera lens* is over the grid cell, not the gantry head.
+                float camOffset = sysState.getCamOffset();
+                float targetX = col * cfg.stepX;          // X is not offset
+                float targetY = row * cfg.stepY + camOffset;
 
                 // Safety: clamp to measured workspace
                 if (machineDim.valid) {
@@ -229,13 +251,6 @@
                 }
 
                 frameIdx++;
-
-                // ── Abort if Flutter disconnected mid-scan ─────────────────
-                if (sysState.getFlutter() == FLUTTER_DISCONNECTED) {
-                    AgriLog(TAG_ROUTINE, LEVEL_WARN, "Client disconnected — aborting scan");
-                    aborted = true;
-                    break;
-                }
 
                 // ── Reset watchdog: Core 0 is free, this just timestamps ────
                 sysState.resetFlutterWatchdog();
@@ -251,6 +266,20 @@
                 }
 
                 // ── Capture frame ─────────────────────────────────────────────
+                // Allow vibrations to dampen after gantry stop.
+                vTaskDelay(pdMS_TO_TICKS(200));
+
+                // Drain ALL stale frames from the camera DMA ring buffer.
+                // The OV2640 captures continuously; at 15fps, a 5-second move
+                // produces ~75 frames but the ring buffer (fb_count=2) only
+                // holds the 2 most recent. Both slots are stale (shot while
+                // moving). Drain them so the next get() returns a fresh frame.
+                for (int _drain = 0; _drain < 2; _drain++) {
+                    camera_fb_t* stale = esp_camera_fb_get();
+                    if (stale) esp_camera_fb_return(stale);
+                }
+                vTaskDelay(pdMS_TO_TICKS(80)); // let sensor expose one clean frame
+
                 camera_fb_t* fb = esp_camera_fb_get();
                 if (!fb) {
                     AgriLog(TAG_CAM, LEVEL_WARN, "Camera FB fail at frame %d — skipping", frameIdx);
@@ -298,6 +327,7 @@
 
         // ── Restore state ─────────────────────────────────────────────────────
         sysState.setOperation(OP_IDLE);
+        sysState.setScanReadyForUpload(true); // Flag that SD has an index ready for upload
         if (streamWasActive) sysState.setStreaming(true);
         broadcastScanComplete(clientNum, frameIdx, aborted);
 
@@ -358,6 +388,9 @@
         }
 
         sysState.setOperation(OP_UPLOADING);
+        // NOTE: do NOT clear scan_ready here. It stays true so that if the
+        // connection drops mid-upload, Flutter can see the Upload button again
+        // and resume from the beginning on reconnect.
 
         // ── Announce upload start ─────────────────────────────────────────────
         {
@@ -442,8 +475,10 @@
             // ── Reset watchdog AFTER send so heartbeat stays alive ────────────
             sysState.resetFlutterWatchdog();
 
-            // ── Small yield so Core 0 can process any incoming messages ───────
-            vTaskDelay(pdMS_TO_TICKS(20));
+            // ── Flow-control yield: give Core-0 time to TX the binary frame ───
+            // 50ms base + 1ms per 4KB keeps large frames from overlapping.
+            uint32_t yieldMs = 50 + (fileSize / 4096);
+            vTaskDelay(pdMS_TO_TICKS(yieldMs));
 
             AgriLog(TAG_SCAN, LEVEL_INFO, "Uploaded frame %d/%d (%.1f,%.1f) %u B",
                         idx, total, x, y, (unsigned)fileSize);
@@ -454,6 +489,12 @@
         // ── Restore state ─────────────────────────────────────────────────────
         sysState.setOperation(OP_IDLE);
 
+        if (!aborted) {
+            // Only mark scan data as consumed when ALL frames were delivered.
+            sysState.setScanReadyForUpload(false);
+        }
+        // If aborted (disconnect), scan_ready stays true so Flutter can retry.
+
         StaticJsonDocument<96> done;
         done["evt"]     = "UPLOAD_SCAN_COMPLETE";
         done["sent"]    = sent;
@@ -463,7 +504,9 @@
         webSocket.sendTXT(clientNum, doneOut);
 
         AgriLog(TAG_SCAN, LEVEL_SUCCESS,
-                "Upload complete: %d/%d frames sent to Flutter.", sent, total);
+                "Upload %s: %d/%d frames sent.",
+                aborted ? "INTERRUPTED (scan_ready kept — can retry)" : "complete",
+                sent, total);
     }
 
     // =============================================================================

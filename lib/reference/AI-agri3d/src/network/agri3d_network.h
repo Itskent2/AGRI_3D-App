@@ -22,6 +22,7 @@ extern WebSocketsServer webSocket;
 
 /** The currently-connected singleton client number (-1 = none). */
 extern int8_t activeClientNum;
+extern TaskHandle_t networkTaskHandle;
 
 /**
  * @brief Try to connect to each known WiFi network in order.
@@ -29,12 +30,6 @@ extern int8_t activeClientNum;
  *        Called once from setup().
  */
 void networkInit();
-
-/**
- * @brief Must be called from loop() — handles UDP discovery beacon.
- *        WebSocket::loop() is called here too, keeping WS logic in one place.
- */
-void networkLoop();
 
 /** Broadcast the UDP discovery beacon (called internally by networkLoop). */
 void sendDiscoveryBeacon();
@@ -47,3 +42,9 @@ void stopAPMode();
 
 /** @return true while the ESP32 is running as an AP (hotspot). */
 bool isAPMode();
+
+/**
+ * @brief Drain log messages queued by Core-1 tasks and broadcast them.
+ *        MUST be called only from Core 0 (the network loop task).
+ */
+void drainLogQueue();

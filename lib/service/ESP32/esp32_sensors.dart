@@ -7,6 +7,11 @@ class ESP32Sensors extends ChangeNotifier {
   double temperature = 0.0;
   double humidity = 0.0;
   double soilMoisture = 0.0;
+  
+  // NPK Sensors
+  double nitrogen = 0.0;
+  double phosphorus = 0.0;
+  double potassium = 0.0;
 
   // Telemetry sensors
   int gatingFeatureGF = 1; // 1 = Safe, 0 = Gated
@@ -28,6 +33,17 @@ class ESP32Sensors extends ChangeNotifier {
     }
     if (jsonData.containsKey('moisture')) {
       soilMoisture = (jsonData['moisture'] as num).toDouble();
+    }
+    
+    // NPK parsing
+    if (jsonData.containsKey('n')) {
+      nitrogen = (jsonData['n'] as num).toDouble();
+    }
+    if (jsonData.containsKey('p')) {
+      phosphorus = (jsonData['p'] as num).toDouble();
+    }
+    if (jsonData.containsKey('k')) {
+      potassium = (jsonData['k'] as num).toDouble();
     }
 
     // Telemetry parsing

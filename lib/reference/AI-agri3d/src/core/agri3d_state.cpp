@@ -8,6 +8,7 @@
 #include "agri3d_logger.h"
 #include "agri3d_routine.h"
 #include <ArduinoJson.h>
+#include <Preferences.h>
 
 // Global instance
 SystemState sysState;
@@ -21,15 +22,23 @@ SystemState::SystemState()
       _environment(ENV_CLEAR),
       _isStreaming(false),
       _streamTaskBusy(false),
+      _scanReadyForUpload(false),
+      _camOffset(DEFAULT_CAM_OFFSET_MM),
       _grblX(0.0f),
       _grblY(0.0f),
       _fpm(STREAM_FPM_DEFAULT),
       _resolution(FRAMESIZE_QQVGA),
-      _lastNanoHeartbeatMs(millis()),
-      _lastFlutterHeartbeatMs(millis()),
-      _lastFlutterActivityMs(millis()),
+      _lastNanoHeartbeatMs(0),
+      _lastFlutterHeartbeatMs(0),
+      _lastFlutterActivityMs(0),
       _lastFlutterWarnLogMs(0)
-{}
+{
+    // Restore persisted camera offset from NVS (if saved by a previous session)
+    Preferences prefs;
+    prefs.begin("agri3d_cfg", true); // read-only
+    _camOffset = prefs.getFloat("cam_offset", DEFAULT_CAM_OFFSET_MM);
+    prefs.end();
+}
 
 // ============================================================================
 // BROADCAST
@@ -55,6 +64,8 @@ void SystemState::broadcast() {
     doc["res"]         = (int)_resolution;
     doc["w_rate"]      = getWaterFlowRate();
     doc["f_rate"]      = getFertFlowRate();
+    doc["scan_ready"]  = _scanReadyForUpload;
+    doc["cam_offset"]  = _camOffset;
 
     String out;
     serializeJson(doc, out);
@@ -203,6 +214,28 @@ void SystemState::setPosition(float x, float y, float z) {
     _grblX = x;
     _grblY = y;
     _grblZ = z;
+}
+
+void SystemState::setScanReadyForUpload(bool ready) {
+    if (_scanReadyForUpload == ready) return;
+    _scanReadyForUpload = ready;
+    broadcast();
+}
+
+float SystemState::getCamOffset() const {
+    return _camOffset;
+}
+
+void SystemState::setCamOffset(float v) {
+    if (_camOffset == v) return;
+    _camOffset = v;
+    // Persist to NVS so offset survives reboot
+    Preferences prefs;
+    prefs.begin("agri3d_cfg", false);
+    prefs.putFloat("cam_offset", v);
+    prefs.end();
+    broadcast();
+    AgriLog(TAG_STATE, LEVEL_INFO, "Camera offset set to %.1f mm", v);
 }
 
 unsigned long SystemState::currentPollIntervalMs() const {

@@ -1,5 +1,6 @@
 #include "agri3d_sensors.h"
 #include "agri3d_config.h"
+#include "agri3d_npk.h"
 #include "../core/agri3d_logger.h"
 
 // Pin definition (adjust in agri3d_config.h later)
@@ -12,7 +13,9 @@ void sensorsInit() {
     pinMode(RAIN_PIN, INPUT_PULLUP);
     AgriLog(TAG_SENSORS, LEVEL_INFO, "Rain sensor initialized.");
 #endif
-    AgriLog(TAG_SENSORS, LEVEL_INFO, "NPK hooks initialized.");
+    
+    npkInit();
+    AgriLog(TAG_SENSORS, LEVEL_INFO, "NPK sensors initialized.");
 }
 
 bool isRaining() {

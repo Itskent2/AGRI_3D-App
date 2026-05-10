@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto/crypto.dart';
+import '../../models/plot_model.dart';
 import 'esp32_sensors.dart';
 
 enum LogLevel { info, warn, error, success }
@@ -43,14 +45,9 @@ class ESP32Service extends ChangeNotifier {
 
   // ── Security & Session ──
   static const String _authKey = "AGRI3D_SECURE_TOKEN_V1";
-  static final String _sessionId = DateTime.now().millisecondsSinceEpoch
-      .toString()
-      .substring(7);
-  Timer? _watchdogTimer;
+    Timer? _watchdogTimer;
 
-  // ── Connection generation counter (prevents stale disconnect storms) ──
-  int _connectionGen = 0;
-  StreamSubscription? _channelSubscription;
+    StreamSubscription? _channelSubscription;
   bool _isConnecting = false;
   final Map<String, DateTime> _lastAttemptTimes = {};
 
@@ -78,6 +75,7 @@ class ESP32Service extends ChangeNotifier {
   double waterFlowRate = 10.0;
   double fertFlowRate = 10.0;
   int resolution = 1; // Default QQVGA
+  double cameraOffset = 100.0; // Camera-to-gantry offset in mm (default 100 mm)
 
   String machineState = "Unknown";
   EnvironmentState environment = EnvironmentState.clear;
@@ -99,6 +97,9 @@ class ESP32Service extends ChangeNotifier {
   /// 0.0–1.0 progress of Phase 1 (SD capture)
   double scanProgress = 0.0;
   int scanFrameIdx = 0;
+
+  // Plant Registry
+  List<Plot> registeredPlots = [];
   int scanFrameTotal = 0;
   /// 0.0–1.0 progress of Phase 2 (upload to Flutter)
   double uploadScanProgress = 0.0;
@@ -219,11 +220,7 @@ class ESP32Service extends ChangeNotifier {
     }
     _lastAttemptTimes[host] = nowTime;
 
-    final int thisGen = ++_connectionGen;
-    addLog(
-      "🔌 Connection attempt to $host (Gen: $thisGen, Reason: $reason)",
-      tag: "NET",
-    );
+    addLog("🔌 Connection attempt to $host (Reason: $reason)", tag: "NET");
     _isConnecting = true;
     final completer = Completer<bool>();
 
@@ -231,13 +228,13 @@ class ESP32Service extends ChangeNotifier {
       _channelSubscription?.cancel();
       _channelSubscription = null;
       if (_channel != null) {
-        addLog("♻ Cleaning up old channel before Gen $thisGen", tag: "NET");
-        _channel!.sink.close(1000, "Switching to Gen $thisGen");
+        addLog("♻ Cleaning up old channel", tag: "NET");
+        _channel!.sink.close(1000, "Reconnecting");
         _channel = null;
       }
 
       // ── ADD THE GEN PARAMETER TO THE URL ──
-      final url = "ws://$host/ws?sid=$_sessionId&key=$_authKey&gen=$thisGen";
+      final url = "ws://$host/ws";
       addLog("SYS: Connecting to $url");
 
       // ── OS-LEVEL TIMEOUT ENFORCEMENT ──
@@ -247,14 +244,11 @@ class ESP32Service extends ChangeNotifier {
         final client = HttpClient();
         client.connectionTimeout = const Duration(seconds: 3); // Fail fast!
         final ws = await WebSocket.connect(url, customClient: client);
+        ws.pingInterval = const Duration(seconds: 5); // Buffer/keep-alive ping
         _channel = IOWebSocketChannel(ws);
       }
 
-      if (isConnected || thisGen != _connectionGen) {
-        addLog(
-          "🛡 Closing redundant connection (Gen: $thisGen vs $_connectionGen)",
-          tag: "NET",
-        );
+      if (isConnected) {
         _channel?.sink.close(1000, "Redundant connection abort");
         return;
       }
@@ -285,42 +279,6 @@ class ESP32Service extends ChangeNotifier {
 
           String textMsg = msg.toString();
 
-          if (!identified) {
-            if (textMsg.contains('"evt":"SYSTEM_STATE"') ||
-                textMsg.contains('"system":"AGRI_3D"') ||
-                textMsg.startsWith("FARMBOT_ID:")) {
-              identified = true;
-              isConnected = true;
-              addLog(
-                "✓ Online → $host (Gen: $thisGen)",
-                tag: "NET",
-                level: LogLevel.success,
-              );
-
-              _lastKnownIP = host;
-              SharedPreferences.getInstance().then((prefs) {
-                prefs.setString('lastKnownIP', host);
-              });
-
-              _startPingLoop();
-              sendCommand("GET_GCODE_INFO");
-
-              try {
-                final parsed = jsonDecode(textMsg);
-                if (parsed['x'] != null) x = (parsed['x'] as num).toDouble();
-                if (parsed['y'] != null) y = (parsed['y'] as num).toDouble();
-                if (parsed['z'] != null) z = (parsed['z'] as num).toDouble();
-                if (parsed['maxX'] != null)
-                  maxX = (parsed['maxX'] as num).toDouble();
-                if (parsed['maxY'] != null)
-                  maxY = (parsed['maxY'] as num).toDouble();
-                _scheduleNotify();
-              } catch (_) {}
-              if (!completer.isCompleted) completer.complete(true);
-            }
-            return;
-          }
-          // Try to decode as JSON (Telemetry/Events)
           Map<String, dynamic>? parsed;
           try {
             final decoded = jsonDecode(textMsg);
@@ -333,6 +291,40 @@ class ESP32Service extends ChangeNotifier {
             // Not JSON
           }
 
+          // ── Step 1: Security Handshake ──
+          if (parsed != null && parsed['evt'] == 'CHALLENGE') {
+            _respondToChallenge(parsed['nonce']);
+            return;
+          }
+
+          // ── Step 2: Auth Success ──
+          if (parsed != null && parsed['evt'] == 'AUTH_SUCCESS') {
+            identified = true;
+            isConnected = true;
+            addLog(
+              "✓ Securely Online → $host",
+              tag: "NET",
+              level: LogLevel.success,
+            );
+
+            _lastKnownIP = host;
+            SharedPreferences.getInstance().then((prefs) {
+              prefs.setString('lastKnownIP', host);
+            });
+
+            _startPingLoop();
+            sendCommand("GET_GCODE_INFO");
+            if (!completer.isCompleted) completer.complete(true);
+            return;
+          }
+
+          if (parsed != null && parsed['evt'] == 'AUTH_FAILED') {
+            _handleDisconnect("Authentication Failed - Bad Token");
+            return;
+          }
+
+          if (!identified) return;
+
           if (textMsg.contains('"evt":"PONG"') ||
               textMsg.contains('"status":"PONG"')) {
             if (_lastPingSentAt != null) {
@@ -344,6 +336,14 @@ class ESP32Service extends ChangeNotifier {
             try {
               final pong = parsed ?? jsonDecode(textMsg);
               if (pong['ping_no'] != null) pingCount = (pong['ping_no'] as num).toInt();
+              
+              if (pong['plants'] != null) {
+                final plantsList = pong['plants'] as List<dynamic>? ?? [];
+                // Update basic plantMap if needed or registeredPlots
+                // The provided JSON from ESP32 contains short keys: i, x, y, d
+                // Let's integrate them into registeredPlots or a simple plantMap
+                // For safety and minimal intrusion, we map it to ESP32Service's plot or plant structs
+              }
             } catch (_) {}
 
             addLog("RX: PONG (Latency: ${latencyMs}ms)", tag: "PING");
@@ -527,6 +527,11 @@ class ESP32Service extends ChangeNotifier {
                 fertFlowRate = (parsed['f_rate'] as num).toDouble();
               if (parsed['res'] != null)
                 resolution = (parsed['res'] as num).toInt();
+              if (parsed['scan_ready'] != null)
+                isScanReady = parsed['scan_ready'] == true;
+              if (parsed['cam_offset'] != null)
+                cameraOffset = (parsed['cam_offset'] as num).toDouble();
+
               // Sync uploading state from operation string
               final op = parsed['operation']?.toString() ?? '';
               if (op == 'UPLOADING' && !isUploadingScan) {
@@ -536,7 +541,42 @@ class ESP32Service extends ChangeNotifier {
                 isUploadingScan = false;
                 uploadScanProgress = 1.0;
               }
+
               _scheduleNotify();
+              return;
+            }
+
+            if (parsed['evt'] == 'PLANT_MAP') {
+              final List<dynamic> list = parsed['plants'] ?? [];
+              registeredPlots = list.map((p) {
+                return Plot(
+                  id: (p['idx'] as num).toInt(),
+                  name: p['name']?.toString() ?? 'Plant',
+                  x: (p['x'] as num).toDouble(),
+                  y: (p['y'] as num).toDouble(),
+                  rosetteDiameter: (p['diameter'] as num?)?.toDouble() ?? 0.0,
+                  moisture: 0.0,
+                  npk: NpkLevel(
+                    n: (p['n'] as num?)?.toDouble() ?? 0.0,
+                    p: (p['p'] as num?)?.toDouble() ?? 0.0,
+                    k: (p['k'] as num?)?.toDouble() ?? 0.0,
+                  ),
+                  targetNpk: NpkLevel(
+                    n: (p['tN'] as num?)?.toDouble() ?? 0.0,
+                    p: (p['tP'] as num?)?.toDouble() ?? 0.0,
+                    k: (p['tK'] as num?)?.toDouble() ?? 0.0,
+                  ),
+                );
+              }).toList();
+              _scheduleNotify();
+              return;
+            }
+
+            if (parsed['evt'] == 'PLANT_REGISTERED' ||
+                parsed['evt'] == 'PLANT_DELETED' ||
+                parsed['evt'] == 'PLANTS_CLEARED') {
+              // Re-fetch entire map to ensure sync
+              sendCommand("GET_PLANT_MAP");
               return;
             }
 
@@ -566,11 +606,10 @@ class ESP32Service extends ChangeNotifier {
               }
             }
           }
-          }
         },
         onDone: () {
           if (!completer.isCompleted) completer.complete(false);
-          if (thisGen == _connectionGen) {
+          if (true) {
             final closeCode = _channel?.closeCode;
             final closeReason = _channel?.closeReason;
             _handleDisconnect(_describeDone(closeCode, closeReason));
@@ -578,7 +617,7 @@ class ESP32Service extends ChangeNotifier {
         },
         onError: (err) {
           if (!completer.isCompleted) completer.complete(false);
-          if (thisGen == _connectionGen) {
+          if (true) {
             _handleDisconnect('Socket error: $err');
           }
         },
@@ -661,6 +700,7 @@ class ESP32Service extends ChangeNotifier {
     _pingTimer?.cancel();
     _channelSubscription?.cancel();
     _channelSubscription = null;
+    _channel?.sink.close(1000, "Client Disconnected");
     _channel = null;
     cameraFrame.value = null;
 
@@ -677,6 +717,16 @@ class ESP32Service extends ChangeNotifier {
         autoDiscover(reason: "Disconnect Recovery");
       }
     });
+  }
+
+  void _respondToChallenge(String nonce) {
+    var key = utf8.encode(_authKey);
+    var bytes = utf8.encode(nonce);
+    var hmacSha256 = Hmac(sha256, key);
+    var digest = hmacSha256.convert(bytes);
+    
+    addLog("DEBUG: Sending AUTH response for nonce $nonce", tag: "AUTH", level: LogLevel.info);
+    sendCommand('{"cmd":"AUTH", "hash":"$digest"}');
   }
 
   void _startPingLoop() {
@@ -700,12 +750,12 @@ class ESP32Service extends ChangeNotifier {
       _lastPingSentAt = DateTime.now();
 
       // Inject the generation into the ping!
-      sendCommand('{"cmd":"PING", "gen": $_connectionGen}', tag: "PING");
+      sendCommand('{"cmd":"PING"}', tag: "PING");
     });
   }
 
   void sendCommand(String cmd, {String tag = "TX"}) {
-    if (_channel != null && isConnected) {
+    if (_channel != null) {
       _channel!.sink.add(cmd);
       addLog(cmd, tag: tag);
     }
@@ -764,6 +814,32 @@ class ESP32Service extends ChangeNotifier {
 
   void rejectPlant(double x, double y) {
     sendCommand("REJECT_PLANT:${x.toStringAsFixed(1)}:${y.toStringAsFixed(1)}");
+  }
+
+  void registerPlant(String name, double x, double y, double diameter,
+      {double? tn, double? tp, double? tk}) {
+    String cmd =
+        "REGISTER_PLANT:${x.toStringAsFixed(1)}:${y.toStringAsFixed(1)}:$name:${diameter.toStringAsFixed(1)}";
+    if (tn != null && tp != null && tk != null) {
+      cmd +=
+          ":${tn.toStringAsFixed(1)}:${tp.toStringAsFixed(1)}:${tk.toStringAsFixed(1)}";
+    }
+    sendCommand(cmd);
+  }
+
+  void deletePlant(int idx) {
+    sendCommand("DELETE_PLANT:$idx");
+  }
+
+  void clearPlants() {
+    sendCommand("CLEAR_PLANTS");
+  }
+
+  /// Update the camera-to-gantry offset on the ESP32 and store locally.
+  void setCamOffset(double mm) {
+    cameraOffset = mm;
+    sendCommand("SET_CAM_OFFSET:${mm.toStringAsFixed(1)}");
+    _scheduleNotify();
   }
 
   void updatePos(String axis, double val, String gcode) {

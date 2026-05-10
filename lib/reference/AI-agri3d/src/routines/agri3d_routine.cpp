@@ -13,6 +13,7 @@
 
 #include "agri3d_routine.h"
 #include "../core/AI_Agri3D.h"
+#include "agri3d_plant_map.h"
 #include "xgboost_model.h"
 #include <Preferences.h>
 #include <ArduinoJson.h>
@@ -46,11 +47,12 @@ void savePlantRegistry() {
     for (int i = 0; i < MAX_PLANTS; i++) {
         if (!plantRegistry[i].active) continue;
         char key[8]; snprintf(key, sizeof(key), "p%02d", i);
-        // Store as "x,y,name,N,P,K"
-        char val[80];
-        snprintf(val, sizeof(val), "%.1f,%.1f,%s,%.1f,%.1f,%.1f",
+        // Store as "x,y,name,diameter,N,P,K"
+        char val[96];
+        snprintf(val, sizeof(val), "%.1f,%.1f,%s,%.1f,%.1f,%.1f,%.1f",
                  plantRegistry[i].x, plantRegistry[i].y,
                  plantRegistry[i].name,
+                 plantRegistry[i].diameter,
                  plantRegistry[i].targetN, plantRegistry[i].targetP,
                  plantRegistry[i].targetK);
         _prefs.putString(key, val);
@@ -66,22 +68,26 @@ static void loadPlantRegistry() {
         String val = _prefs.getString(key, "");
         if (val.length() == 0) { plantRegistry[i].active = false; continue; }
 
-        // Parse "x,y,name,N,P,K"
+        // Parse "x,y,name,diameter,N,P,K"
         int c1 = val.indexOf(',');
-        int c2 = val.indexOf(',', c1+1);
-        int c3 = val.indexOf(',', c2+1);
-        int c4 = val.indexOf(',', c3+1);
-        int c5 = val.indexOf(',', c4+1);
+        int c2 = val.indexOf(',');
+        if (c1 >= 0) c2 = val.indexOf(',', c1+1);
+        int c3 = -1, c4 = -1, c5 = -1, c6 = -1;
+        if (c2 >= 0) c3 = val.indexOf(',', c2+1);
+        if (c3 >= 0) c4 = val.indexOf(',', c3+1);
+        if (c4 >= 0) c5 = val.indexOf(',', c4+1);
+        if (c5 >= 0) c6 = val.indexOf(',', c5+1);
 
-        if (c5 < 0) { plantRegistry[i].active = false; continue; }
+        if (c3 < 0) { plantRegistry[i].active = false; continue; }
 
-        plantRegistry[i].x       = val.substring(0, c1).toFloat();
-        plantRegistry[i].y       = val.substring(c1+1, c2).toFloat();
+        plantRegistry[i].x        = val.substring(0, c1).toFloat();
+        plantRegistry[i].y        = val.substring(c1+1, c2).toFloat();
         val.substring(c2+1, c3).toCharArray(plantRegistry[i].name, 24);
-        plantRegistry[i].targetN = val.substring(c3+1, c4).toFloat();
-        plantRegistry[i].targetP = val.substring(c4+1, c5).toFloat();
-        plantRegistry[i].targetK = val.substring(c5+1).toFloat();
-        plantRegistry[i].active  = true;
+        plantRegistry[i].diameter = (c4 >= 0) ? val.substring(c3+1, c4).toFloat() : 0.0f;
+        plantRegistry[i].targetN  = (c5 >= 0) ? val.substring(c4+1, c5).toFloat() : 0.0f;
+        plantRegistry[i].targetP  = (c6 >= 0) ? val.substring(c5+1, c6).toFloat() : 0.0f;
+        plantRegistry[i].targetK  = (c6 >= 0) ? val.substring(c6+1).toFloat() : 0.0f;
+        plantRegistry[i].active   = true;
     }
     _prefs.end();
     AgriLog(TAG_ROUTINE, LEVEL_INFO, "Loaded %d plants from NVS.", plantCount);
@@ -96,7 +102,11 @@ bool isKnownPlantPosition(float x, float y, float toleranceMm) {
         if (!plantRegistry[i].active) continue;
         float dx = plantRegistry[i].x - x;
         float dy = plantRegistry[i].y - y;
-        if (sqrtf(dx*dx + dy*dy) <= toleranceMm) return true;
+        float dist = sqrtf(dx*dx + dy*dy);
+        
+        // Use rosette diameter if available, otherwise fallback to tolerance
+        float radius = (plantRegistry[i].diameter > 0) ? (plantRegistry[i].diameter / 2.0f) : toleranceMm;
+        if (dist <= radius) return true;
     }
     return false;
 }
@@ -108,13 +118,14 @@ void broadcastPlantMap(uint8_t clientNum) {
     for (int i = 0; i < MAX_PLANTS; i++) {
         if (!plantRegistry[i].active) continue;
         JsonObject p = plants.createNestedObject();
-        p["idx"]  = i;
-        p["x"]    = plantRegistry[i].x;
-        p["y"]    = plantRegistry[i].y;
-        p["name"] = plantRegistry[i].name;
-        p["tN"]   = plantRegistry[i].targetN;
-        p["tP"]   = plantRegistry[i].targetP;
-        p["tK"]   = plantRegistry[i].targetK;
+        p["idx"]      = i;
+        p["x"]        = plantRegistry[i].x;
+        p["y"]        = plantRegistry[i].y;
+        p["name"]     = plantRegistry[i].name;
+        p["diameter"] = plantRegistry[i].diameter;
+        p["tN"]       = plantRegistry[i].targetN;
+        p["tP"]       = plantRegistry[i].targetP;
+        p["tK"]       = plantRegistry[i].targetK;
     }
     String out; serializeJson(doc, out);
     webSocket.sendTXT(clientNum, out);
@@ -473,6 +484,26 @@ void handleScanFull(uint8_t clientNum, const String& params) {
     float stepX   = params.substring(c2+1, c3).toFloat();
     float stepY   = params.substring(c3+1, c4).toFloat();
     float zH      = params.substring(c4+1).toFloat();
+
+    AgriLog(TAG_ROUTINE, LEVEL_INFO, "Enqueuing %dx%d SCAN_FULL to Brain Core", cols, rows);
+
+    globalScanParams.clientNum = clientNum;
+    globalScanParams.cols = cols;
+    globalScanParams.rows = rows;
+    globalScanParams.stepX = stepX;
+    globalScanParams.stepY = stepY;
+    globalScanParams.zHeight = zH;
+
+    startRoutine(6); // ROUTINE_SCAN_FULL
+}
+
+void executeScanFull(const ScanParams& cfg) {
+    int   cols    = cfg.cols;
+    int   rows    = cfg.rows;
+    float stepX   = cfg.stepX;
+    float stepY   = cfg.stepY;
+    float zH      = cfg.zHeight;
+    uint8_t clientNum = cfg.clientNum;
     int   total   = cols * rows;
 
     sysState.setStreaming(false);
@@ -491,7 +522,6 @@ void handleScanFull(uint8_t clientNum, const String& params) {
     int frameIdx = 0;
     for (int row = 0; row < rows; row++) {
         for (int colStep = 0; colStep < cols; colStep++) {
-            if (sysState.getFlutter() == FLUTTER_DISCONNECTED) goto done;
             int col = (row % 2 == 0) ? colStep : (cols - 1 - colStep);
             float tx = min(col * stepX, machineDim.maxX);
             float ty = min(row * stepY, machineDim.maxY);
@@ -511,6 +541,7 @@ done:
     NanoSerial.printf("G0 X0 Y0 F%d\n", GRBL_DEFAULT_FEEDRATE);
     waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
     sysState.setOperation(OP_IDLE);
+    sysState.setScanReadyForUpload(true); // Flag that SD has an index ready for upload
     sysState.setStreaming(true);
 
     StaticJsonDocument<64> done_doc;
@@ -525,32 +556,37 @@ done:
 // ============================================================================
 
 void handleRegisterPlant(uint8_t clientNum, const String& params) {
-    // Format: "x:y:name" or "x:y:name:N:P:K"
+    // Format: "x:y:name:diameter" or "x:y:name:diameter:N:P:K"
     int c1 = params.indexOf(':');
     int c2 = params.indexOf(':', c1+1);
-    if (c1 < 0 || c2 < 0) {
+    int c3 = params.indexOf(':', c2+1);
+    if (c1 < 0 || c2 < 0 || c3 < 0) {
         webSocket.sendTXT(clientNum,
-            "{\"evt\":\"PLANT_ERROR\",\"reason\":\"Bad format\"}");
+            "{\"evt\":\"PLANT_ERROR\",\"reason\":\"Bad format. Need x:y:name:diameter\"}");
         return;
     }
 
     float x = params.substring(0, c1).toFloat();
     float y = params.substring(c1+1, c2).toFloat();
-
-    // Optional NPK targets
-    int c3 = params.indexOf(':', c2+1);
+    String name = params.substring(c2+1, c3);
+    
+    // Optional diameter and NPK targets
     int c4 = params.indexOf(':', c3+1);
     int c5 = (c4 >= 0) ? params.indexOf(':', c4+1) : -1;
+    int c6 = (c5 >= 0) ? params.indexOf(':', c5+1) : -1;
 
-    String name = (c3 >= 0) ? params.substring(c2+1, c3) : params.substring(c2+1);
-    float tN = (c4 >= 0) ? params.substring(c3+1, c4).toFloat() : 0;
-    float tP = (c5 >= 0) ? params.substring(c4+1, c5).toFloat() : 0;
-    float tK = (c5 >= 0) ? params.substring(c5+1).toFloat() : 0;
+    float diameter = (c4 >= 0) ? params.substring(c3+1, c4).toFloat() : params.substring(c3+1).toFloat();
+    float tN = (c5 >= 0) ? params.substring(c4+1, c5).toFloat() : 0;
+    float tP = (c6 >= 0) ? params.substring(c5+1, c6).toFloat() : 0;
+    float tK = (c6 >= 0) ? params.substring(c6+1).toFloat() : 0;
 
     // Find empty slot or update existing
     int slot = -1;
     for (int i = 0; i < MAX_PLANTS; i++) {
-        if (!plantRegistry[i].active) { slot = i; break; }
+        if (!plantRegistry[i].active) { 
+            if (slot == -1) slot = i; 
+            continue; 
+        }
         // If same position within 10mm, update it
         if (fabsf(plantRegistry[i].x - x) < 10 &&
             fabsf(plantRegistry[i].y - y) < 10) {
@@ -564,28 +600,53 @@ void handleRegisterPlant(uint8_t clientNum, const String& params) {
         return;
     }
 
-    plantRegistry[slot].x       = x;
-    plantRegistry[slot].y       = y;
-    plantRegistry[slot].targetN = tN;
-    plantRegistry[slot].targetP = tP;
-    plantRegistry[slot].targetK = tK;
-    plantRegistry[slot].active  = true;
+    plantRegistry[slot].x        = x;
+    plantRegistry[slot].y        = y;
+    plantRegistry[slot].diameter = diameter;
+    plantRegistry[slot].targetN  = tN;
+    plantRegistry[slot].targetP  = tP;
+    plantRegistry[slot].targetK  = tK;
+    plantRegistry[slot].active   = true;
     name.toCharArray(plantRegistry[slot].name, 24);
+    
     plantCount = 0;
     for (int i = 0; i < MAX_PLANTS; i++) if (plantRegistry[i].active) plantCount++;
 
     savePlantRegistry();
 
-    StaticJsonDocument<128> doc;
-    doc["evt"]  = "PLANT_REGISTERED";
-    doc["slot"] = slot;
-    doc["name"] = plantRegistry[slot].name;
-    doc["x"]    = x;
-    doc["y"]    = y;
+    StaticJsonDocument<160> doc;
+    doc["evt"]      = "PLANT_REGISTERED";
+    doc["slot"]     = slot;
+    doc["name"]     = plantRegistry[slot].name;
+    doc["x"]        = x;
+    doc["y"]        = y;
+    doc["diameter"] = diameter;
     String out; serializeJson(doc, out);
     webSocket.sendTXT(clientNum, out);
-    AgriLog(TAG_ROUTINE, LEVEL_SUCCESS, "Plant registered: %s (%.1f, %.1f)",
-                  plantRegistry[slot].name, x, y);
+    
+    // Broadcast updated map to everyone
+    broadcastPlantMap(clientNum);
+    
+    AgriLog(TAG_ROUTINE, LEVEL_SUCCESS, "Plant registered: %s (%.1f, %.1f) D=%.1f",
+                  plantRegistry[slot].name, x, y, diameter);
+}
+
+void handleDeletePlant(uint8_t clientNum, const String& params) {
+    int idx = params.toInt();
+    if (idx < 0 || idx >= MAX_PLANTS) {
+        webSocket.sendTXT(clientNum, "{\"evt\":\"PLANT_ERROR\",\"reason\":\"Invalid index\"}");
+        return;
+    }
+
+    if (plantRegistry[idx].active) {
+        plantRegistry[idx].active = false;
+        plantCount--;
+        savePlantRegistry();
+        
+        webSocket.sendTXT(clientNum, "{\"evt\":\"PLANT_DELETED\",\"idx\":" + String(idx) + "}");
+        broadcastPlantMap(clientNum);
+        AgriLog(TAG_ROUTINE, LEVEL_SUCCESS, "Plant #%d deleted.", idx);
+    }
 }
 
 void handleClearPlants(uint8_t clientNum) {
@@ -829,6 +890,7 @@ static uint32_t     _pendingRoutine = 0; // Bitmask of routines to run
 
 void routineInit() {
     loadPlantRegistry();
+    checkExistingScan();
     
     _prefs.begin(NVS_ROUTINE_NS, true);
     _waterFlowRate = _prefs.getFloat("w_rate", 24.0f);
@@ -867,16 +929,18 @@ void routineWorkerTask(void* pvParameters) {
 
             // 2. Execute Routine
             if (routineType == 1) { // Farming Cycle
-                RoutineConfig dummyCfg; // Need to populate this or make handleFarmingCycle more flexible
+                RoutineConfig dummyCfg;
                 handleFarmingCycle(activeClientNum, dummyCfg);
-            } else if (routineType == 2) { // Full Grid Scan
-                // handleFullGridScan(); // To be refactored
+            } else if (routineType == 2) { // Full Grid Scan (placeholder)
+                // handleFullGridScan();
             } else if (routineType == 3) { // Scan Plant Bed — Phase 1: SD save
                 executeScanPlant(globalScanParams);
             } else if (routineType == 4) { // Auto Detect Plants
                 executeAutoDetectPlants(globalScanParams);
             } else if (routineType == 5) { // Scan Upload — Phase 2: SD → Flutter
                 executeScanUpload(globalScanParams.clientNum);
+            } else if (routineType == 6) { // Scan Full (NPK + Photo)
+                executeScanFull(globalScanParams);
             }
             
             sysState.setOperation(OP_IDLE);
@@ -919,11 +983,12 @@ void handleWater(uint8_t clientNum, float x, float y, float ml, float ox, float 
     char moveCmd[48];
     snprintf(moveCmd, sizeof(moveCmd), "G0 X%.1f Y%.1f F%d", tx, ty, GRBL_DEFAULT_FEEDRATE);
     enqueueGrblCommand(moveCmd);
-    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
     
     enqueueGrblCommand("M100"); // Water ON
-    unsigned long duration = (ml / _waterFlowRate) * 1000;
-    delay(duration);
+    float durationSec = ml / _waterFlowRate;
+    char dwellCmd[32];
+    snprintf(dwellCmd, sizeof(dwellCmd), "G4 P%.3f", durationSec);
+    enqueueGrblCommand(dwellCmd);
     enqueueGrblCommand("M101"); // Water OFF
     
     StaticJsonDocument<128> doc;
@@ -942,11 +1007,12 @@ void handleFertilize(uint8_t clientNum, float x, float y, float ml, float ox, fl
     char moveCmd[48];
     snprintf(moveCmd, sizeof(moveCmd), "G0 X%.1f Y%.1f F%d", tx, ty, GRBL_DEFAULT_FEEDRATE);
     enqueueGrblCommand(moveCmd);
-    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
     
     enqueueGrblCommand("M102"); // Fert ON
-    unsigned long duration = (ml / _fertFlowRate) * 1000;
-    delay(duration);
+    float durationSec = ml / _fertFlowRate;
+    char dwellCmd[32];
+    snprintf(dwellCmd, sizeof(dwellCmd), "G4 P%.3f", durationSec);
+    enqueueGrblCommand(dwellCmd);
     enqueueGrblCommand("M103"); // Fert OFF
     
     StaticJsonDocument<128> doc;
@@ -960,22 +1026,16 @@ void handleFertilize(uint8_t clientNum, float x, float y, float ml, float ox, fl
 
 void handleCleanSensors(uint8_t clientNum) {
     enqueueGrblCommand("G0 Z0 F500");
-    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
     
     char moveCmd[48];
     snprintf(moveCmd, sizeof(moveCmd), "G0 Y%.1f F%d", machineDim.maxY - 20, GRBL_DEFAULT_FEEDRATE);
     enqueueGrblCommand(moveCmd);
-    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
     
     enqueueGrblCommand("G0 X0 Y0 F1000");
-    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
-    
     enqueueGrblCommand("G0 Z5 F500");
-    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
     
     enqueueGrblCommand("M104"); // Weeder ON
     enqueueGrblCommand("G2 X0 Y0 I10 J0 F500");
-    waitForGrblIdle(SCAN_MOVE_TIMEOUT_MS);
     enqueueGrblCommand("M105"); // Weeder OFF
     
     webSocket.sendTXT(clientNum, "{\"evt\":\"CLEAN_SENSORS_COMPLETE\"}");

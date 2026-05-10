@@ -48,6 +48,7 @@ static unsigned long _lastPollMs  = 0;
 // ── Command Queue ──────────────────────────────────────────────────────────
 static std::deque<String> _cmdQueue;
 static bool              _nanoReady = true; // Set to true initially so the first command can fire
+static SemaphoreHandle_t _grblMutex = NULL; // Protects _cmdQueue and _nanoReady
 
 // ============================================================================
 // ALARM CODE LOOKUP
@@ -275,6 +276,7 @@ static void handleNanoLine(const String& line) {
 
     // ── ALARM ──
     else if (line.startsWith("ALARM:")) {
+        _nanoReady = true; // Reset readiness so the auto-clear can actually be sent
         uint8_t code = line.substring(6).toInt();
         sysState.setOperation(OP_ALARM_RECOVERY);
         sysState.setGrbl(GRBL_ALARM);
@@ -304,10 +306,22 @@ static void handleNanoLine(const String& line) {
     // ── ok ──
     else if (line == "ok") {
         sdSignalOk(); // Release SD flow-control gate
-        _nanoReady = true; // Nano is ready for the next command in the queue
+        if (_grblMutex && xSemaphoreTake(_grblMutex, portMAX_DELAY)) {
+            _nanoReady = true; // Nano is ready for the next command in the queue
+            xSemaphoreGive(_grblMutex);
+        }
         if (sysState.getOperation() == OP_HOMING) {
             sysState.setOperation(OP_IDLE);
         }
+    }
+    // ── error ──
+    else if (line.startsWith("error:")) {
+        if (_grblMutex && xSemaphoreTake(_grblMutex, portMAX_DELAY)) {
+            _cmdQueue.clear(); // Clear the queue on error to prevent cascading failures
+            _nanoReady = true; // Nano rejected command, but is ready for the next one
+            xSemaphoreGive(_grblMutex);
+        }
+        AgriLog(TAG_GRBL, LEVEL_ERR, "GRBL Error: %s", line.c_str());
     }
 
     // Forward every raw line to Flutter for the terminal view
@@ -337,6 +351,8 @@ void grblInit() {
     NanoSerial.begin(NANO_BAUD, SERIAL_8N1, NANO_RX_PIN, NANO_TX_PIN);
     _rxBuf.reserve(128);
 
+    _grblMutex = xSemaphoreCreateMutex();
+
     loadDimensionsFromNVS();
     loadCrashFromNVS();
 
@@ -356,24 +372,35 @@ void grblLoop() {
         }
     }
 
-    // ── 2. Adaptive status poll ──
-    // We poll more frequently when moving for smooth UI updates
-    uint16_t interval = getPollInterval();
-    if (millis() - _lastPollMs >= interval) {
-        _lastPollMs = millis();
-        NanoSerial.print('?');
+    bool sentCommand = false;
+
+    // ── 2. Command Queue Processing ──
+    if (_grblMutex && xSemaphoreTake(_grblMutex, portMAX_DELAY)) {
+        if (_nanoReady && !_cmdQueue.empty()) {
+            String nextCmd = _cmdQueue.front();
+            _cmdQueue.pop_front();
+            _nanoReady = false; // Wait for 'ok' before sending next
+            if (nextCmd.startsWith("$H")) {
+                sysState.setOperation(OP_HOMING);
+            }
+            NanoSerial.print(nextCmd + '\n'); // Send with \n only, avoids \r parsing bugs
+            AgriLog(TAG_GRBL, LEVEL_INFO, "Sent from Queue: %s", nextCmd.c_str());
+            sentCommand = true;
+        }
+        xSemaphoreGive(_grblMutex);
     }
 
-    // ── 3. Command Queue Processing ──
-    if (_nanoReady && !_cmdQueue.empty()) {
-        String nextCmd = _cmdQueue.front();
-        _cmdQueue.pop_front();
-        _nanoReady = false; // Wait for 'ok' before sending next
-        if (nextCmd.startsWith("$H")) {
-            sysState.setOperation(OP_HOMING);
+    // ── 3. Adaptive status poll ──
+    // We poll more frequently when moving for smooth UI updates.
+    // We skip the poll if we JUST sent a command. Sending '?' back-to-back with 
+    // a command at 115200 baud causes the Nano's RX interrupt to overrun and 
+    // drop the first character of the command, resulting in error:1 or error:2!
+    if (!sentCommand) {
+        uint16_t interval = getPollInterval();
+        if (millis() - _lastPollMs >= interval) {
+            _lastPollMs = millis();
+            NanoSerial.print('?');
         }
-        NanoSerial.println(nextCmd);
-        AgriLog(TAG_GRBL, LEVEL_INFO, "Sent from Queue: %s", nextCmd.c_str());
     }
 
     // (Watchdog check moved to sysState.refreshHeartbeats() in Core 0 task)
@@ -381,17 +408,57 @@ void grblLoop() {
 
 bool waitForGrblIdle(uint32_t timeoutMs) {
     unsigned long start = millis();
-    // Give GRBL a moment to leave Idle before we start checking
-    delay(300);
-    while (sysState.getGrbl() != GRBL_IDLE) {
-        grblLoop(); // Keep reading serial while waiting
+
+    // ── Phase 1: Confirm the machine actually started moving ─────────────────
+    // POLL_INTERVAL_IDLE = 2000ms. The Nano sends 'ok' in ~5ms, making
+    // _nanoReady=true and queue empty. But the gantry hasn't physically moved
+    // yet! We must see GRBL_RUN before we can trust a subsequent GRBL_IDLE.
+    // Wait up to (2 * POLL_INTERVAL_IDLE + 500ms) for a Run status.
+    const uint32_t RUN_DETECT_WINDOW_MS = (POLL_INTERVAL_IDLE * 2) + 500;
+    bool sawRunning = false;
+
+    while (millis() - start < RUN_DETECT_WINDOW_MS) {
+        GrblState gs = sysState.getGrbl();
+        if (gs == GRBL_RUN || gs == GRBL_JOG || gs == GRBL_HOME) {
+            sawRunning = true;
+            break; // Machine confirmed running — enter Phase 2
+        }
+        // If command hasn't been dispatched yet, keep waiting regardless
+        bool queueEmpty = false;
+        if (_grblMutex && xSemaphoreTake(_grblMutex, portMAX_DELAY)) {
+            queueEmpty = _cmdQueue.empty();
+            xSemaphoreGive(_grblMutex);
+        }
+        if (!queueEmpty) {
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+
+    // ── Phase 2: Wait for genuine Idle ───────────────────────────────────────
+    // If sawRunning is false, the move was trivially short (already done before
+    // the first poll), which is fine — the queue/nanoReady check covers it.
+    while (true) {
         if (millis() - start > timeoutMs) {
             AgriLog(TAG_GRBL, LEVEL_ERR, "waitForIdle: TIMEOUT");
             return false;
         }
-        delay(50);
+
+        bool queueEmpty = false;
+        bool nanoIsReady = false;
+        if (_grblMutex && xSemaphoreTake(_grblMutex, portMAX_DELAY)) {
+            queueEmpty = _cmdQueue.empty();
+            nanoIsReady = _nanoReady;
+            xSemaphoreGive(_grblMutex);
+        }
+
+        if (queueEmpty && nanoIsReady && sysState.getGrbl() == GRBL_IDLE) {
+            return true;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
-    return true;
 }
 
 void requestMachineDimensions() {
@@ -400,19 +467,41 @@ void requestMachineDimensions() {
 }
 
 void enqueueGrblCommand(const String& cmd) {
-    if (cmd.length() == 0) return;
+    if (cmd.length() == 0 || !_grblMutex) return;
     
+    String upperCmd = cmd;
+    upperCmd.toUpperCase();
+    
+    // Support pseudo-command DELAY:ms by translating to GRBL native dwell (G4 P...)
+    if (upperCmd.startsWith("DELAY:")) {
+        float sec = upperCmd.substring(6).toFloat() / 1000.0f;
+        upperCmd = "G4 P" + String(sec, 3);
+    }
+
     // Real-time overrides bypass the queue
-    if (cmd == "?" || cmd == "!" || cmd == "~") {
-        NanoSerial.print(cmd);
+    if (upperCmd == "?" || upperCmd == "!" || upperCmd == "~") {
+        NanoSerial.print(upperCmd);
         return;
     }
 
-    // Auto-clear before any homing cycle
-    if (cmd.startsWith("$H")) {
-        _cmdQueue.push_back("$clr");
-    }
+    if (xSemaphoreTake(_grblMutex, portMAX_DELAY)) {
+        // Emergency / Alarm clears bypass the queue AND reset queue state
+        if (upperCmd == "$CLR" || upperCmd == "$X") {
+            _cmdQueue.clear();
+            _nanoReady = true;
+            NanoSerial.println(upperCmd);
+            AgriLog(TAG_GRBL, LEVEL_WARN, "Bypassed queue for unlock command: %s", upperCmd.c_str());
+            xSemaphoreGive(_grblMutex);
+            return;
+        }
 
-    _cmdQueue.push_back(cmd);
-    AgriLog(TAG_GRBL, LEVEL_INFO, "Enqueued: %s (Queue size: %d)", cmd.c_str(), _cmdQueue.size());
+        // Auto-clear before any homing cycle
+        if (upperCmd.startsWith("$H")) {
+            _cmdQueue.push_back("$CLR");
+        }
+
+        _cmdQueue.push_back(upperCmd);
+        AgriLog(TAG_GRBL, LEVEL_INFO, "Enqueued: %s (Queue size: %d)", upperCmd.c_str(), _cmdQueue.size());
+        xSemaphoreGive(_grblMutex);
+    }
 }

@@ -31,6 +31,7 @@ class Plot {
   final NpkLevel npk; // Current NPK reading
   final NpkLevel targetNpk; // Operator-set target NPK
   final bool aiDetected; // True if detected by AI automatically
+  final double rosetteDiameter; // Diameter in mm for exclusion zone
 
   const Plot({
     required this.id,
@@ -42,6 +43,7 @@ class Plot {
     required this.npk,
     required this.targetNpk,
     this.aiDetected = false,
+    this.rosetteDiameter = 0.0,
   });
 
   /// standard Flutter method to update state without mutating the original object
@@ -54,6 +56,7 @@ class Plot {
     NpkLevel? npk,
     NpkLevel? targetNpk,
     bool? aiDetected,
+    double? rosetteDiameter,
   }) {
     return Plot(
       id: id ?? this.id,
@@ -64,6 +67,7 @@ class Plot {
       npk: npk ?? this.npk,
       targetNpk: targetNpk ?? this.targetNpk,
       aiDetected: aiDetected ?? this.aiDetected,
+      rosetteDiameter: rosetteDiameter ?? this.rosetteDiameter,
     );
   }
 }

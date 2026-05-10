@@ -31,6 +31,8 @@ Future<void> _requestGantryPermissions() async {
     Permission.bluetoothScan,
     Permission.bluetoothConnect,
     Permission.nearbyWifiDevices,
+    Permission.storage,               // Android ≤ 12: read/write external storage
+    Permission.manageExternalStorage, // Android 13+: all-files access (for Downloads)
   ].request();
 }
 

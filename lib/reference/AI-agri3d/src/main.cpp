@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "AI_Agri3D.h"
+#include "drivers/agri3d_sd.h"
 
 // ── Task Handlers ──────────────────────────────────────────────────────────
 TaskHandle_t CommTaskHandle = NULL;
@@ -12,8 +13,8 @@ TaskHandle_t CommTaskHandle = NULL;
 void commTask(void *pvParameters) {
     AgriLog(TAG_SYSTEM, LEVEL_INFO, "Communication Task started on Core %d", xPortGetCoreID());
     for (;;) {
-        networkLoop();  // Handles WebSocket, WiFi, and Discovery
         grblLoop();     // Continuous autonomous polling of the Nano/GRBL status
+        npkLoop();      // Background soil polling (if HW_NPK_CONNECTED is true)
         sysState.refreshHeartbeats(); // Standardized watchdog & pro-active pings
         vTaskDelay(pdMS_TO_TICKS(1)); // Yield to allow background WiFi stack processing
     }
@@ -21,6 +22,7 @@ void commTask(void *pvParameters) {
 
 void setup() {
     Serial.begin(115200);
+    loggerInit();
     delay(3000);
     
     AgriLog(TAG_SYSTEM, LEVEL_INFO, "========================================");
@@ -32,6 +34,9 @@ void setup() {
 
     AgriLog(TAG_SYSTEM, LEVEL_INFO, "Initialising GRBL bridge...");
     grblInit();         
+
+    AgriLog(TAG_SYSTEM, LEVEL_INFO, "Initialising SD card...");
+    sdInit();
 
     AgriLog(TAG_SYSTEM, LEVEL_INFO, "Initialising sensors (Rain/NPK)...");
     sensorsInit();

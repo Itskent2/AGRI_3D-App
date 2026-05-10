@@ -184,7 +184,11 @@ bool captureFrameAtPosition(uint8_t clientNum, int idx, int total,
                             float targetX, float targetY) {
   // 1. Move to position
   char gcode[48];
-  snprintf(gcode, sizeof(gcode), "G0 X%.2f Y%.2f F%d", targetX, targetY,
+  // Apply camera Y-offset: camera lens is offset from the gantry centre along Y.
+  // targetX/Y is the logical plant position; moveX/Y is the physical gantry position.
+  float moveX = targetX;                          // X axis: no offset
+  float moveY = targetY + sysState.getCamOffset(); // Y axis: camera offset applied
+  snprintf(gcode, sizeof(gcode), "G0 X%.2f Y%.2f F%d", moveX, moveY,
            GRBL_DEFAULT_FEEDRATE);
   enqueueGrblCommand(gcode);
   
@@ -195,17 +199,8 @@ bool captureFrameAtPosition(uint8_t clientNum, int idx, int total,
   sysState.setStreaming(false);
   delay(200); // Wait for stream task to yield
 
-  sensor_t *s = esp_camera_sensor_get();
-  /*
-  if (s) {
-      s->set_framesize(s, FRAMESIZE_UXGA);
-      delay(500); // Wait for sensor to adjust
-  }
-  */
-
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) {
-      // if (s) s->set_framesize(s, FRAMESIZE_QQVGA); // Restore on fail
       return false;
   }
 
@@ -227,6 +222,7 @@ bool captureFrameAtPosition(uint8_t clientNum, int idx, int total,
     meta["evt"] = "FRAME_META";
     meta["idx"] = idx;
     meta["total"] = total;
+    // Metadata should reflect the logical plant position (without camera offset)
     meta["x"] = targetX;
     meta["y"] = targetY;
     meta["sdPath"] = sdPath;
@@ -247,13 +243,6 @@ bool captureFrameAtPosition(uint8_t clientNum, int idx, int total,
     esp_camera_fb_return(fb);
   }
 
-  // 5. Restore resolution for streaming
-  /*
-  if (s) {
-      s->set_framesize(s, FRAMESIZE_QQVGA);
-      delay(200);
-  }
-  */
 
   AgriLog(TAG_CAM, LEVEL_INFO, "Frame %d: %s %s (%.1f,%.1f) %uB%s", idx, dateStr,
                 timeStr, targetX, targetY, fb->len,

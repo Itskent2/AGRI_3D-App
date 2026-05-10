@@ -1,0 +1,1602 @@
+﻿Processing esp32-s3-devkitc-1 (platform: espressif32@6.6.0; board: esp32-s3-devkitc-1; framework: arduino)
+--------------------------------------------------------------------------------
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32-s3-devkitc-1.html
+PLATFORM: Espressif 32 (6.6.0) > Espressif ESP32-S3-DevKitC-1-N8 (8 MB QD, No PSRAM)
+HARDWARE: ESP32S3 240MHz, 320KB RAM, 16MB Flash
+DEBUG: Current (esp-builtin) On-board (esp-builtin) External (cmsis-dap, esp-bridge, esp-prog, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa)
+PACKAGES: 
+ - framework-arduinoespressif32 @ 3.20014.231204 (2.0.14) 
+ - tool-esptoolpy @ 1.40501.0 (4.5.1) 
+ - toolchain-riscv32-esp @ 8.4.0+2021r2-patch5 
+ - toolchain-xtensa-esp32s3 @ 8.4.0+2021r2-patch5
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ chain, Compatibility ~ soft
+Found 35 compatible libraries
+Scanning dependencies...
+Dependency Graph
+|-- ArduinoJson @ 6.21.6
+|-- WebSockets @ 2.7.3
+|-- Preferences @ 2.0.0
+|-- SD_MMC @ 2.0.0
+|-- ESPmDNS @ 2.0.0
+|-- WiFi @ 2.0.0
+|-- HTTPClient @ 2.0.0
+Building in release mode
+Compiling .pio\build\esp32-s3-devkitc-1\src\XGBoost\xgboost_model.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\core\agri3d_ai.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\core\agri3d_commands.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\core\agri3d_logger.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\core\agri3d_state.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\drivers\agri3d_camera.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\drivers\agri3d_grbl.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\drivers\agri3d_npk.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\drivers\agri3d_sd.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\drivers\agri3d_sensors.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_abs_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_abs_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_abs_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_abs_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_abs_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_abs_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_add_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_add_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_add_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_add_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_add_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_add_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_and_u16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_and_u32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_and_u8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_clip_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_clip_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_clip_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_clip_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_clip_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_dot_prod_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_dot_prod_f32.c.o
+platformio.exe : In file included from src/edge-impulse-sdk/classifier/ei_classifier_types.h:40,
+At line:1 char:1
++ & "C:\Users\Joshua B. Ygot\.platformio\penv\Scripts\platformio.exe" r ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (In file include...ier_types.h:40,:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+                 from src/edge-impulse-sdk/classifier/ei_model_types.h:40,
+                 from src/edge-impulse-sdk/classifier/ei_run_classifier.h:38,
+                 from src/core/agri3d_ai.cpp:28:
+src/model-parameters/model_metadata.h:113:2: warning: #warning 'EI_CLASSFIER_OBJECT_DETECTION_COUNT' is used for the 
+guaranteed minimum number of objects detected. To get all objects during inference use 'bounding_boxes_count' from the 
+'ei_impulse_result_t' struct instead. [-Wcpp]
+ #warning 'EI_CLASSFIER_OBJECT_DETECTION_COUNT' is used for the guaranteed minimum number of objects detected. To get 
+all objects during inference use 'bounding_boxes_count' from the 'ei_impulse_result_t' struct instead.
+  ^~~~~~~
+In file included from src/edge-impulse-sdk/dsp/memory.hpp:38,
+                 from src/edge-impulse-sdk/dsp/ei_alloc.h:34,
+                 from src/edge-impulse-sdk/dsp/ei_vector.h:34,
+                 from src/edge-impulse-sdk/dsp/numpy_types.h:40,
+                 from src/edge-impulse-sdk/classifier/ei_classifier_types.h:41,
+                 from src/edge-impulse-sdk/classifier/ei_model_types.h:40,
+                 from src/edge-impulse-sdk/classifier/ei_run_classifier.h:38,
+                 from src/core/agri3d_ai.cpp:28:
+src/edge-impulse-sdk/dsp/../porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+src/edge-impulse-sdk/dsp/../porting/ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_dot_prod_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_dot_prod_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_dot_prod_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_dot_prod_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_mult_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_mult_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_mult_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_mult_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_mult_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_mult_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_negate_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_negate_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_negate_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_negate_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_negate_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_negate_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_not_u16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_not_u32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_not_u8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_offset_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_offset_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_offset_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_offset_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_offset_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_offset_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_or_u16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_or_u32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_or_u8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_scale_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_scale_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_scale_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_scale_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_scale_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_scale_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_shift_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_shift_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_shift_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_sub_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_sub_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_sub_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_sub_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_sub_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_sub_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_xor_u16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_xor_u32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BasicMathFunctions\arm_xor_u8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BayesFunctions\arm_gaussian_naive_bayes_predict_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\BayesFunctions\arm_gaussian_naive_bayes_predict_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\CommonTables\arm_common_tables.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\CommonTables\arm_common_tables_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\CommonTables\arm_const_structs.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\CommonTables\arm_const_structs_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\CommonTables\arm_mve_tables.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\CommonTables\arm_mve_tables_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_conj_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_conj_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_conj_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_conj_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_dot_prod_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_dot_prod_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_dot_prod_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_dot_prod_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_fast_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_squared_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_squared_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_squared_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_squared_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mag_squared_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mult_cmplx_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mult_cmplx_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mult_cmplx_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mult_cmplx_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mult_cmplx_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mult_real_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mult_real_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mult_real_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ComplexMathFunctions\arm_cmplx_mult_real_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ControllerFunctions\arm_pid_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ControllerFunctions\arm_pid_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ControllerFunctions\arm_pid_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ControllerFunctions\arm_pid_reset_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ControllerFunctions\arm_pid_reset_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ControllerFunctions\arm_pid_reset_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ControllerFunctions\arm_sin_cos_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\ControllerFunctions\arm_sin_cos_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_boolean_distance.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_braycurtis_distance_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_braycurtis_distance_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_canberra_distance_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_canberra_distance_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_chebyshev_distance_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_chebyshev_distance_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_chebyshev_distance_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_cityblock_distance_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_cityblock_distance_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_cityblock_distance_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_correlation_distance_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_correlation_distance_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_cosine_distance_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_cosine_distance_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_cosine_distance_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_dice_distance.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_euclidean_distance_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_euclidean_distance_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_euclidean_distance_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_hamming_distance.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_jaccard_distance.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_jensenshannon_distance_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_jensenshannon_distance_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_kulsinski_distance.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_minkowski_distance_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_minkowski_distance_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_rogerstanimoto_distance.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_russellrao_distance.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_sokalmichener_distance.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_sokalsneath_distance.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\DistanceFunctions\arm_yule_distance.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_atan2_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_atan2_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_atan2_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_atan2_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_cos_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_cos_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_cos_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_divide_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_divide_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_sin_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_sin_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_sin_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_sqrt_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_sqrt_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_vexp_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_vexp_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_vexp_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_vinverse_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_vlog_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_vlog_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_vlog_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_vlog_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FastMathFunctions\arm_vlog_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_32x64_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_32x64_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_fast_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_fast_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df1_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df2T_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df2T_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df2T_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df2T_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df2T_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_df2T_init_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_stereo_df2T_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_stereo_df2T_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_stereo_df2T_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_biquad_cascade_stereo_df2T_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_fast_opt_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_fast_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_fast_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_opt_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_opt_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_partial_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_partial_fast_opt_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_partial_fast_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_partial_fast_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_partial_opt_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_partial_opt_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_partial_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_partial_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_partial_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_conv_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_fast_opt_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_fast_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_fast_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_opt_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_opt_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_correlate_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_decimate_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_decimate_fast_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_decimate_fast_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_decimate_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_decimate_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_decimate_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_decimate_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_decimate_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_fast_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_fast_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_init_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_init_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_interpolate_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_interpolate_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_interpolate_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_interpolate_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_interpolate_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_interpolate_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_lattice_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_lattice_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_lattice_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_lattice_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_lattice_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_lattice_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_sparse_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_sparse_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_sparse_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_sparse_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_sparse_init_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_sparse_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_sparse_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_fir_sparse_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_iir_lattice_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_iir_lattice_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_iir_lattice_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_iir_lattice_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_iir_lattice_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_iir_lattice_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_levinson_durbin_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_levinson_durbin_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_levinson_durbin_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_norm_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_norm_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_norm_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_norm_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_norm_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_norm_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\FilteringFunctions\arm_lms_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_bilinear_interp_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_bilinear_interp_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_bilinear_interp_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_bilinear_interp_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_bilinear_interp_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_linear_interp_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_linear_interp_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_linear_interp_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_linear_interp_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_linear_interp_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_spline_interp_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\InterpolationFunctions\arm_spline_interp_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_householder_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_householder_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_householder_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_add_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_add_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_add_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_add_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cholesky_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cholesky_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cholesky_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cmplx_mult_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cmplx_mult_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cmplx_mult_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cmplx_mult_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cmplx_trans_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cmplx_trans_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cmplx_trans_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_cmplx_trans_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_inverse_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_inverse_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_inverse_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_ldlt_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_ldlt_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_mult_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_mult_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_mult_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_mult_fast_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_mult_fast_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_mult_opt_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_mult_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_mult_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_mult_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_qr_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_qr_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_qr_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_scale_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_scale_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_scale_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_scale_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_solve_lower_triangular_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_solve_lower_triangular_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_solve_lower_triangular_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_solve_upper_triangular_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_solve_upper_triangular_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_solve_upper_triangular_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_sub_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_sub_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_sub_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_sub_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_sub_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_trans_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_trans_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_trans_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_trans_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_trans_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_trans_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_vec_mult_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_vec_mult_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_vec_mult_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_vec_mult_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\MatrixFunctions\arm_mat_vec_mult_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\QuaternionMathFunctions\arm_quaternion2rotation_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\QuaternionMathFunctions\arm_quaternion_conjugate_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\QuaternionMathFunctions\arm_quaternion_inverse_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\QuaternionMathFunctions\arm_quaternion_norm_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\QuaternionMathFunctions\arm_quaternion_normalize_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\QuaternionMathFunctions\arm_quaternion_product_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\QuaternionMathFunctions\arm_quaternion_product_single_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\QuaternionMathFunctions\arm_rotation2quaternion_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_linear_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_linear_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_linear_predict_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_linear_predict_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_polynomial_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_polynomial_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_polynomial_predict_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_polynomial_predict_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_rbf_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_rbf_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_rbf_predict_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_rbf_predict_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_sigmoid_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_sigmoid_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_sigmoid_predict_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SVMFunctions\arm_svm_sigmoid_predict_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_no_idx_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_no_idx_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_no_idx_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_no_idx_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_no_idx_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_no_idx_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmax_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_no_idx_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_no_idx_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_no_idx_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_no_idx_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_no_idx_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_no_idx_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_absmin_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_accumulate_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_accumulate_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_accumulate_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_entropy_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_entropy_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_entropy_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_kullback_leibler_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_kullback_leibler_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_kullback_leibler_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_logsumexp_dot_prod_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_logsumexp_dot_prod_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_logsumexp_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_logsumexp_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_no_idx_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_no_idx_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_no_idx_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_no_idx_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_no_idx_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_no_idx_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_max_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mean_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mean_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mean_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mean_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mean_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mean_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_no_idx_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_no_idx_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_no_idx_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_no_idx_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_no_idx_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_no_idx_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_min_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mse_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mse_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mse_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mse_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mse_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_mse_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_power_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_power_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_power_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_power_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_power_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_power_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_rms_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_rms_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_rms_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_rms_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_std_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_std_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_std_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_std_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_std_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_var_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_var_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_var_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_var_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\StatisticsFunctions\arm_var_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_barycenter_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_barycenter_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_bitonic_sort_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_bubble_sort_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_copy_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_copy_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_copy_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_copy_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_copy_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_copy_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_f16_to_float.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_f16_to_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_fill_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_fill_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_fill_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_fill_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_fill_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_fill_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_float_to_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_float_to_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_float_to_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_float_to_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_heap_sort_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_insertion_sort_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_merge_sort_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_merge_sort_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_q15_to_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_q15_to_float.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_q15_to_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_q15_to_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_q31_to_float.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_q31_to_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_q31_to_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_q7_to_float.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_q7_to_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_q7_to_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_quick_sort_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_selection_sort_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_sort_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_sort_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_weighted_sum_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\SupportFunctions\arm_weighted_sum_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_bitreversal.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_bitreversal2.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_bitreversal_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_init_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix2_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix2_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix2_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix2_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix2_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix2_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix2_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix2_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix4_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix4_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix4_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix4_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix4_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix4_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix4_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix4_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix8_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_cfft_radix8_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_dct4_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_dct4_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_dct4_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_dct4_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_dct4_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_dct4_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_mfcc_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_mfcc_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_mfcc_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_mfcc_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_mfcc_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_mfcc_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_mfcc_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_mfcc_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_fast_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_fast_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_fast_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_fast_init_f16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_fast_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_fast_init_f64.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_init_f32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_init_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_init_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\DSP\Source\TransformFunctions\arm_rfft_q31.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ActivationFunctions\arm_nn_activations_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ActivationFunctions\arm_nn_activations_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ActivationFunctions\arm_relu6_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ActivationFunctions\arm_relu_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ActivationFunctions\arm_relu_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\BasicMathFunctions\arm_elementwise_add_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\BasicMathFunctions\arm_elementwise_add_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\BasicMathFunctions\arm_elementwise_mul_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\BasicMathFunctions\arm_elementwise_mul_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConcatenationFunctions\arm_concatenation_s8_w.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConcatenationFunctions\arm_concatenation_s8_x.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConcatenationFunctions\arm_concatenation_s8_y.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConcatenationFunctions\arm_concatenation_s8_z.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_1_x_n_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_1x1_HWC_q7_fast_nonsquare.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_1x1_s8_fast.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_HWC_q15_basic.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_HWC_q15_fast.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_HWC_q15_fast_nonsquare.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_HWC_q7_RGB.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_HWC_q7_basic.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_HWC_q7_basic_nonsquare.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_HWC_q7_fast.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_HWC_q7_fast_nonsquare.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_fast_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_wrapper_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_convolve_wrapper_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_depthwise_conv_3x3_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_depthwise_conv_fast_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_depthwise_conv_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_depthwise_conv_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_depthwise_conv_s8_opt.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_depthwise_conv_u8_basic_ver1.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_depthwise_conv_wrapper_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_depthwise_conv_wrapper_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_depthwise_separable_conv_HWC_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_depthwise_separable_conv_HWC_q7_nonsquare.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_nn_depthwise_conv_s8_core.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_nn_mat_mult_kernel_q7_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_nn_mat_mult_kernel_q7_q15_reordered.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_nn_mat_mult_kernel_s8_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ConvolutionFunctions\arm_nn_mat_mult_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\FullyConnectedFunctions\arm_fully_connected_mat_q7_vec_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\FullyConnectedFunctions\arm_fully_connected_mat_q7_vec_q15_opt.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\FullyConnectedFunctions\arm_fully_connected_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\FullyConnectedFunctions\arm_fully_connected_q15_opt.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\FullyConnectedFunctions\arm_fully_connected_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\FullyConnectedFunctions\arm_fully_connected_q7_opt.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\FullyConnectedFunctions\arm_fully_connected_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\FullyConnectedFunctions\arm_fully_connected_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_accumulate_q7_to_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_add_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_depthwise_conv_nt_t_padded_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_depthwise_conv_nt_t_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_depthwise_conv_nt_t_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_mat_mul_core_1x_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_mat_mul_core_4x_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_mat_mul_kernel_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_mat_mult_nt_t_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_mult_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_mult_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_vec_mat_mult_t_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_vec_mat_mult_t_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nn_vec_mat_mult_t_svdf_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_nntables.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_q7_to_q15_no_shift.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_q7_to_q15_reordered_no_shift.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_q7_to_q15_reordered_with_offset.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\NNSupportFunctions\arm_q7_to_q15_with_offset.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\PoolingFunctions\arm_avgpool_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\PoolingFunctions\arm_avgpool_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\PoolingFunctions\arm_max_pool_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\PoolingFunctions\arm_max_pool_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\PoolingFunctions\arm_pool_q7_HWC.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\ReshapeFunctions\arm_reshape_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\SVDFunctions\arm_svdf_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\SVDFunctions\arm_svdf_state_s16_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\SoftmaxFunctions\arm_nn_softmax_common_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\SoftmaxFunctions\arm_softmax_q15.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\SoftmaxFunctions\arm_softmax_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\SoftmaxFunctions\arm_softmax_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\SoftmaxFunctions\arm_softmax_s8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\SoftmaxFunctions\arm_softmax_s8_s16.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\SoftmaxFunctions\arm_softmax_u8.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\CMSIS\NN\Source\SoftmaxFunctions\arm_softmax_with_batch_q7.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\classifier\ei_run_classifier_c.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\dsp\dct\fast-dct-fft.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\dsp\image\processing.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\dsp\kissfft\kiss_fft.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\dsp\kissfft\kiss_fftr.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\dsp\memory.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\ambiq\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\ambiq\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\android\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\arduino\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\arduino\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\brickml\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\brickml\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\ceva-npn\debug_log.cpp.o
+In file included from src/edge-impulse-sdk/dsp/image/processing.hpp:35,
+                 from src/edge-impulse-sdk/dsp/image/processing.cpp:31:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/dsp/image/processing.hpp:35,
+                 from src/edge-impulse-sdk/dsp/image/processing.cpp:31:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/arduino/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/arduino/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/arduino/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/arduino/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/ambiq/ei_classifier_porting.cpp:36:
+src/edge-impulse-sdk/porting/ambiq/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/ambiq/ei_classifier_porting.cpp:36:
+src/edge-impulse-sdk/porting/ambiq/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/android/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/android/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\ceva-npn\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/ambiq/debug_log.cpp:36:
+src/edge-impulse-sdk/porting/ambiq/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/ambiq/debug_log.cpp:36:
+src/edge-impulse-sdk/porting/ambiq/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\clib\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\clib\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\activation_functions\esp_nn_relu_ansi.c.o
+In file included from src/edge-impulse-sdk/porting/brickml/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/brickml/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/brickml/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/brickml/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/arduino/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/arduino/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/arduino/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/arduino/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/ceva-npn/debug_log.cpp:36:
+src/edge-impulse-sdk/porting/ceva-npn/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/ceva-npn/debug_log.cpp:36:
+src/edge-impulse-sdk/porting/ceva-npn/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/dsp/kissfft/kiss_fft.h:16,
+                 from src/edge-impulse-sdk/dsp/kissfft/kiss_fftr.h:12,
+                 from src/edge-impulse-sdk/dsp/kissfft/kiss_fftr.cpp:9:
+src/edge-impulse-sdk/dsp/kissfft/../../porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/dsp/kissfft/kiss_fft.h:16,
+                 from src/edge-impulse-sdk/dsp/kissfft/kiss_fftr.h:12,
+                 from src/edge-impulse-sdk/dsp/kissfft/kiss_fftr.cpp:9:
+src/edge-impulse-sdk/dsp/kissfft/../../porting/ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\activation_functions\esp_nn_relu_s8_esp32s3.S.o
+In file included from src/edge-impulse-sdk/dsp/kissfft/kiss_fft.h:16,
+                 from src/edge-impulse-sdk/dsp/kissfft/_kiss_fft_guts.h:15,
+                 from src/edge-impulse-sdk/dsp/kissfft/kiss_fft.cpp:10:
+src/edge-impulse-sdk/dsp/kissfft/../../porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/dsp/kissfft/kiss_fft.h:16,
+                 from src/edge-impulse-sdk/dsp/kissfft/_kiss_fft_guts.h:15,
+                 from src/edge-impulse-sdk/dsp/kissfft/kiss_fft.cpp:10:
+src/edge-impulse-sdk/dsp/kissfft/../../porting/ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/brickml/ei_classifier_porting.cpp:36:
+src/edge-impulse-sdk/porting/brickml/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/brickml/ei_classifier_porting.cpp:36:
+src/edge-impulse-sdk/porting/brickml/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\basic_math\esp_nn_add_ansi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\basic_math\esp_nn_add_s8_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\basic_math\esp_nn_mul_ansi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\basic_math\esp_nn_mul_s8_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\common\esp_nn_common_functions_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\common\esp_nn_multiply_by_quantized_mult_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\common\esp_nn_multiply_by_quantized_mult_ver1_esp32s3.S.o
+In file included from src/edge-impulse-sdk/porting/ceva-npn/ei_classifier_porting.cpp:36:
+src/edge-impulse-sdk/porting/ceva-npn/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/ceva-npn/ei_classifier_porting.cpp:36:
+src/edge-impulse-sdk/porting/ceva-npn/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/clib/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/clib/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/clib/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/clib/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/clib/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/clib/../ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_conv_ansi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_conv_esp32p4.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_conv_esp32s3.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_conv_opt.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_conv_s16_mult4_1x1_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_conv_s16_mult8_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_conv_s8_filter_aligned_input_padded_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_conv_s8_mult8_1x1_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_depthwise_conv_ansi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_depthwise_conv_opt.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_depthwise_conv_s16_mult1_3x3_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_depthwise_conv_s16_mult1_3x3_no_pad_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_depthwise_conv_s16_mult1_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_depthwise_conv_s16_mult4_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_depthwise_conv_s16_mult8_3x3_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_depthwise_conv_s16_mult8_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_depthwise_conv_s8_esp32s3.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\convolution\esp_nn_depthwise_conv_s8_mult1_3x3_padded_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\fully_connected\esp_nn_fully_connected_ansi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\fully_connected\esp_nn_fully_connected_s8_esp32s3.S.o
+In file included from src/edge-impulse-sdk/dsp/memory.hpp:38,
+                 from src/edge-impulse-sdk/dsp/memory.cpp:31:
+src/edge-impulse-sdk/dsp/../porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/dsp/memory.hpp:38,
+                 from src/edge-impulse-sdk/dsp/memory.cpp:31:
+src/edge-impulse-sdk/dsp/../porting/ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\pooling\esp_nn_avg_pool_ansi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\pooling\esp_nn_avg_pool_s8_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\pooling\esp_nn_max_pool_ansi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\pooling\esp_nn_max_pool_s8_esp32s3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\softmax\esp_nn_softmax_ansi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ESP-NN\src\softmax\esp_nn_softmax_opt.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\common\misc\dsps_pwroftwo.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\fixed\dsps_fft2r_sc16_ae32.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\fixed\dsps_fft2r_sc16_aes3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\fixed\dsps_fft2r_sc16_ansi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\fixed\dsps_fft2r_sc16_arp4.S.o
+In file included from src/edge-impulse-sdk/porting/espressif/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/espressif/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/espressif/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/espressif/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\float\dsps_bit_rev_lookup_fc32_aes3.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\float\dsps_fft2r_bitrev_tables_fc32.c.o
+In file included from src/edge-impulse-sdk/porting/espressif/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/espressif/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/espressif/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/espressif/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\float\dsps_fft2r_fc32_ae32.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\float\dsps_fft2r_fc32_ae32_.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\float\dsps_fft2r_fc32_aes3_.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\float\dsps_fft2r_fc32_ansi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\espressif\esp-dsp\modules\fft\float\dsps_fft2r_fc32_arp4.S.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\ethos-core-driver\src\ethosu_device_u55_u65.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\ethos-core-driver\src\ethosu_device_u85.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\ethos-core-driver\src\ethosu_driver.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\ethos-core-driver\src\ethosu_pmu.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\himax-we2\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\himax-we2\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\himax-we2\ethosu_driver.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\himax\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\himax\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\iar\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\iar\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\infineon-psoc62\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\infineon-psoc62\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\mbed\debug_log.cpp.o
+In file included from src/edge-impulse-sdk/porting/himax-we2/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/himax-we2/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/himax-we2/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/himax-we2/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/himax-we2/ethosu_driver.c:1:
+src/edge-impulse-sdk/porting/himax-we2/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/himax-we2/ethosu_driver.c:1:
+src/edge-impulse-sdk/porting/himax-we2/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\mbed\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\mingw32\debug_log.cpp.o
+In file included from src/edge-impulse-sdk/porting/iar/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/iar/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/iar/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/iar/../ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/iar/ei_classifier_porting.cpp:40:
+src/edge-impulse-sdk/porting/iar/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/iar/ei_classifier_porting.cpp:40:
+src/edge-impulse-sdk/porting/iar/../ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\mingw32\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/infineon-psoc62/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/infineon-psoc62/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/infineon-psoc62/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/infineon-psoc62/../ei_classifier_porting.h:279: note: this is the location of the 
+previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/himax-we2/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/himax-we2/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/himax-we2/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/himax-we2/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/himax/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/himax/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/himax/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/himax/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/himax/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/himax/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/himax/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/himax/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\particle\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\particle\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/infineon-psoc62/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/infineon-psoc62/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/infineon-psoc62/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/infineon-psoc62/../ei_classifier_porting.h:279: note: this is the location of the 
+previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\posix\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\posix\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/mbed/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/mbed/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/mbed/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/mbed/../ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\raspberry\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\renesas-ra\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\renesas-ra\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/mingw32/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/mingw32/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/mingw32/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/mingw32/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\seeed-vision-ai\debug_log.cpp.o
+In file included from src/edge-impulse-sdk/porting/mbed/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/mbed/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/mbed/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/mbed/../ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\seeed-vision-ai\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/particle/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/particle/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/particle/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/particle/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/mingw32/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/mingw32/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/mingw32/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/mingw32/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/posix/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/posix/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\silabs\debug_log.cpp.o
+In file included from src/edge-impulse-sdk/porting/particle/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/particle/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/particle/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/particle/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\silabs\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/renesas-ra/ei_classifier_porting.cpp:36:
+src/edge-impulse-sdk/porting/renesas-ra/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/renesas-ra/ei_classifier_porting.cpp:36:
+src/edge-impulse-sdk/porting/renesas-ra/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/raspberry/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/raspberry/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/raspberry/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/raspberry/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/posix/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/posix/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/posix/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/posix/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\sony\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\sony\ei_classifier_porting.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\stm32-cubeai\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\stm32-cubeai\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/renesas-ra/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/renesas-ra/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/renesas-ra/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/renesas-ra/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\synaptics\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\synaptics\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/seeed-vision-ai/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/seeed-vision-ai/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/seeed-vision-ai/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/seeed-vision-ai/../ei_classifier_porting.h:279: note: this is the location of the 
+previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\ti\debug_log.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\ti\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/silabs/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/silabs/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/silabs/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/silabs/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/sony/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/sony/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/sony/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/sony/../ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\zephyr\debug_log.cpp.o
+In file included from src/edge-impulse-sdk/porting/seeed-vision-ai/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/seeed-vision-ai/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/seeed-vision-ai/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/seeed-vision-ai/../ei_classifier_porting.h:279: note: this is the location of the 
+previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/silabs/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/silabs/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/silabs/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/silabs/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\porting\zephyr\ei_classifier_porting.cpp.o
+In file included from src/edge-impulse-sdk/porting/sony/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/sony/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/sony/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/sony/../ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/stm32-cubeai/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/stm32-cubeai/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/stm32-cubeai/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/stm32-cubeai/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\c\common.c.o
+In file included from src/edge-impulse-sdk/porting/stm32-cubeai/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/stm32-cubeai/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/stm32-cubeai/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/stm32-cubeai/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/synaptics/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/synaptics/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/synaptics/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/synaptics/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/synaptics/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/synaptics/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/synaptics/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/synaptics/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\core\api\common.cc.o
+In file included from src/edge-impulse-sdk/porting/ti/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/ti/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/ti/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/ti/../ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\core\api\error_reporter.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\core\api\flatbuffer_conversions.cc.o
+In file included from src/edge-impulse-sdk/porting/ti/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/ti/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/ti/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/ti/../ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\core\api\op_resolver.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\core\api\tensor_utils.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\kernels\custom\tree_ensemble_classifier.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\kernels\internal\portable_tensor_utils.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\kernels\internal\quantization_util.cc.o
+In file included from src/edge-impulse-sdk/porting/zephyr/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/zephyr/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/zephyr/ei_classifier_porting.cpp:35:
+src/edge-impulse-sdk/porting/zephyr/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+In file included from src/edge-impulse-sdk/porting/zephyr/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/zephyr/../ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/porting/zephyr/debug_log.cpp:35:
+src/edge-impulse-sdk/porting/zephyr/../ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\kernels\internal\reference_portable_tensor_utils.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\kernels\internal\tensor_utils.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\kernels\kernel_util_lite.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\all_ops_resolver.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\fake_micro_context.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\flatbuffer_conversions_bridge.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\flatbuffer_utils.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\activations.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\activations_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\add.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\add_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\add_n.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\arg_min_max.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\assign_variable.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\batch_matmul.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\batch_to_space_nd.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\broadcast_args.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\broadcast_to.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\call_once.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\cast.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\ceil.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\circular_buffer.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\circular_buffer_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\comparisons.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\complex_abs.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\concatenation.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\conv.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\conv_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\cumsum.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\depth_to_space.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\depthwise_conv.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\depthwise_conv_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\dequantize.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\dequantize_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\detection_postprocess.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\div.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\elementwise.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\elu.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\ethosu.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\exp.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\expand_dims.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\fill.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\floor.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\floor_div.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\floor_mod.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\fully_connected.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\fully_connected_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\gather.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\gather_nd.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\hard_swish.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\hard_swish_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\if.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\kernel_runner.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\kernel_util_micro.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\l2_pool_2d.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\l2norm.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\leaky_relu.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\leaky_relu_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\log_softmax.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\logical.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\logical_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\logistic.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\logistic_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\lstm_eval.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\maximum_minimum.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\micro_tensor_utils.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\mirror_pad.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\mli_interface.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\mli_slicers.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\mul.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\mul_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\neg.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\pack.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\pad.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\pooling.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\pooling_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\prelu.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\prelu_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\quantize.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\quantize_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\read_variable.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\real.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\reduce.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\reduce_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\reshape.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\resize_bilinear.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\resize_nearest_neighbor.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\rfft2d.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\round.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\scatter_nd.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\scratch_buf_mgr.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\scratch_buffers.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\select.cc.o
+In file included from src/edge-impulse-sdk/dsp/kissfft/kiss_fft.h:16,
+                 from src/edge-impulse-sdk/dsp/kissfft/kiss_fftr.h:12,
+                 from src/edge-impulse-sdk/tensorflow/lite/micro/kernels/rfft2d.cc:30:
+src/edge-impulse-sdk/dsp/kissfft/../../porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/dsp/kissfft/kiss_fft.h:16,
+                 from src/edge-impulse-sdk/dsp/kissfft/kiss_fftr.h:12,
+                 from src/edge-impulse-sdk/tensorflow/lite/micro/kernels/rfft2d.cc:30:
+src/edge-impulse-sdk/dsp/kissfft/../../porting/ei_classifier_porting.h:279: note: this is the location of the previous 
+definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\shape.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\slice.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\softmax.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\softmax_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\space_to_batch_nd.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\space_to_depth.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\split.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\split_v.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\squared_difference.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\squeeze.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\strided_slice.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\sub.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\sub_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\svdf.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\svdf_common.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\tanh.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\tile.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\topk_v2.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\transpose.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\transpose_conv.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\tree_ensemble_classifier.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\unidirectional_sequence_lstm.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\unpack.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\var_handle.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\while.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\kernels\zeros_like.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\memory_helpers.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\memory_planner\greedy_memory_planner.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\memory_planner\linear_memory_planner.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\memory_planner\non_persistent_buffer_planner_shim.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_allocation_info.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_allocator.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_context.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_error_reporter.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_graph.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_interpreter.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_log.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_profiler.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_resource_variable.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_string.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_time.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\micro_utils.cc.o
+In file included from src/edge-impulse-sdk/tensorflow/lite/micro/micro_time.cc:32:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/edge-impulse-sdk/tensorflow/lite/micro/micro_time.cc:32:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\mock_micro_graph.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\non_persistent_arena_buffer_allocator.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\op_resolver_bridge.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\persistent_arena_buffer_allocator.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\recording_micro_allocator.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\recording_single_arena_buffer_allocator.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\schema_utils.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\single_arena_buffer_allocator.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\system_setup.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\test_helper_custom_ops.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\edge-impulse-sdk\tensorflow\lite\micro\test_helpers.cc.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\main.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\network\agri3d_network.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\routines\agri3d_environment.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\routines\agri3d_plant_map.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\routines\agri3d_routine.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\src\tflite-model\tflite_learn_923987_3_compiled.cpp.o
+Building .pio\build\esp32-s3-devkitc-1\bootloader.bin
+Generating partitions .pio\build\esp32-s3-devkitc-1\partitions.bin
+esptool.py v4.5.1
+Creating esp32s3 image...
+Merged 1 ELF section
+Successfully created esp32s3 image.
+Compiling .pio\build\esp32-s3-devkitc-1\libbb9\WiFi\WiFi.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libbb9\WiFi\WiFiAP.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libbb9\WiFi\WiFiClient.cpp.o
+In file included from src/tflite-model/tflite_learn_923987_3_compiled.cpp:38:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:310: warning: "EI_PORTING_ARDUINO" redefined
+ #define EI_PORTING_ARDUINO        0
+ 
+In file included from src/tflite-model/tflite_learn_923987_3_compiled.cpp:38:
+src/edge-impulse-sdk/porting/ei_classifier_porting.h:279: note: this is the location of the previous definition
+ #define EI_PORTING_ARDUINO      1
+ 
+Compiling .pio\build\esp32-s3-devkitc-1\libbb9\WiFi\WiFiGeneric.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libbb9\WiFi\WiFiMulti.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libbb9\WiFi\WiFiSTA.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libbb9\WiFi\WiFiScan.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libbb9\WiFi\WiFiServer.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libbb9\WiFi\WiFiUdp.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libb5a\Ethernet\ETH.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\lib0be\SPI\SPI.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libbe1\WiFiClientSecure\WiFiClientSecure.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libbe1\WiFiClientSecure\esp_crt_bundle.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\libbe1\WiFiClientSecure\ssl_client.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\lib7db\WebSockets\SocketIOclient.cpp.o
+Archiving .pio\build\esp32-s3-devkitc-1\libbb9\libWiFi.a
+Compiling .pio\build\esp32-s3-devkitc-1\lib7db\WebSockets\WebSockets.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\lib7db\WebSockets\WebSocketsClient.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\lib7db\WebSockets\WebSocketsServer.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\lib7db\WebSockets\libb64\cdecode.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\lib7db\WebSockets\libb64\cencode.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\lib7db\WebSockets\libsha1\libsha1.c.o
+Indexing .pio\build\esp32-s3-devkitc-1\libbb9\libWiFi.a
+Compiling .pio\build\esp32-s3-devkitc-1\lib2c7\Preferences\Preferences.cpp.o
+Archiving .pio\build\esp32-s3-devkitc-1\lib0be\libSPI.a
+Archiving .pio\build\esp32-s3-devkitc-1\libb5a\libEthernet.a
+Indexing .pio\build\esp32-s3-devkitc-1\lib0be\libSPI.a
+Indexing .pio\build\esp32-s3-devkitc-1\libb5a\libEthernet.a
+Compiling .pio\build\esp32-s3-devkitc-1\lib455\FS\FS.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\lib455\FS\vfs_api.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\libd51\SD_MMC\SD_MMC.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\lib1f4\ESPmDNS\ESPmDNS.cpp.o
+Archiving .pio\build\esp32-s3-devkitc-1\libbe1\libWiFiClientSecure.a
+Indexing .pio\build\esp32-s3-devkitc-1\libbe1\libWiFiClientSecure.a
+Compiling .pio\build\esp32-s3-devkitc-1\lib082\HTTPClient\HTTPClient.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\Esp.cpp.o
+Archiving .pio\build\esp32-s3-devkitc-1\lib2c7\libPreferences.a
+Archiving .pio\build\esp32-s3-devkitc-1\lib7db\libWebSockets.a
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\FirmwareMSC.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\FunctionalInterrupt.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\HWCDC.cpp.o
+Indexing .pio\build\esp32-s3-devkitc-1\lib2c7\libPreferences.a
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\HardwareSerial.cpp.o
+Indexing .pio\build\esp32-s3-devkitc-1\lib7db\libWebSockets.a
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\IPAddress.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\IPv6Address.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\MD5Builder.cpp.o
+Archiving .pio\build\esp32-s3-devkitc-1\lib455\libFS.a
+Indexing .pio\build\esp32-s3-devkitc-1\lib455\libFS.a
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\Print.cpp.o
+Archiving .pio\build\esp32-s3-devkitc-1\libd51\libSD_MMC.a
+Indexing .pio\build\esp32-s3-devkitc-1\libd51\libSD_MMC.a
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\Stream.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\StreamString.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\Tone.cpp.o
+Archiving .pio\build\esp32-s3-devkitc-1\lib1f4\libESPmDNS.a
+Indexing .pio\build\esp32-s3-devkitc-1\lib1f4\libESPmDNS.a
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\USB.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\USBCDC.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\USBMSC.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\WMath.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\WString.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\base64.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\cbuf.cpp.o
+Archiving .pio\build\esp32-s3-devkitc-1\lib082\libHTTPClient.a
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-adc.c.o
+Indexing .pio\build\esp32-s3-devkitc-1\lib082\libHTTPClient.a
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-bt.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-cpu.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-dac.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-gpio.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-i2c-slave.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-i2c.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-ledc.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-matrix.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-misc.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-psram.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-rgb-led.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-rmt.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-sigmadelta.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-spi.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-time.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-timer.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-tinyusb.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-touch.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\esp32-hal-uart.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\firmware_msc_fat.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\libb64\cdecode.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\libb64\cencode.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\main.cpp.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\stdlib_noniso.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\wiring_pulse.c.o
+Compiling .pio\build\esp32-s3-devkitc-1\FrameworkArduino\wiring_shift.c.o
+C:/Users/Joshua B. Ygot/.platformio/packages/framework-arduinoespressif32@3.20014.231204/cores/esp32/esp32-hal-uart.c: 
+In function 'uartSetPins':
+C:/Users/Joshua B. 
+Ygot/.platformio/packages/framework-arduinoespressif32@3.20014.231204/cores/esp32/esp32-hal-uart.c:153:9: warning: 
+'return' with no value, in function returning non-void
+         return;
+         ^~~~~~
+C:/Users/Joshua B. 
+Ygot/.platformio/packages/framework-arduinoespressif32@3.20014.231204/cores/esp32/esp32-hal-uart.c:149:6: note: 
+declared here
+ bool uartSetPins(uint8_t uart_num, int8_t rxPin, int8_t txPin, int8_t ctsPin, int8_t rtsPin)
+      ^~~~~~~~~~~
+Archiving .pio\build\esp32-s3-devkitc-1\libFrameworkArduino.a
+Indexing .pio\build\esp32-s3-devkitc-1\libFrameworkArduino.a
+Linking .pio\build\esp32-s3-devkitc-1\firmware.elf
+Retrieving maximum program size .pio\build\esp32-s3-devkitc-1\firmware.elf
+Checking size .pio\build\esp32-s3-devkitc-1\firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+RAM:   [==        ]  19.6% (used 64068 bytes from 327680 bytes)
+Flash: [===       ]  33.6% (used 1124665 bytes from 3342336 bytes)
+Building .pio\build\esp32-s3-devkitc-1\firmware.bin
+esptool.py v4.5.1
+Creating esp32s3 image...
+Merged 2 ELF sections
+Successfully created esp32s3 image.
+======================== [SUCCESS] Took 300.96 seconds ========================

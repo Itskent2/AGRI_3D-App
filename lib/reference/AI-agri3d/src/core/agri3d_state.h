@@ -38,6 +38,7 @@ public:
     float getZ() const { return _grblZ; }
     int   getFpm() const { return _fpm; }
     framesize_t getResolution() const { return _resolution; }
+    bool  isScanReadyForUpload() const { return _scanReadyForUpload; }
 
     // ── Setters (Logic triggers) ────────────────────────────────────────────
     void setWifi(WifiState s);
@@ -51,6 +52,9 @@ public:
     void setFpm(int fpm);
     void setResolution(framesize_t res);
     void setPosition(float x, float y, float z);
+    void setScanReadyForUpload(bool ready);
+    float getCamOffset() const;
+    void setCamOffset(float v);
 
     /**
      * @brief Serialises the full state to JSON and broadcasts to all clients.
@@ -76,6 +80,8 @@ private:
 
     bool  _isStreaming;
     bool  _streamTaskBusy;
+    bool  _scanReadyForUpload;
+    float _camOffset;
     float _grblX;
     float _grblY;
     float _grblZ;

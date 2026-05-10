@@ -43,6 +43,7 @@ struct PlantPosition {
     float  targetN;     ///< User-set target N mg/kg (0 = use XGBoost)
     float  targetP;     ///< User-set target P mg/kg (0 = use XGBoost)
     float  targetK;     ///< User-set target K mg/kg (0 = use XGBoost)
+    float  diameter;    ///< Rosette diameter in mm for exclusion zone
     bool   active;      ///< true = slot in use
     bool   aiDetected;  ///< true = added via AUTO_DETECT (not manual)
 };
@@ -123,8 +124,16 @@ void handleScanPhoto(uint8_t clientNum, const String& params);
 /** NPK + photo at every grid cell. */
 void handleScanFull(uint8_t clientNum, const String& params);
 
-/** Register or update a plant position in the registry. */
+/**
+ * @brief Parse and handle a manual plant registration command.
+ *        Format: REGISTER_PLANT:x:y:name:diameter[:targetN:targetP:targetK]
+ */
 void handleRegisterPlant(uint8_t clientNum, const String& params);
+
+/**
+ * @brief Delete a specific plant from the registry by index.
+ */
+void handleDeletePlant(uint8_t clientNum, const String& params);
 
 /** Remove all plant entries from registry and NVS. */
 void handleClearPlants(uint8_t clientNum);
@@ -164,3 +173,6 @@ void startRoutine(uint32_t type);
 
 /** Executed on Core 1 by routineWorkerTask */
 void executeScanPlant(const ScanParams& cfg);
+
+/** Executed on Core 1 by routineWorkerTask */
+void executeScanFull(const ScanParams& cfg);

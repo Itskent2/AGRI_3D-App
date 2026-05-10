@@ -105,17 +105,6 @@ void webSocketEvent(uint8_t num, WStype_t type,
         }
         return;
     }
-    if (startsWith(cmd, "SET_CAM_PROFILE:")) {
-        String p = args(cmd);
-        p.toLowerCase();
-        CameraProfile profile;
-        if      (p == "night") profile = CAM_PROFILE_NIGHT;
-        else if (p == "day")   profile = CAM_PROFILE_DAY;
-        else                   profile = CAM_PROFILE_AUTO;
-        cameraSetProfile(profile);
-        webSocket.sendTXT(num, "{\"evt\":\"CAM_PROFILE_SET\",\"profile\":\"" + p + "\"}");
-        return;
-    }
 
     // ── State queries ────────────────────────────────────────────────────────
     if (cmd == "GET_STATE") {
@@ -228,6 +217,10 @@ void webSocketEvent(uint8_t num, WStype_t type,
         handleClearPlants(num);
         return;
     }
+    if (startsWith(cmd, "DELETE_PLANT:")) {
+        handleDeletePlant(num, args(cmd));
+        return;
+    }
     if (cmd == "GET_PLANT_MAP") {
         broadcastPlantMap(num);
         return;
@@ -249,7 +242,24 @@ void webSocketEvent(uint8_t num, WStype_t type,
 
     // ── NPK ───────────────────────────────────────────────────────────────────
     if (cmd == "GET_NPK") {
-        if (!npkReadNow()) sendError(num, "NPK sensor not responding");
+        AgriLog(TAG_CMD, LEVEL_INFO, "NPK Dip Sequence Started");
+        
+        // 1. Move Z down to 5mm depth
+        enqueueGrblCommand("G91 G0 Z5 F500");
+        if (!waitForGrblIdle(5000)) {
+            sendError(num, "Z-axis movement timeout");
+            return;
+        }
+        delay(1000); // Allow sensor probe to settle in soil
+        
+        // 2. Take reading
+        bool success = npkReadNow();
+        
+        // 3. Move Z back up to clearance (0)
+        enqueueGrblCommand("G91 G0 Z-5 F1000");
+        waitForGrblIdle(5000);
+        
+        if (!success) sendError(num, "NPK sensor not responding");
         return;
     }
     if (startsWith(cmd, "NPK_HISTORY:")) {
@@ -365,6 +375,13 @@ void webSocketEvent(uint8_t num, WStype_t type,
         float rate = args(cmd).toFloat();
         setFertFlowRate(rate);
         webSocket.sendTXT(num, "{\"evt\":\"RATE_SET\",\"type\":\"fert\",\"rate\":" + String(rate) + "}");
+        return;
+    }
+
+    if (startsWith(cmd, "SET_CAM_OFFSET:")) {
+        float offset = args(cmd).toFloat();
+        sysState.setCamOffset(offset);
+        webSocket.sendTXT(num, "{\"evt\":\"CAM_OFFSET_SET\",\"value\":" + String(offset, 1) + "}");
         return;
     }
 

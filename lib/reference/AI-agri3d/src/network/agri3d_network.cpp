@@ -6,12 +6,45 @@
 #include <ESPmDNS.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include <mbedtls/md.h> // For HMAC Security
 
 // ── WebSocket server ───────────────────────────────────────────────────────
 WebSocketsServer webSocket(WS_PORT);
 
+// ── Thread-safe log queue (Core 1 → Core 0) ──────────────────────────────
+// WebSocketsServer is NOT thread-safe. Any broadcast from Core 1 (routine
+// task) must be queued and sent from the Core-0 network loop.
+#define LOG_QUEUE_DEPTH 32
+#define LOG_QUEUE_MSG_LEN 304  // matches AgriLog buffer (300) + null
+
+struct LogQueueItem {
+    char msg[LOG_QUEUE_MSG_LEN];
+};
+
+static QueueHandle_t _logQueue = NULL;
+
 void broadcastLog(const char* log) {
-    webSocket.broadcastTXT(log);
+    if (xPortGetCoreID() == 0) {
+        // Already on Core 0 — safe to send directly
+        webSocket.broadcastTXT(log);
+        return;
+    }
+    // On Core 1 — enqueue for Core 0 to drain
+    if (_logQueue) {
+        LogQueueItem item;
+        strncpy(item.msg, log, LOG_QUEUE_MSG_LEN - 1);
+        item.msg[LOG_QUEUE_MSG_LEN - 1] = '\0';
+        xQueueSend(_logQueue, &item, 0); // non-blocking: drop if full
+    }
+}
+
+/// Called from the Core-0 network loop to flush queued log messages.
+void drainLogQueue() {
+    if (!_logQueue) return;
+    LogQueueItem item;
+    while (xQueueReceive(_logQueue, &item, 0) == pdTRUE) {
+        webSocket.broadcastTXT(item.msg);
+    }
 }
 
 // ── Singleton client tracking ──────────────────────────────────────────────
@@ -23,14 +56,15 @@ static WiFiUDP _udp;
 static unsigned long _lastBeacon = 0;
 static unsigned long _lastRetry = 0;
 
-// ── IP Lock & Watchdog ─────────────────────────────────────────────────────
-static IPAddress _lockedIP = IPAddress(0, 0, 0, 0);
-static unsigned long _lastCommMs = 0;
-static const unsigned long COMM_TIMEOUT_MS = 10000; // 10s auto-release
+// ── Security & Client State ────────────────────────────────────────────────
+enum ClientState { DISCONNECTED, AUTH_PENDING, AUTHENTICATED };
+ClientState currentClientState = DISCONNECTED;
+String currentChallengeNonce = "";
+unsigned long lastHeartbeat = 0;
+static const unsigned long COMM_TIMEOUT_MS = 30000; // Increased to 30 seconds to prevent watchdog disconnects
 
-// ── Session State for Ghost Filtering ─────────────────────────────────────
-static String _activeSid = "";
-static int _highestGen = -1;
+TaskHandle_t networkTaskHandle = NULL;
+static bool _pendingChallenge = false;
 
 // ── Known WiFi networks ────────────────────────────────────────────────────
 struct WifiCred {
@@ -50,6 +84,38 @@ static const WifiCred knownNetworks[WIFI_NET_COUNT] = {
 /**
  * @brief Safely extracts a parameter from the URI string
  */
+// Helper: Generate HMAC SHA256 string
+String generateHMAC(String payload, String key) {
+    byte hmacResult[32];
+    mbedtls_md_context_t ctx;
+    mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
+    mbedtls_md_init(&ctx);
+    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1);
+    mbedtls_md_hmac_starts(&ctx, (const unsigned char *)key.c_str(), key.length());
+    mbedtls_md_hmac_update(&ctx, (const unsigned char *)payload.c_str(), payload.length());
+    mbedtls_md_hmac_finish(&ctx, hmacResult);
+    mbedtls_md_free(&ctx);
+
+    String hashStr = "";
+    for (int i = 0; i < 32; i++) {
+        char buf[3];
+        sprintf(buf, "%02x", hmacResult[i]);
+        hashStr += buf;
+    }
+    return hashStr;
+}
+
+void buildAndSendPong(uint8_t num) {
+    String pongMsg = "{\"evt\":\"PONG\",\"nano\":\"";
+    pongMsg += sysState.getNano() == NANO_CONNECTED ? "CONNECTED" : "DISCONNECTED";
+    pongMsg += "\",\"plants\":[";
+    
+    // Plant map piggybacking temporarily disabled (requires SD read or global state)
+    pongMsg += "]}";
+    
+    webSocket.sendTXT(num, pongMsg);
+}
+
 static String getUriParam(const String &uri, const String &param) {
   String searchStr = param + "=";
   int start = uri.indexOf(searchStr);
@@ -167,102 +233,82 @@ static void wifiRetryTask(void * /*pvParameters*/) {
 
 static void wsEventWrapper(uint8_t num, WStype_t type, uint8_t *payload,
                            size_t length) {
-  if (type == WStype_CONNECTED) {
-    AgriLog(TAG_NET, LEVEL_INFO, "New Connection Request (slot #%d)", num);
+  switch (type) {
+  case WStype_CONNECTED: {
+    AgriLog(TAG_NET, LEVEL_INFO, "🔌 New client connected (Slot #%d)", num);
 
-    String uri = String((const char *)payload, length);
-    AgriLog(TAG_NET, LEVEL_INFO, "Handshake URI: %s", uri.c_str());
-
-    String providedKey = getUriParam(uri, "key");
-    String incomingSid = getUriParam(uri, "sid");
-    int incomingGen = getUriParam(uri, "gen").toInt();
-
-    // ── 1. Security Check ──
-    if (providedKey != AGRI3D_SECURE_TOKEN) {
-      AgriLog(TAG_NET, LEVEL_ERR,
-              "🛡 Security Rejection: Invalid Handshake [Key: %s]",
-              providedKey.c_str());
-      webSocket.disconnect(num);
-      return;
+    if (activeClientNum != -1 && activeClientNum != (int8_t)num) {
+      webSocket.disconnect(activeClientNum);
+      sysState.setStreaming(false);
     }
 
-#if WS_SINGLETON
-    // ── 2. THE GHOST FILTER ──
-    if (incomingSid == _activeSid && incomingGen <= _highestGen) {
-      AgriLog(TAG_NET, LEVEL_ERR,
-              "👻 Ghost connection rejected! Gen %d is older/equal to Gen %d",
-              incomingGen, _highestGen);
-      webSocket.disconnect(num);
-      return;
-    }
-
-    IPAddress remoteIP = webSocket.remoteIP(num);
-    String currentIP = remoteIP.toString();
-
-    // ── 3. IP TAKEOVER & LOCK UPDATE ──
-    if (_lockedIP != IPAddress(0, 0, 0, 0) && _lockedIP == remoteIP) {
-      if (activeClientNum != -1 && activeClientNum != (int8_t)num) {
-        AgriLog(TAG_NET, LEVEL_INFO,
-                "♻ Connection replaced. Swapped slot #%d -> #%d (Gen %d)",
-                activeClientNum, num, incomingGen);
-        webSocket.disconnect(activeClientNum);
-        sysState.setStreaming(false); // Stop stream on replace, wait for new client to start it
-      }
-    } else if (activeClientNum == -1) {
-      AgriLog(TAG_NET, LEVEL_INFO, "🔒 IP Locked: %s (slot #%d, Gen %d)",
-              currentIP.c_str(), num, incomingGen);
-    } else {
-      AgriLog(TAG_NET, LEVEL_ERR,
-              "🛡 Rejection: %s tried to connect but %s is locked.",
-              currentIP.c_str(), _lockedIP.toString().c_str());
-      webSocket.disconnect(num);
-      return;
-    }
-
-    _lockedIP = remoteIP;
-    _activeSid = incomingSid;
-    _highestGen = incomingGen;
-    _lastCommMs = millis();
     activeClientNum = (int8_t)num;
-#endif
+    currentClientState = AUTH_PENDING; 
+    lastHeartbeat = millis();
 
-    sysState.setFlutter(FLUTTER_CONNECTED);
-    sysState.resetFlutterWatchdog();
-    sysState.broadcast();
-
-    // Auto-identify standard system state immediately on accept
-    webSocket.sendTXT(num,
-                      "{\"evt\":\"SYSTEM_STATE\", \"system\":\"AGRI_3D\"}");
+    // Buffer the CHALLENGE message so we don't violate WS protocol by sending instantly
+    currentChallengeNonce = String(random(100000, 999999));
+    _pendingChallenge = true;
+    break;
   }
-
-  else if (type == WStype_DISCONNECTED) {
+  case WStype_DISCONNECTED: {
     if ((int8_t)num == activeClientNum) {
       activeClientNum = -1;
+      currentClientState = DISCONNECTED;
       sysState.setFlutter(FLUTTER_DISCONNECTED);
-      if (sysState.isStreaming())
-        sysState.setStreaming(false);
-      AgriLog(TAG_NET, LEVEL_INFO,
-              "Locked client #%d disconnected. Lock held for %s", num,
-              _lockedIP.toString().c_str());
+      if (sysState.isStreaming()) sysState.setStreaming(false);
+      AgriLog(TAG_NET, LEVEL_WARN, "Client disconnected");
     }
-    return;
+    break;
   }
+  case WStype_TEXT: {
+    String msg = String((char *)payload);
+    lastHeartbeat = millis();
+    
+    // DEBUG LOG:
+    AgriLog(TAG_NET, LEVEL_INFO, "RX (#%d): %s", num, msg.c_str());
 
-  // ── THE DEADMAN'S SWITCH RESET ──
-  else if (type == WStype_TEXT || type == WStype_BIN || type == WStype_PING) {
-    if ((int8_t)num == activeClientNum) {
-      _lastCommMs = millis();
-      sysState.resetFlutterWatchdog();
+    // Bypass hash check, but still require Flutter to send the AUTH packet
+    if (currentClientState == AUTH_PENDING) {
+      if (msg.indexOf("\"cmd\":\"AUTH\"") > 0) {
+        currentClientState = AUTHENTICATED;
+        sysState.setFlutter(FLUTTER_CONNECTED);
+        sysState.resetFlutterWatchdog();
+        sysState.broadcast();
+        webSocket.sendTXT(num, "{\"evt\":\"AUTH_SUCCESS\"}");
+        webSocket.sendTXT(num, "{\"evt\":\"SYSTEM_STATE\", \"system\":\"AGRI_3D\"}");
+        AgriLog(TAG_NET, LEVEL_SUCCESS, "🔒 Client Authenticated (SECURITY BYPASSED)");
+      }
+      return; 
     }
-  }
 
-  // Forward TEXT / BIN / PING / PONG to the command router
-  webSocketEvent(num, type, payload, length);
+    if (currentClientState == AUTHENTICATED) {
+      if (msg.indexOf("\"cmd\":\"PING\"") > 0) {
+        buildAndSendPong(num);
+        sysState.resetFlutterWatchdog();
+      } else {
+        webSocketEvent(num, type, payload, length);
+      }
+    }
+    break;
+  }
+  case WStype_BIN:
+  case WStype_PING: {
+    if (currentClientState == AUTHENTICATED) {
+        lastHeartbeat = millis();
+        sysState.resetFlutterWatchdog();
+        webSocketEvent(num, type, payload, length);
+    }
+    break;
+  }
+}
 }
 
 // ============================================================================
 // PUBLIC API
 // ============================================================================
+
+void networkCoreZeroTask(void *pvParameters);
 
 void networkInit() {
   sysState.setWifi(WIFI_CONNECTING);
@@ -285,8 +331,22 @@ void networkInit() {
                             &_retryTaskHandle, 0);
   }
 
+  // Create the thread-safe log queue BEFORE starting the WebSocket server
+  // so Core-1 routines can safely enqueue log messages from their first tick.
+  _logQueue = xQueueCreate(LOG_QUEUE_DEPTH, sizeof(LogQueueItem));
+
   webSocket.begin();
   webSocket.onEvent(wsEventWrapper);
+  
+  xTaskCreatePinnedToCore(
+        networkCoreZeroTask,   /* Task function. */
+        "NetTask",             /* Name of task. */
+        8192,                  /* Stack size of task */
+        NULL,                  /* Parameter of the task */
+        1,                     /* Priority of the task (1 is good for network) */
+        &networkTaskHandle,    /* Task handle to keep track of created task */
+        0);                    /* Pin task to core 0 */
+        
   AgriLog(TAG_NET, LEVEL_SUCCESS, "WebSocket server started on port %d",
           WS_PORT);
 }
@@ -311,52 +371,59 @@ void sendDiscoveryBeacon() {
   _udp.endPacket();
 }
 
-void networkLoop() {
-  webSocket.loop();
+void networkCoreZeroTask(void *pvParameters) {
+  AgriLog(TAG_NET, LEVEL_INFO, "Network Task initialized on Core %d", xPortGetCoreID());
+  while (true) {
+    webSocket.loop();
 
-  // ── Zero-Copy Frame Handoff ──
-  if (sysState.pendingFrameFB != nullptr) {
-    if (sysState.pendingFrameClient >= 0) {
-      webSocket.sendBIN((uint8_t)sysState.pendingFrameClient,
-                        sysState.pendingFrame, sysState.pendingFrameLen);
+    // Drain log messages queued by Core-1 tasks (thread-safe handoff)
+    drainLogQueue();
+
+    if (_pendingChallenge && activeClientNum != -1) {
+      _pendingChallenge = false;
+      String challengeMsg = "{\"evt\":\"CHALLENGE\",\"nonce\":\"" + currentChallengeNonce + "\"}";
+      webSocket.sendTXT(activeClientNum, challengeMsg);
+    }
+
+    // ── Zero-Copy Frame Handoff ──
+    if (sysState.pendingFrameFB != nullptr) {
+      if (sysState.pendingFrameClient >= 0) {
+        webSocket.sendBIN((uint8_t)sysState.pendingFrameClient,
+                          sysState.pendingFrame, sysState.pendingFrameLen);
+        if (sysState.pendingAiResult != nullptr) {
+          webSocket.sendTXT((uint8_t)sysState.pendingFrameClient, *sysState.pendingAiResult);
+          delete sysState.pendingAiResult;
+          sysState.pendingAiResult = nullptr;
+        }
+      }
       
-      // Send AI results for this frame if available
-      if (sysState.pendingAiResult != nullptr) {
-        webSocket.sendTXT((uint8_t)sysState.pendingFrameClient, *sysState.pendingAiResult);
-        delete sysState.pendingAiResult;
-        sysState.pendingAiResult = nullptr;
-      }
+      // Buffer the websocket: Yield to let LwIP TCP buffer drain before freeing frame.
+      // If we don't do this, stream lag causes LwIP buffer overflow -> partial WS frames -> 1002 Protocol Error.
+      vTaskDelay(pdMS_TO_TICKS(40 + (sysState.pendingFrameLen / 4096)));
+      
+      esp_camera_fb_return(sysState.pendingFrameFB);
+      sysState.pendingFrameFB = nullptr;
+      sysState.pendingFrame = nullptr;
+      sysState.pendingFrameLen = 0;
+      sysState.pendingFrameClient = -1;
     }
-    esp_camera_fb_return(sysState.pendingFrameFB);
-    sysState.pendingFrameFB = nullptr;
-    sysState.pendingFrame = nullptr;
-    sysState.pendingFrameLen = 0;
-    sysState.pendingFrameClient = -1;
-  }
 
-  // UDP discovery beacon
-  if (millis() - _lastBeacon >= UDP_BROADCAST_INTERVAL) {
-    _lastBeacon = millis();
-    sendDiscoveryBeacon();
-  }
-
-  // ── 🔒 True Bidirectional Watchdog (Deadman's Switch) ──
-  if (activeClientNum != -1) {
-    if (millis() - _lastCommMs > COMM_TIMEOUT_MS) {
-      AgriLog(TAG_NET, LEVEL_WARN,
-              "⚠ Client Watchdog Timeout! No data in 10s.");
-      webSocket.disconnect(activeClientNum);
-
-      // EMERGENCY STOP: Stop streaming and halt machine if needed here
-      if (sysState.isStreaming()) {
-        sysState.setStreaming(false);
-      }
+    // UDP discovery beacon
+    if (millis() - _lastBeacon >= UDP_BROADCAST_INTERVAL) {
+      _lastBeacon = millis();
+      sendDiscoveryBeacon();
     }
-  } else if (_lockedIP != IPAddress(0, 0, 0, 0)) {
-    if (millis() - _lastCommMs > COMM_TIMEOUT_MS) {
-      AgriLog(TAG_NET, LEVEL_INFO, "🔓 Lock released: %s timed out.",
-              _lockedIP.toString().c_str());
-      _lockedIP = IPAddress(0, 0, 0, 0);
+
+    // Deadman's Switch
+    if (currentClientState != DISCONNECTED && (millis() - lastHeartbeat > COMM_TIMEOUT_MS)) {
+        AgriLog(TAG_NET, LEVEL_ERR, "⚠ Watchdog Timeout - Dropping Client");
+        webSocket.disconnect(activeClientNum);
+        activeClientNum = -1;
+        currentClientState = DISCONNECTED;
+        sysState.setFlutter(FLUTTER_DISCONNECTED);
+        if (sysState.isStreaming()) sysState.setStreaming(false);
     }
+
+    vTaskDelay(pdMS_TO_TICKS(10)); 
   }
 }

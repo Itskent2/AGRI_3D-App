@@ -20,8 +20,7 @@
 #define HW_NPK_CONNECTED false   // RS485 7-in-1 soil sensor (not yet wired)
 #define HW_RAIN_CONNECTED false  // Rain sensor (not yet wired)
 #define HW_SD_CONNECTED true     // SD_MMC slot on board
-#define HW_Z_AXIS_BROKEN                                                       \
-  true // Z-axis hardware confirmed broken — skip all Z moves
+#define HW_Z_AXIS_BROKEN false // Z-axis hardware fixed — allow moves
 
 // ── WiFi Networks ─────────────────────────────────────────────────────────
 // The ESP32 will try each of these in order at boot.
@@ -29,14 +28,14 @@
 // To add a network: copy a WIFI_NET_x block and increment WIFI_NET_COUNT.
 #define WIFI_NET_COUNT 3
 
-#define WIFI_NET_0_SSID "Jiji"
-#define WIFI_NET_0_PASS "skyd4nc3-r41nd4nc3"
+#define WIFI_NET_2_SSID "ESPTEST"
+#define WIFI_NET_2_PASS "clarkgwapo"
 
 #define WIFI_NET_1_SSID "AdminAccess"
 #define WIFI_NET_1_PASS "Admin@CTU.2024"
 
-#define WIFI_NET_2_SSID "ESPTEST"
-#define WIFI_NET_2_PASS "clarkgwapo"
+#define WIFI_NET_0_SSID "ESPTEST"
+#define WIFI_NET_0_PASS "clarkgwapo"
 
 #define WIFI_CONNECT_TIMEOUT_MS 8000 // ms to wait per network attempt
 #define WIFI_RETRY_INTERVAL_MS 30000 // ms between background reconnect attempts
@@ -154,5 +153,6 @@
 #define WEATHER_RAIN_CODE_MIN 51 // WMO code: drizzle or worse
 
 // ── Plant Map / Scan ──────────────────────────────────────────────────────
-#define SCAN_MOVE_TIMEOUT_MS 10000 // Max wait for gantry to reach each point
-#define SCAN_HOME_TIMEOUT_MS 15000 // Max wait for homing ($HX / $HY)
+#define SCAN_MOVE_TIMEOUT_MS 60000 // Max wait for gantry to reach each point (increased to 60s)
+#define SCAN_HOME_TIMEOUT_MS 120000 // Max wait for homing ($HX / $HY) (increased to 120s)
+#define DEFAULT_CAM_OFFSET_MM 100.0f // Physical camera-to-gantry-centre offset in mm

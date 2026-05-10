@@ -62,6 +62,12 @@ void handleScanUpload(uint8_t clientNum);
  */
 void executeScanUpload(uint8_t clientNum);
 
+/**
+ * @brief Checks if an existing scan index is on the SD card on boot.
+ *        If found, sets scan_ready to true so the user can upload it.
+ */
+void checkExistingScan();
+
 // =============================================================================
 // TODO(Luna): AI Weeding Hook
 // =============================================================================
