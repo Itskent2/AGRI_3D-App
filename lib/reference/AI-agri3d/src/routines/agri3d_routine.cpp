@@ -1303,6 +1303,16 @@ void executeAutonomousFarming(uint8_t clientNum) {
         // If physically raining, abort immediately
         if (isRainingNow || pPop > 70.0f) {
             AgriLog(TAG_ROUTINE, LEVEL_ERR, "Raining (Phys: %d, Ppop: %.1f%%). Aborting Autonomous Farming!", isRainingNow, pPop);
+            
+            // Notify Flutter/Python about the abort decision
+            StaticJsonDocument<128> gateDoc;
+            gateDoc["evt"]    = "WEATHER_GATE";
+            gateDoc["action"] = "ABORT";
+            gateDoc["reason"] = isRainingNow ? "RAIN_SENSOR" : "HIGH_PPOP";
+            gateDoc["ppop"]   = pPop;
+            String out; serializeJson(gateDoc, out);
+            webSocket.broadcastTXT(out);
+            
             break; // Break the loop, go back to home
         }
 
@@ -1311,6 +1321,14 @@ void executeAutonomousFarming(uint8_t clientNum) {
         if (pPop >= 40.0f || (cc >= 60.0f && rh >= 70.0f)) {
             Gf = 0;
             AgriLog(TAG_ROUTINE, LEVEL_INFO, "Weather Gate Gf=0 (Cloudy/Humid/Rain chance). Irrigation scaled.");
+            
+            // Notify Flutter/Python about the gating decision
+            StaticJsonDocument<128> gateDoc;
+            gateDoc["evt"]    = "WEATHER_GATE";
+            gateDoc["action"] = "SCALED";
+            gateDoc["ppop"]   = pPop;
+            String out; serializeJson(gateDoc, out);
+            webSocket.broadcastTXT(out);
         }
 
         // 4. XGBoost Nutrient Prediction

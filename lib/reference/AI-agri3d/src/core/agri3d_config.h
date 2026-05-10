@@ -18,7 +18,7 @@
 // ============================================================================
 #define HW_CAMERA_CONNECTED true // OV5640 on custom ESP32-S3 N16R8 board
 #define HW_NPK_CONNECTED true    // RS485 7-in-1 soil sensor wired
-#define HW_RAIN_CONNECTED false  // Rain sensor (not yet wired)
+#define HW_RAIN_CONNECTED true   // Enabled for testing - wire to pin 1
 #define HW_SD_CONNECTED true     // SD_MMC slot on board
 #define HW_Z_AXIS_BROKEN false // Z-axis hardware fixed — allow moves
 
@@ -149,7 +149,7 @@
 #define SD_LOG_DIR "/logs"          // NPK CSV logs (future)
 
 // ── Weather API ───────────────────────────────────────────────────────────
-#define WEATHER_API_INTERVAL_MS (15UL * 60UL * 1000UL) // 15 minutes
+#define WEATHER_API_INTERVAL_MS (30UL * 1000UL) // 30 seconds (fast for testing)
 #define WEATHER_RAIN_CODE_MIN 51 // WMO code: drizzle or worse
 
 // ── Plant Map / Scan ──────────────────────────────────────────────────────
